@@ -1,29 +1,3 @@
-# Aplikacja - KeyInfrastructure (MVP)
-
-## Główny problem
-
-Generowanie i automatyczne odnawianie certyfikatów i kluczy dla sieci komputerów urządzeń.
-
-## Najmniejszy zestaw funkcjonalności
-
-- Tryb administratora: specyfikowanie danych generowanych kluczy/certyfikatów i ewentualna ręczna ich wymiana.
-- Tryb użytkownika: logowanie i rejestracja do systemu oraz ewentualna wymiana aktualnego certyfikatu/certyfikatów.
-- Strona profilu administratora i użytkownika.
-- Baza danych z kopią kluczy (zaszyfrowanych pinem użytkownika) i aktualnych certyfikatów użytkownika.
-
-## Co NIE wchodzi w zakres MVP
-- Sposób trzymania kluczy prywatnych i certyfikatów przez użytkownika.
-- Przekazywanie haseł tymczasowych od administratora do użytkownika.
-- Komunikacja pomiędzy klientem i administratorem.
-- Sytuacja kiedy użytkownik zapomni swojego hasła lub PIN-u.
-
-## Kryteria sukcesu
-- System potrafi współbieżnie obsłużyć 10 użytkowników, a w sumie co najmniej 100
-- Dla każdego użytkownika musimy obsługować co najmniej 10 kluczy/certyfikatów
-- Użytkownik może się zalogować i ustawić swój PIN.
-
-
-
 # Application - KeyInfrastructure (MVP)
 
 ##  Main problem
