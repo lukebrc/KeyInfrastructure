@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import { Button } from './ui/button';
-import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-const supabaseKey = import.meta.env.PUBLIC_SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const backendUrl = import.meta.env.PUBLIC_BACKEND_URL;
 
 const LoginForm: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -17,17 +14,24 @@ const LoginForm: React.FC = () => {
     setLoading(true);
     setMessage('');
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const response = await fetch(`${backendUrl}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
 
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setMessage('Login successful!');
-      // Redirect or handle success
-      window.location.href = '/';
+      if (response.ok) {
+        setMessage('Login successful!');
+        window.location.href = '/';
+      } else {
+        const errorData = await response.json();
+        setMessage(errorData.message || 'Login failed');
+      }
+    } catch (error) {
+      setMessage('An error occurred. Please try again.');
     }
 
     setLoading(false);
@@ -38,14 +42,14 @@ const LoginForm: React.FC = () => {
       <h2 className="text-2xl font-bold mb-4">Login</h2>
       <form onSubmit={handleLogin}>
         <div className="mb-4">
-          <label htmlFor="email" className="block text-sm font-medium mb-2">
-            Email
+          <label htmlFor="username" className="block text-sm font-medium mb-2">
+            Username
           </label>
           <input
-            type="email"
-            id="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="text"
+            id="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             className="w-full p-2 border rounded"
             required
           />
