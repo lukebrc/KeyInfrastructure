@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 
-const backendUrl = import.meta.env.PUBLIC_BACKEND_URL;
+// No need for backend URL on client side anymore
 
 const LoginForm: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -15,7 +15,7 @@ const LoginForm: React.FC = () => {
     setMessage('');
 
     try {
-      const response = await fetch(`${backendUrl}/login`, {
+      const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
