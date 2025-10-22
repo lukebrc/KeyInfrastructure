@@ -51,3 +51,14 @@ Generating and refreshing certificates for greater network is problematic for ad
 - Communication between the client and the administrator.
 - The situation where a user forgets their password or PIN.
 
+## System design decisions
+
+1.  **User Registration:** Users will register via a simple form with a username and password. Email verification will not be implemented for the MVP.
+2.  **PIN Management:** A PIN of at least 8 characters will be set by the user only during the registration phase. It will be used to password-protect the downloaded PKCS#12 file.
+3.  **Key Storage & Security:** Private keys will be backed up on the server, encrypted with the user's PIN. The risk of a user brute-forcing the downloaded file is accepted, and no server-side lockout mechanism for PIN attempts will be implemented.
+4.  **Administrator Role:** A single administrator role will exist. Admins are created by adding them directly to the database. They are responsible for manually filling in the Distinguished Name (DN) for each new certificate.
+5.  **Certificate Configuration:** Administrators can set the certificate validity period and choose a hash algorithm from SHA-256, SHA-384, or SHA-512. The key algorithm is hardcoded.
+6.  **Certificate Lifecycle:** Renewal is initiated by the user. An eye-catching banner will notify logged-in users of pending or actual certificate expiration. The consequences of an expired certificate are outside the scope of this project.
+7.  **Certificate Authority (CA):** The system will use its own self-hosted root CA. The root CA's private key will be password-protected, with the password supplied via an environment variable. The associated risk is accepted for the MVP.
+8.  **Testing:** Integration tests will be written in Rust to cover registration, login, and concurrent certificate validity checks.
+
