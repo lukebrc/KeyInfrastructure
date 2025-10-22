@@ -19,9 +19,7 @@
 - **user_id**: UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
 - **serial_number**: VARCHAR(255) UNIQUE NOT NULL (kryptograficznie bezpieczny, generowany w Rust)
 - **dn**: TEXT NOT NULL (np. "C=PL,CN=username,O=Organization,OU=Unit")
-- **validity_period_days**: INTEGER NOT NULL CHECK (validity_period_days >= 1 AND validity_period_days <= 3650) (min 1 dzień, max 10 lat)
-- **hash_algorithm**: ENUM('SHA-256', 'SHA-384', 'SHA-512') NOT NULL
-- **status**: ENUM('ACTIVE', 'EXPIRED', 'REVOKED') NOT NULL DEFAULT 'ACTIVE'
+- **status**: ENUM('ACTIVE', 'REVOKED') NOT NULL DEFAULT 'ACTIVE'
 - **expiration_date**: TIMESTAMPTZ NOT NULL (obliczane jako created_at + validity_period_days)
 - **created_at**: TIMESTAMPTZ NOT NULL DEFAULT NOW()
 - **renewed_count**: INTEGER NOT NULL DEFAULT 0
@@ -29,7 +27,6 @@
 
 **Ograniczenia**:
 - UNIQUE na serial_number
-- CHECK na validity_period_days (1-3650 dni)
 - CHECK na status (tylko dozwolone wartości)
 
 ### private_keys
@@ -50,21 +47,11 @@
 **Ograniczenia**:
 - UNIQUE na certificate_id (certyfikat może być odwołany tylko raz)
 
-### certificate_authority
-- **id**: UUID PRIMARY KEY DEFAULT gen_random_uuid()
-- **private_key**: BYTEA NOT NULL (klucz prywatny CA, zaszyfrowany hasłem z ENV)
-- **password_hash**: VARCHAR(255) NOT NULL (hash hasła CA)
-- **created_at**: TIMESTAMPTZ NOT NULL DEFAULT NOW()
-
-**Ograniczenia**:
-- Tylko jeden wiersz (id stały, np. '00000000-0000-0000-0000-000000000001')
-
 ## 2. Relacje między tabelami
 
 - **users do certificates**: Jeden-do-wielu (jeden użytkownik może mieć wiele certyfikatów)
 - **certificates do private_keys**: Jeden-do-jednego (każdy certyfikat ma jeden klucz prywatny)
 - **certificates do revoked_certificates**: Jeden-do-jednego (certyfikat może być odwołany tylko raz, jeśli w ogóle)
-- **certificate_authority**: Samodzielna tabela (tylko jeden wpis dla CA)
 
 ## 3. Indeksy
 
@@ -97,7 +84,6 @@
   - Użytkownicy widzą tylko klucze swoich certyfikatów
   - Administratorzy widzą wszystkie klucze
 - **revoked_certificates**: Podobnie jak certificates
-- **certificate_authority**: Tylko administratorzy mają dostęp
 
 ## 5. Wszelkie dodatkowe uwagi lub wyjaśnienia dotyczące decyzji projektowych
 
