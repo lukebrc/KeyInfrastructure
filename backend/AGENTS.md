@@ -1,11 +1,35 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Build, Test, and Development Commands
+Run `cargo build` before contributing. Use `cargo test` to execute the Rust test suite.
 
-Project consists of subprojects:
-- frontend - web page of admin and user of service.
-- backend - REST webservice written in RUST, which serves requests from `web-admin` and `web-user` and optionaly other clients.
-- database - all files and scripts concerning database.
+### Linting and Formatting
+```bash
+# Format code
+cargo fmt
 
-## Commit & Pull Request Guidelines
-Follow the Conventional Commits pattern seen in history (e.g., `feat: add overdraft guard`, `chore: update prompts`). Scope commits tightly and include failing-test reproductions when fixing bugs. Pull requests should link to any tracked task, summarize behavioural changes, and attach CLI output (`npm test`) or screenshots for documentation updates. Request review from another agent when altering shared abstractions or prompts to maintain consistency.
+# Lint with clippy (critical issues only)
+cargo clippy --lib --bins -- -D "clippy::correctness" -D "clippy::suspicious" -D "clippy::perf" -W "clippy::style" -W "clippy::complexity"
+```
+
+## Coding Style & Naming Conventions
+
+### General Principles
+- **Modular Design**: Single responsibility per module
+- **Async/Await**: Use throughout for database operations
+- **Error Handling**: Use `thiserror` for custom error types with user-friendly messages
+- **User Interaction**: MANDATORY - Use `inquire` crate for ALL user prompts (Select, Confirm, Text, MultiSelect)
+
+### Naming Conventions
+- **Structs/Enums**: PascalCase (e.g., `Database`, `Command`, `Config`)
+- **Functions/Methods**: snake_case (e.g., `connect_to_database`, `parse_command`)
+- **Variables**: snake_case (e.g., `connection_url`, `config_path`)
+- **Constants**: SCREAMING_SNAKE_CASE (e.g., `DEFAULT_TIMEOUT`)
+- **Modules**: snake_case (e.g., `database`, `commands`, `config`)
+
+### Imports and Dependencies
+- Group imports: std, external crates, local modules
+- Use explicit imports, avoid glob imports (`use::*`)
+- Keep dependency features minimal and explicit
+- **CRITICAL**: Never remove the `strum` crate dependency (essential for enum iteration)
+
