@@ -34,8 +34,8 @@ CREATE TABLE certificates (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     renewed_count INTEGER NOT NULL DEFAULT 0,
     renewal_date TIMESTAMPTZ,
-    -- Partitioning column (used for RANGE partitioning)
-    PARTITION BY RANGE (expiration_date)
+)
+PARTITION BY RANGE (expiration_date);
 );
 
 -- Create private_keys table
