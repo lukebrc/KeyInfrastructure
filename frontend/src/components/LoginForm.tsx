@@ -72,6 +72,12 @@ const LoginForm: React.FC = () => {
         </Button>
         {message && <p className="mt-4 text-sm text-red-600">{message}</p>}
       </form>
+      <p className="mt-4 text-center text-sm">
+        Don't have an account?{' '}
+        <a href="/register" className="text-blue-600 hover:underline">
+          Register here
+        </a>
+      </p>
     </div>
   );
 };

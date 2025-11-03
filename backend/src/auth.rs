@@ -13,8 +13,9 @@ pub struct LoginRequest {
 
 #[derive(Deserialize)]
 pub struct RegisterRequest {
-    login: String,
+    username: String,
     password: String,
+    pin: String, // Must be exactly 8 characters, should be validated before insert
 }
 
 pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> impl Responder {
@@ -71,8 +72,11 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
 }
 
 pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest>) -> impl Responder {
-    let username = req.login.clone();
+    let username = req.username.clone();
     let password = req.password.clone();
+
+    // Log registration attempt (do NOT log the password!)
+    log::info!("Registration attempt for user: {}", username);
 
     // Check if user already exists
     let exists = match sqlx::query("SELECT 1 FROM users WHERE username = $1 LIMIT 1")
@@ -81,10 +85,14 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
         .await
     {
         Ok(opt) => opt.is_some(),
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => {
+            log::error!("Database error during registration for user: {}", username);
+            return HttpResponse::InternalServerError().finish();
+        },
     };
 
     if exists {
+        log::warn!("Registration failed: user '{}' already exists", username);
         return HttpResponse::Conflict().body("Username already exists");
     }
 
@@ -93,7 +101,10 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
     let argon2 = Argon2::default();
     let password_hash = match argon2.hash_password(password.as_bytes(), &salt) {
         Ok(hash) => hash.to_string(),
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => {
+            log::error!("Password hash failed during registration for user: {}", username);
+            return HttpResponse::InternalServerError().finish();
+        },
     };
 
     // Insert new user
@@ -103,8 +114,14 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
         .execute(&state.pool)
         .await
     {
-        Ok(_) => HttpResponse::Created().finish(),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+        Ok(_) => {
+            log::info!("Registration successful for user '{}'", username);
+            HttpResponse::Created().finish()
+        },
+        Err(_) => {
+            log::error!("Failed to insert new user '{}' during registration", username);
+            HttpResponse::InternalServerError().finish()
+        },
     }
 }
 

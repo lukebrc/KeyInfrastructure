@@ -19,8 +19,8 @@ A modern, opinionated starter template for building fast, accessible, and AI-fri
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/przeprogramowani/10x-astro-starter.git
-cd 10x-astro-starter
+git clone <repository-url>
+cd KeyInfrastructure/frontend
 ```
 
 2. Install dependencies:
@@ -75,7 +75,7 @@ This project is configured with AI development tools to enhance the development 
 
 ### Cursor IDE
 
-The project includes AI rules in `.cursor/rules/` directory that help Cursor IDE understand the project structure and provide better code suggestions.
+The project includes AI rules in `.cursor/rules/` directory that help Cursor IDE understand the project structure and provide better code suggestions, including frontend-specific guidelines for Astro, React, and Tailwind CSS.
 
 ### GitHub Copilot
 
@@ -84,6 +84,15 @@ AI instructions for GitHub Copilot are available in `.github/copilot-instruction
 ### Windsurf
 
 The `.windsurfrules` file contains AI configuration for Windsurf.
+
+## Features
+
+- User registration with username, password, and 8-character PIN
+- User authentication via login
+- Certificate download as PIN-protected PKCS#12 file
+- Expiration notification banner with renewal prompt
+- Administrator interface for certificate generation with configurable validity and hash algorithm (SHA-256/SHA-384/SHA-512)
+- Self-hosted root CA with password-protected key via environment variable
 
 ## Contributing
 
