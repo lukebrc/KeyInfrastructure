@@ -3,7 +3,6 @@ use serde::Deserialize;
 use sqlx::Row;
 use argon2::{Argon2, password_hash::{PasswordHash, PasswordVerifier, PasswordHasher, SaltString}};
 use rand_core::OsRng;
-
 use crate::AppState;
 
 #[derive(Deserialize)]
@@ -22,33 +21,52 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
     let username = req.username.clone();
     let password = req.password.clone();
 
+    // Log login attempt (do NOT log the password!)
+    log::info!("Login attempt for user: {}", username);
+
     let row = match sqlx::query("SELECT password_hash FROM users WHERE username = $1 LIMIT 1")
         .bind(&username)
         .fetch_optional(&state.pool)
         .await
     {
         Ok(r) => r,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => {
+            log::error!("Database error on login attempt for user: {}", username);
+            return HttpResponse::InternalServerError().finish();
+        },
     };
 
     let Some(row) = row else {
+        log::warn!("Login failed: user '{}' not found", username);
         return HttpResponse::Unauthorized().finish();
     };
 
     let password_hash: String = match row.try_get("password_hash") {
         Ok(v) => v,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => {
+            log::error!("Password hash extraction failed for user: {}", username);
+            return HttpResponse::InternalServerError().finish();
+        },
     };
 
     let parsed_hash = match PasswordHash::new(&password_hash) {
         Ok(h) => h,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => {
+            log::error!("PasswordHash parse failed for user: {}", username);
+            return HttpResponse::InternalServerError().finish();
+        },
     };
 
     let argon2 = Argon2::default();
     match argon2.verify_password(password.as_bytes(), &parsed_hash) {
-        Ok(_) => HttpResponse::Ok().body("Login successful!"),
-        Err(_) => HttpResponse::Unauthorized().finish(),
+        Ok(_) => {
+            log::info!("Login successful for user '{}'", username);
+            HttpResponse::Ok().body("Login successful!")
+        },
+        Err(_) => {
+            log::warn!("Login failed (bad password) for user '{}'", username);
+            HttpResponse::Unauthorized().finish()
+        },
     }
 }
 
