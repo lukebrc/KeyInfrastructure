@@ -1,14 +1,36 @@
 use actix_web::{web, HttpResponse, Responder};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::Row;
-use argon2::{Argon2, password_hash::{PasswordHash, PasswordVerifier, PasswordHasher, SaltString}};
-use rand_core::OsRng;
+use bcrypt::{hash, verify};
+use jsonwebtoken::{encode, Header, EncodingKey};
+use chrono::{Utc, Duration};
 use crate::AppState;
+use crate::db_model::{User, UserRole};
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Claims {
+    pub sub: String,
+    pub role: String,
+    pub exp: usize,
+}
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
     username: String,
     password: String,
+}
+
+#[derive(Serialize)]
+pub struct LoginResponse {
+    token: String,
+    user: UserInfo,
+}
+
+#[derive(Serialize)]
+pub struct UserInfo {
+    id: String,
+    username: String,
+    role: String,
 }
 
 #[derive(Deserialize)]
@@ -25,49 +47,52 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
     // Log login attempt (do NOT log the password!)
     log::info!("Login attempt for user: {}", username);
 
-    let row = match sqlx::query("SELECT password_hash FROM users WHERE username = $1 LIMIT 1")
+    let user = match sqlx::query_as::<_, User>("SELECT id, username, password_hash, role FROM users WHERE username = $1")
         .bind(&username)
         .fetch_optional(&state.pool)
         .await
     {
-        Ok(r) => r,
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            log::warn!("Login failed: user '{}' not found", username);
+            return HttpResponse::Unauthorized().finish();
+        }
         Err(_) => {
             log::error!("Database error on login attempt for user: {}", username);
             return HttpResponse::InternalServerError().finish();
         },
     };
 
-    let Some(row) = row else {
-        log::warn!("Login failed: user '{}' not found", username);
-        return HttpResponse::Unauthorized().finish();
-    };
-
-    let password_hash: String = match row.try_get("password_hash") {
-        Ok(v) => v,
-        Err(_) => {
-            log::error!("Password hash extraction failed for user: {}", username);
-            return HttpResponse::InternalServerError().finish();
-        },
-    };
-
-    let parsed_hash = match PasswordHash::new(&password_hash) {
-        Ok(h) => h,
-        Err(_) => {
-            log::error!("PasswordHash parse failed for user: {}", username);
-            return HttpResponse::InternalServerError().finish();
-        },
-    };
-
-    let argon2 = Argon2::default();
-    match argon2.verify_password(password.as_bytes(), &parsed_hash) {
-        Ok(_) => {
+    match verify(&password, &user.password_hash) {
+        Ok(true) => {
             log::info!("Login successful for user '{}'", username);
-            HttpResponse::Ok().body("Login successful!")
+            let exp = (Utc::now() + Duration::hours(1)).timestamp() as usize;
+            let claims = Claims {
+                sub: user.id.to_string(),
+                role: user.role.to_string(),
+                exp,
+            };
+            let token = encode(&Header::default(), &claims, &EncodingKey::from_secret(state.jwt_secret.as_ref())).unwrap();
+            
+            let user_info = UserInfo {
+                id: user.id.to_string(),
+                username: user.username,
+                role: user.role.to_string(),
+            };
+
+            HttpResponse::Ok().json(LoginResponse {
+                token,
+                user: user_info,
+            })
         },
-        Err(_) => {
+        Ok(false) => {
             log::warn!("Login failed (bad password) for user '{}'", username);
             HttpResponse::Unauthorized().finish()
         },
+        Err(_) => {
+            log::error!("Password verification failed for user: {}", username);
+            HttpResponse::InternalServerError().finish()
+        }
     }
 }
 
@@ -96,11 +121,9 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
         return HttpResponse::Conflict().body("Username already exists");
     }
 
-    // Hash password with Argon2
-    let salt = SaltString::generate(&mut OsRng);
-    let argon2 = Argon2::default();
-    let password_hash = match argon2.hash_password(password.as_bytes(), &salt) {
-        Ok(hash) => hash.to_string(),
+    // Hash password with bcrypt
+    let password_hash = match hash(&password, 12) {
+        Ok(h) => h,
         Err(_) => {
             log::error!("Password hash failed during registration for user: {}", username);
             return HttpResponse::InternalServerError().finish();
@@ -124,5 +147,3 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
         },
     }
 }
-
-
