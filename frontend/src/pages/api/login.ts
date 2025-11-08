@@ -38,9 +38,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // Forward the request to the backend
-    // Note: Backend currently uses /login, but plan specifies /auth/login
-    // This will be updated when backend implements JWT tokens
-    const response = await fetch(`${backendUrl}/auth/login`, {
+    const response = await fetch(`${backendUrl}/api/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

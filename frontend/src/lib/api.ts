@@ -75,7 +75,7 @@ export const api = {
 
   async register(request: RegisterRequest): Promise<User> {
     // Use Astro API route as proxy to backend
-    const response = await fetch("/api/register", {
+    const response = await fetch("/api/users", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -55,7 +55,7 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
         Ok(Some(user)) => user,
         Ok(None) => {
             log::warn!("Login failed: user '{}' not found", username);
-            return HttpResponse::Unauthorized().body("Invalid username or password");
+            return HttpResponse::Unauthorized().body("Invalid credentials");
         }
         Err(_) => {
             log::error!("Database error on login attempt for user: {}", username);

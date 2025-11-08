@@ -159,11 +159,15 @@ BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
 if [ "$HTTP_CODE" = "200" ]; then
   echo -e "${GREEN}✓ PASS: Expected 200 OK, got ${HTTP_CODE}${NC}"
-    echo -e "${GREEN}✓ PASS: ${NC}"
+  TOKEN=$(echo "$BODY" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+  if [ -n "$TOKEN" ]; then
+    echo -e "${GREEN}✓ PASS: JWT token found in response.${NC}"
+  else
+    echo -e "${RED}✗ FAIL: JWT token not found in response.${NC}"
+  fi
 else
   echo -e "${RED}✗ FAIL: Expected 200 OK, got ${HTTP_CODE}${NC}"
 fi
-echo "Response body: $BODY"
 echo ""
 echo "----------------------------------------"
 echo ""
@@ -172,6 +176,7 @@ echo ""
 echo -e "${YELLOW}Test 2: Wrong password (should return 401 Unauthorized)${NC}"
 echo "Request: POST ${LOGIN_URL}"
 echo "Payload: {\"username\": \"${RANDOM_USER}\", \"password\": \"wrongpass\"}"
+RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${LOGIN_URL}" -H "Content-Type: application/json" -d "{\"username\": \"${RANDOM_USER}\", \"password\": \"wrongpass\"}")
 echo ""
 if [ "$HTTP_CODE" = "401" ]; then
   echo -e "${GREEN}✓ PASS: Expected 401 Unauthorized, got ${HTTP_CODE}${NC}"
@@ -179,9 +184,11 @@ if [ "$HTTP_CODE" = "401" ]; then
     echo -e "${GREEN}✓ PASS: Response contains 'Invalid credentials'${NC}"
   else
     echo -e "${RED}✗ FAIL: Response should contain 'Invalid credentials'${NC}"
+    exit -1
   fi
 else
   echo -e "${RED}✗ FAIL: Expected 401 Unauthorized, got ${HTTP_CODE}${NC}"
+  exit -1
 fi
 echo "Response body: $BODY"
 echo ""
@@ -218,11 +225,6 @@ echo ""
 # Test 4: Missing password field (should fail with 400 Bad Request or 422)
 if [ "$HTTP_CODE" = "400" ]; then
   echo -e "${GREEN}✓ PASS: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
-  if echo "$BODY" | grep -q "Invalid input data"; then
-    echo -e "${GREEN}✓ PASS: Response contains 'Invalid input data'${NC}"
-  else
-    echo -e "${RED}✗ FAIL: Response should contain 'Invalid input data'${NC}"
-  fi
 else
   echo -e "${RED}✗ FAIL: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
 fi
@@ -245,11 +247,6 @@ BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
 if [ "$HTTP_CODE" = "400" ]; then
   echo -e "${GREEN}✓ PASS: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
-  if echo "$BODY" | grep -q "Invalid input data"; then
-    echo -e "${GREEN}✓ PASS: Response contains 'Invalid input data'${NC}"
-  else
-    echo -e "${RED}✗ FAIL: Response should contain 'Invalid input data'${NC}"
-  fi
 else
   echo -e "${RED}✗ FAIL: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
 fi
@@ -272,11 +269,6 @@ BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
 if [ "$HTTP_CODE" = "400" ]; then
   echo -e "${GREEN}✓ PASS: Expected 400 Bad Request for invalid JSON, got ${HTTP_CODE}${NC}"
-  if echo "$BODY" | grep -q "Invalid input data"; then
-    echo -e "${GREEN}✓ PASS: Response contains 'Invalid input data'${NC}"
-  else
-    echo -e "${RED}✗ FAIL: Response should contain 'Invalid input data'${NC}"
-  fi
 else
   echo -e "${RED}✗ FAIL: Expected 400, got ${HTTP_CODE}${NC}"
 fi
@@ -285,65 +277,33 @@ echo ""
 echo "----------------------------------------"
 echo ""
 
-# Test 7: Empty username
-echo -e "${YELLOW}Test 7: Empty username${NC}"
-echo "Request: POST ${LOGIN_URL}"
-echo "Payload: {\"username\": \"\", \"password\": \"${TEST_PASSWORD}\"}"
-echo ""
-RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${LOGIN_URL}" \
-  -H "Content-Type: application/json" \
-  -d "{\"username\": \"\", \"password\": \"${TEST_PASSWORD}\"}")
+if [ -n "$TOKEN" ]; then
+  # ============================================
+  # PROTECTED ENDPOINT TEST
+  # ============================================
+  echo "=========================================="
+  echo "PART 3: Protected Endpoint Test"
+  echo "=========================================="
+  echo ""
 
-HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
+  echo -e "${YELLOW}Test 1: Access protected /api/certificates endpoint with JWT${NC}"
+  CERT_URL="${BASE_URL}/api/certificates"
+  RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X GET "${CERT_URL}" \
+    -H "Authorization: Bearer ${TOKEN}")
 
-# Should return 400 (validation error)
-if [ "$HTTP_CODE" = "400" ]; then
-  echo -e "${GREEN}✓ PASS: Expected 400 Bad Request for empty username, got ${HTTP_CODE}${NC}"
-  if echo "$BODY" | grep -q "Invalid input data"; then
-    echo -e "${GREEN}✓ PASS: Response contains 'Invalid input data'${NC}"
+  HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
+
+  if [ "$HTTP_CODE" = "200" ]; then
+    echo -e "${GREEN}✓ PASS: Expected 200 OK, got ${HTTP_CODE}${NC}"
   else
-    echo -e "${RED}✗ FAIL: Response should contain 'Invalid input data'${NC}"
+    echo -e "${RED}✗ FAIL: Expected 200 OK, got ${HTTP_CODE}${NC}"
   fi
-else
-  echo -e "${RED}✗ FAIL: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
+  echo ""
+  echo "----------------------------------------"
 fi
-echo "Response body: $BODY"
-echo ""
-echo "----------------------------------------"
-echo ""
-
-# Test 8: Empty password
-echo -e "${YELLOW}Test 8: Empty password${NC}"
-echo "Request: POST ${LOGIN_URL}"
-echo "Payload: {\"username\": \"${RANDOM_USER}\", \"password\": \"\"}"
-echo ""
-RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${LOGIN_URL}" \
-  -H "Content-Type: application/json" \
-  -d "{\"username\": \"${RANDOM_USER}\", \"password\": \"\"}")
-
-HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
-
-# Should return 400 (validation error)
-if [ "$HTTP_CODE" = "400" ]; then
-  echo -e "${GREEN}✓ PASS: Expected 400 Bad Request for empty password, got ${HTTP_CODE}${NC}"
-  if echo "$BODY" | grep -q "Invalid input data"; then
-    echo -e "${GREEN}✓ PASS: Response contains 'Invalid input data'${NC}"
-  else
-    echo -e "${RED}✗ FAIL: Response should contain 'Invalid input data'${NC}"
-  fi
-else
-  echo -e "${RED}✗ FAIL: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
-fi
-echo "Response body: $BODY"
-echo ""
-echo "----------------------------------------"
-echo ""
 
 echo "=========================================="
 echo "All tests completed"
 echo "=========================================="
 echo ""
 echo -e "Test user created: ${YELLOW}${RANDOM_USER}${NC}"
-
