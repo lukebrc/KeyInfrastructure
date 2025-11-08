@@ -19,10 +19,7 @@ CREATE TABLE users (
     last_login_at TIMESTAMPTZ
 );
 
--- Create certificates table (partitioned by expiration_date for performance)
--- Note: Partitioning setup requires manual creation of initial partitions (e.g., monthly).
--- Example: CREATE TABLE certificates_y2023m01 PARTITION OF certificates FOR VALUES FROM ('2023-01-01') TO ('2023-02-01');
--- Automated partition management can be handled via PostgreSQL functions or external scripts.
+-- Create certificates table
 CREATE TABLE certificates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -33,9 +30,7 @@ CREATE TABLE certificates (
     expiration_date TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     renewed_count INTEGER NOT NULL DEFAULT 0,
-    renewal_date TIMESTAMPTZ,
-)
-PARTITION BY RANGE (expiration_date);
+    renewal_date TIMESTAMPTZ
 );
 
 -- Create private_keys table
@@ -112,11 +107,7 @@ CREATE POLICY admin_revoked_certificates ON revoked_certificates FOR ALL USING (
 );
 
 -- Additional notes:
--- 1. Partitioning: The certificates table is set up for RANGE partitioning by expiration_date.
---    Create initial partitions manually or via a script, e.g.:
---    CREATE TABLE certificates_y2023m01 PARTITION OF certificates FOR VALUES FROM ('2023-01-01') TO ('2023-02-01');
---    Implement automated partition creation and cleanup (e.g., drop partitions older than 2 years) in application logic or via cron jobs.
--- 2. RLS: The policies assume a custom setting 'app.current_user_id' is set by the application (e.g., via SET LOCAL).
+-- 1. RLS: The policies assume a custom setting 'app.current_user_id' is set by the application (e.g., via SET LOCAL).
 --    Adjust based on your authentication mechanism (e.g., using JWT or session-based user context).
--- 3. Security: Ensure that only trusted roles can set 'app.current_user_id'. Use pgcrypto for encryption functions in the application.
--- 4. Performance: Monitor query performance and adjust indexes as needed. Consider additional composite indexes for common queries.
+-- 2. Security: Ensure that only trusted roles can set 'app.current_user_id'. Use pgcrypto for encryption functions in the application.
+-- 3. Performance: Monitor query performance and adjust indexes as needed. Consider additional composite indexes for common queries.

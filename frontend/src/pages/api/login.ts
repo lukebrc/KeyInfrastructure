@@ -4,8 +4,10 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
     const { username, password } = body;
+    console.log(`Login attempt for user: ${username}`);
 
     if (!username || !password) {
+      console.log(`username or password not passed`);
       return new Response(
         JSON.stringify({
           message: "Username and password are required",
@@ -54,6 +56,7 @@ export const POST: APIRoute = async ({ request }) => {
       } catch {
         errorMessage = response.statusText || errorMessage;
       }
+      console.log(`/auth/login returned ${response.status} with message: ${errorMessage}`);
 
       return new Response(
         JSON.stringify({
