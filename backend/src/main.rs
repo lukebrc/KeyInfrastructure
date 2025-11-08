@@ -37,12 +37,17 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(app_state.clone())
+            // Public routes (no authentication required)
             .service(
                 web::scope("/api")
                     .route("/users", web::post().to(register))
-                    .route("/auth/login", web::post().to(login))
-                    .service(web::scope("/users").wrap(JwtMiddlewareFactory))
-                    .service(web::scope("/certificates").wrap(JwtMiddlewareFactory)),
+                    .route("/login", web::post().to(login)),
+            )
+            // Protected routes (authentication required)
+            .service(
+                web::scope("/api")
+                    .wrap(JwtMiddlewareFactory)
+                    .route("/certificates", web::get().to(list_certificates)), // Add other protected routes here
             )
     })
     .bind(("0.0.0.0", 8080))?

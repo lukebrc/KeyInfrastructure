@@ -55,7 +55,7 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
         Ok(Some(user)) => user,
         Ok(None) => {
             log::warn!("Login failed: user '{}' not found", username);
-            return HttpResponse::Unauthorized().finish();
+            return HttpResponse::Unauthorized().body("Invalid username or password");
         }
         Err(_) => {
             log::error!("Database error on login attempt for user: {}", username);
@@ -87,7 +87,7 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
         },
         Ok(false) => {
             log::warn!("Login failed (bad password) for user '{}'", username);
-            HttpResponse::Unauthorized().finish()
+            HttpResponse::Unauthorized().body("Invalid credentials")
         },
         Err(_) => {
             log::error!("Password verification failed for user: {}", username);
@@ -99,9 +99,16 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
 pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest>) -> impl Responder {
     let username = req.username.clone();
     let password = req.password.clone();
+    let pin = req.pin.clone();
 
     // Log registration attempt (do NOT log the password!)
     log::info!("Registration attempt for user: {}", username);
+
+    // Validate PIN length
+    if pin.len() < 8 {
+        log::warn!("Registration failed for user '{}': PIN is too short", username);
+        return HttpResponse::BadRequest().body("PIN must be at least 8 characters long");
+    }
 
     // Check if user already exists
     let exists = match sqlx::query("SELECT 1 FROM users WHERE username = $1 LIMIT 1")
@@ -131,15 +138,18 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
     };
 
     // Insert new user
-    match sqlx::query("INSERT INTO users (username, password_hash) VALUES ($1, $2)")
+    // The `pin` is not stored directly. It's used to encrypt private keys when created.
+    // We will set a default role of 'USER'.
+    match sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)")
         .bind(&username)
         .bind(&password_hash)
+        .bind(UserRole::USER) // Set default role
         .execute(&state.pool)
         .await
     {
         Ok(_) => {
             log::info!("Registration successful for user '{}'", username);
-            HttpResponse::Created().finish()
+            HttpResponse::Created().body("User registered successfully")
         },
         Err(_) => {
             log::error!("Failed to insert new user '{}' during registration", username);

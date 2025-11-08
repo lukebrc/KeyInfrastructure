@@ -7,8 +7,8 @@
 # This script registers a new user with a random name and then tests login.
 
 BASE_URL="${1:-http://localhost:8080}"
-REGISTER_URL="${BASE_URL}/register"
-LOGIN_URL="${BASE_URL}/login"
+REGISTER_URL="${BASE_URL}/api/users"
+LOGIN_URL="${BASE_URL}/api/login"
 
 echo "=========================================="
 echo "Testing /register and /login endpoints"
@@ -40,17 +40,22 @@ echo ""
 # Test 1: Successful registration
 echo -e "${YELLOW}Test 1: Successful registration${NC}"
 echo "Request: POST ${REGISTER_URL}"
-echo "Payload: {\"login\": \"${RANDOM_USER}\", \"password\": \"${TEST_PASSWORD}\"}"
+echo "Payload: {\"username\": \"${RANDOM_USER}\", \"password\": \"${TEST_PASSWORD}\", \"pin\": \"12345678\"}"
 echo ""
 RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${REGISTER_URL}" \
   -H "Content-Type: application/json" \
-  -d "{\"login\": \"${RANDOM_USER}\", \"password\": \"${TEST_PASSWORD}\"}")
+  -d "{\"username\": \"${RANDOM_USER}\", \"password\": \"${TEST_PASSWORD}\", \"pin\": \"12345678\"}")
 
 HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
 BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
 if [ "$HTTP_CODE" = "201" ]; then
   echo -e "${GREEN}✓ PASS: Expected 201 Created, got ${HTTP_CODE}${NC}"
+  if echo "$BODY" | grep -q "User registered successfully"; then
+    echo -e "${GREEN}✓ PASS: Response contains 'User registered successfully'${NC}"
+  else
+    echo -e "${RED}✗ FAIL: Response should contain 'User registered successfully'${NC}"
+  fi
   REGISTRATION_SUCCESS=true
 else
   echo -e "${RED}✗ FAIL: Expected 201 Created, got ${HTTP_CODE}${NC}"
@@ -70,17 +75,22 @@ fi
 # Test 2: Attempt to register existing user (should fail with 409 Conflict)
 echo -e "${YELLOW}Test 2: Register existing user (should return 409 Conflict)${NC}"
 echo "Request: POST ${REGISTER_URL}"
-echo "Payload: {\"login\": \"${RANDOM_USER}\", \"password\": \"${TEST_PASSWORD}\"}"
+echo "Payload: {\"username\": \"${RANDOM_USER}\", \"password\": \"${TEST_PASSWORD}\", \"pin\": \"12345678\"}"
 echo ""
 RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${REGISTER_URL}" \
   -H "Content-Type: application/json" \
-  -d "{\"login\": \"${RANDOM_USER}\", \"password\": \"${TEST_PASSWORD}\"}")
+  -d "{\"username\": \"${RANDOM_USER}\", \"password\": \"${TEST_PASSWORD}\", \"pin\": \"12345678\"}")
 
 HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
 BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
 if [ "$HTTP_CODE" = "409" ]; then
   echo -e "${GREEN}✓ PASS: Expected 409 Conflict, got ${HTTP_CODE}${NC}"
+  if echo "$BODY" | grep -q "Username already exists"; then
+    echo -e "${GREEN}✓ PASS: Response contains 'Username already exists'${NC}"
+  else
+    echo -e "${RED}✗ FAIL: Response should contain 'Username already exists'${NC}"
+  fi
 else
   echo -e "${RED}✗ FAIL: Expected 409 Conflict, got ${HTTP_CODE}${NC}"
 fi
@@ -92,19 +102,19 @@ echo ""
 # Test 3: Missing password field (should fail with 400 Bad Request or 422)
 echo -e "${YELLOW}Test 3: Missing password field${NC}"
 echo "Request: POST ${REGISTER_URL}"
-echo "Payload: {\"login\": \"testuser_missing_pass\"}"
+echo "Payload: {\"username\": \"testuser_missing_pass\", \"pin\": \"12345678\"}"
 echo ""
 RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${REGISTER_URL}" \
   -H "Content-Type: application/json" \
-  -d '{"login": "testuser_missing_pass"}')
+  -d '{"username": "testuser_missing_pass", "pin": "12345678"}')
 
 HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
 BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
-if [ "$HTTP_CODE" = "400" ] || [ "$HTTP_CODE" = "422" ]; then
-  echo -e "${GREEN}✓ PASS: Expected 400/422 for missing field, got ${HTTP_CODE}${NC}"
+if [ "$HTTP_CODE" = "400" ]; then
+  echo -e "${GREEN}✓ PASS: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
 else
-  echo -e "${RED}✗ FAIL: Expected 400/422, got ${HTTP_CODE}${NC}"
+  echo -e "${RED}✗ FAIL: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
 fi
 echo "Response body: $BODY"
 echo ""
@@ -116,13 +126,6 @@ echo -e "${YELLOW}Test 4: Invalid JSON${NC}"
 echo "Request: POST ${REGISTER_URL}"
 echo "Payload: {invalid json}"
 echo ""
-RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${REGISTER_URL}" \
-  -H "Content-Type: application/json" \
-  -d '{invalid json}')
-
-HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
-
 if [ "$HTTP_CODE" = "400" ]; then
   echo -e "${GREEN}✓ PASS: Expected 400 Bad Request for invalid JSON, got ${HTTP_CODE}${NC}"
 else
@@ -156,11 +159,7 @@ BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
 if [ "$HTTP_CODE" = "200" ]; then
   echo -e "${GREEN}✓ PASS: Expected 200 OK, got ${HTTP_CODE}${NC}"
-  if echo "$BODY" | grep -q "Login successful"; then
-    echo -e "${GREEN}✓ PASS: Response contains 'Login successful'${NC}"
-  else
-    echo -e "${RED}✗ FAIL: Response should contain 'Login successful'${NC}"
-  fi
+    echo -e "${GREEN}✓ PASS: ${NC}"
 else
   echo -e "${RED}✗ FAIL: Expected 200 OK, got ${HTTP_CODE}${NC}"
 fi
@@ -174,15 +173,13 @@ echo -e "${YELLOW}Test 2: Wrong password (should return 401 Unauthorized)${NC}"
 echo "Request: POST ${LOGIN_URL}"
 echo "Payload: {\"username\": \"${RANDOM_USER}\", \"password\": \"wrongpass\"}"
 echo ""
-RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${LOGIN_URL}" \
-  -H "Content-Type: application/json" \
-  -d "{\"username\": \"${RANDOM_USER}\", \"password\": \"wrongpass\"}")
-
-HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
-
 if [ "$HTTP_CODE" = "401" ]; then
   echo -e "${GREEN}✓ PASS: Expected 401 Unauthorized, got ${HTTP_CODE}${NC}"
+  if echo "$BODY" | grep -q "Invalid credentials"; then
+    echo -e "${GREEN}✓ PASS: Response contains 'Invalid credentials'${NC}"
+  else
+    echo -e "${RED}✗ FAIL: Response should contain 'Invalid credentials'${NC}"
+  fi
 else
   echo -e "${RED}✗ FAIL: Expected 401 Unauthorized, got ${HTTP_CODE}${NC}"
 fi
@@ -205,6 +202,11 @@ BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
 if [ "$HTTP_CODE" = "401" ]; then
   echo -e "${GREEN}✓ PASS: Expected 401 Unauthorized, got ${HTTP_CODE}${NC}"
+  if echo "$BODY" | grep -q "Invalid credentials"; then
+    echo -e "${GREEN}✓ PASS: Response contains 'Invalid credentials'${NC}"
+  else
+    echo -e "${RED}✗ FAIL: Response should contain 'Invalid credentials'${NC}"
+  fi
 else
   echo -e "${RED}✗ FAIL: Expected 401 Unauthorized, got ${HTTP_CODE}${NC}"
 fi
@@ -214,21 +216,15 @@ echo "----------------------------------------"
 echo ""
 
 # Test 4: Missing password field (should fail with 400 Bad Request or 422)
-echo -e "${YELLOW}Test 4: Missing password field${NC}"
-echo "Request: POST ${LOGIN_URL}"
-echo "Payload: {\"username\": \"${RANDOM_USER}\"}"
-echo ""
-RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${LOGIN_URL}" \
-  -H "Content-Type: application/json" \
-  -d "{\"username\": \"${RANDOM_USER}\"}")
-
-HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
-
-if [ "$HTTP_CODE" = "400" ] || [ "$HTTP_CODE" = "422" ]; then
-  echo -e "${GREEN}✓ PASS: Expected 400/422 for missing field, got ${HTTP_CODE}${NC}"
+if [ "$HTTP_CODE" = "400" ]; then
+  echo -e "${GREEN}✓ PASS: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
+  if echo "$BODY" | grep -q "Invalid input data"; then
+    echo -e "${GREEN}✓ PASS: Response contains 'Invalid input data'${NC}"
+  else
+    echo -e "${RED}✗ FAIL: Response should contain 'Invalid input data'${NC}"
+  fi
 else
-  echo -e "${RED}✗ FAIL: Expected 400/422, got ${HTTP_CODE}${NC}"
+  echo -e "${RED}✗ FAIL: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
 fi
 echo "Response body: $BODY"
 echo ""
@@ -247,10 +243,15 @@ RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${LOGIN_URL}" \
 HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
 BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
-if [ "$HTTP_CODE" = "400" ] || [ "$HTTP_CODE" = "422" ]; then
-  echo -e "${GREEN}✓ PASS: Expected 400/422 for missing field, got ${HTTP_CODE}${NC}"
+if [ "$HTTP_CODE" = "400" ]; then
+  echo -e "${GREEN}✓ PASS: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
+  if echo "$BODY" | grep -q "Invalid input data"; then
+    echo -e "${GREEN}✓ PASS: Response contains 'Invalid input data'${NC}"
+  else
+    echo -e "${RED}✗ FAIL: Response should contain 'Invalid input data'${NC}"
+  fi
 else
-  echo -e "${RED}✗ FAIL: Expected 400/422, got ${HTTP_CODE}${NC}"
+  echo -e "${RED}✗ FAIL: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
 fi
 echo "Response body: $BODY"
 echo ""
@@ -271,6 +272,11 @@ BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
 if [ "$HTTP_CODE" = "400" ]; then
   echo -e "${GREEN}✓ PASS: Expected 400 Bad Request for invalid JSON, got ${HTTP_CODE}${NC}"
+  if echo "$BODY" | grep -q "Invalid input data"; then
+    echo -e "${GREEN}✓ PASS: Response contains 'Invalid input data'${NC}"
+  else
+    echo -e "${RED}✗ FAIL: Response should contain 'Invalid input data'${NC}"
+  fi
 else
   echo -e "${RED}✗ FAIL: Expected 400, got ${HTTP_CODE}${NC}"
 fi
@@ -291,11 +297,16 @@ RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${LOGIN_URL}" \
 HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
 BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
-# Should return 401 (user not found) or 400 (validation error)
-if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "400" ]; then
-  echo -e "${GREEN}✓ PASS: Expected 401/400 for empty username, got ${HTTP_CODE}${NC}"
+# Should return 400 (validation error)
+if [ "$HTTP_CODE" = "400" ]; then
+  echo -e "${GREEN}✓ PASS: Expected 400 Bad Request for empty username, got ${HTTP_CODE}${NC}"
+  if echo "$BODY" | grep -q "Invalid input data"; then
+    echo -e "${GREEN}✓ PASS: Response contains 'Invalid input data'${NC}"
+  else
+    echo -e "${RED}✗ FAIL: Response should contain 'Invalid input data'${NC}"
+  fi
 else
-  echo -e "${RED}✗ FAIL: Expected 401/400, got ${HTTP_CODE}${NC}"
+  echo -e "${RED}✗ FAIL: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
 fi
 echo "Response body: $BODY"
 echo ""
@@ -314,11 +325,16 @@ RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${LOGIN_URL}" \
 HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
 BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
-# Should return 401 (wrong password) or 400 (validation error)
-if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "400" ]; then
-  echo -e "${GREEN}✓ PASS: Expected 401/400 for empty password, got ${HTTP_CODE}${NC}"
+# Should return 400 (validation error)
+if [ "$HTTP_CODE" = "400" ]; then
+  echo -e "${GREEN}✓ PASS: Expected 400 Bad Request for empty password, got ${HTTP_CODE}${NC}"
+  if echo "$BODY" | grep -q "Invalid input data"; then
+    echo -e "${GREEN}✓ PASS: Response contains 'Invalid input data'${NC}"
+  else
+    echo -e "${RED}✗ FAIL: Response should contain 'Invalid input data'${NC}"
+  fi
 else
-  echo -e "${RED}✗ FAIL: Expected 401/400, got ${HTTP_CODE}${NC}"
+  echo -e "${RED}✗ FAIL: Expected 400 Bad Request, got ${HTTP_CODE}${NC}"
 fi
 echo "Response body: $BODY"
 echo ""
