@@ -87,8 +87,7 @@
 
 ## 5. Wszelkie dodatkowe uwagi lub wyjaśnienia dotyczące decyzji projektowych
 
-- **Normalizacja**: Schemat jest w 3NF; denormalizacja nie jest wymagana, ponieważ wydajność jest zapewniona przez indeksy i partycjonowanie.
-- **Partycjonowanie**: Tabela certificates jest partycjonowana miesięcznie po expiration_date dla lepszej wydajności zapytań o wygasające certyfikaty. Automatyczne tworzenie partycji i czyszczenie starszych niż 2 lata.
+- **Normalizacja**: Schemat jest w 3NF; denormalizacja nie jest wymagana, ponieważ wydajność jest zapewniona przez indeksy.
 - **Szyfrowanie**: Klucze prywatne są szyfrowane AES-256 z PIN-em użytkownika jako kluczem (PIN nie przechowywany w bazie). Klucz CA jest szyfrowany hasłem z ENV.
 - **UUID**: Użyte dla globalnej unikalności i bezpieczeństwa (trudniejsze do zgadnięcia niż sekwencyjne ID).
 - **Status certyfikatów**: 'ACTIVE' dla ważnych, 'EXPIRED' dla wygasłych, 'REVOKED' dla odwołanych.
@@ -98,5 +97,5 @@
   - Kopia klucza: Zaszyfrowana kopia w private_keys.
   - Algorytm klucza: RSA 4096 (hardkodowany w backendzie).
   - Okres ważności: 1 dzień do 10 lat.
-- **Wydajność**: Zoptymalizowana dla 100 użytkowników, 10 certyfikatów na użytkownika, 10 współbieżnych użytkowników poprzez indeksy i partycjonowanie.
+- **Wydajność**: Zoptymalizowana dla 100 użytkowników, 10 certyfikatów na użytkownika, 10 współbieżnych użytkowników poprzez indeksy.
 - **Rozszerzenia PostgreSQL**: Wymagane: pgcrypto dla szyfrowania, uuid-ossp dla UUID.

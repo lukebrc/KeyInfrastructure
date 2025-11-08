@@ -1,13 +1,13 @@
-# 10x Astro Starter
+# KeyInfrastructure frontend
 
-A modern, opinionated starter template for building fast, accessible, and AI-friendly web applications.
+Web frontend for KeyInfrastructure system.
 
 ## Tech Stack
 
-- [Astro](https://astro.build/) v5.5.5 - Modern web framework for building fast, content-focused websites
-- [React](https://react.dev/) v19.0.0 - UI library for building interactive components
+- [Astro](https://astro.build/) v5.13.7 - Modern web framework for building fast, content-focused websites
+- [React](https://react.dev/) v19.1.1 - UI library for building interactive components
 - [TypeScript](https://www.typescriptlang.org/) v5 - Type-safe JavaScript
-- [Tailwind CSS](https://tailwindcss.com/) v4.0.17 - Utility-first CSS framework
+- [Tailwind CSS](https://tailwindcss.com/) v4.1.13 - Utility-first CSS framework
 
 ## Prerequisites
 
@@ -19,7 +19,7 @@ A modern, opinionated starter template for building fast, accessible, and AI-fri
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone git@github.com:lukebrc/KeyInfrastructure.git # or https://github.com/lukebrc/KeyInfrastructure
 cd KeyInfrastructure/frontend
 ```
 
@@ -41,6 +41,24 @@ npm run dev
 npm run build
 ```
 
+## Configuration
+
+Before starting the development server, you need to configure the application.
+
+1.  Create a `.env` file by copying the example file:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+2.  The `.env` file contains the `BACKEND_URL` variable, which points to the backend server. By default, it is set to:
+
+    ```
+    BACKEND_URL=http://localhost:4000
+    ```
+
+    You can change this value if your backend is running on a different address or port.
+
 ## Available Scripts
 
 - `npm run dev` - Start development server
@@ -48,17 +66,21 @@ npm run build
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
 - `npm run lint:fix` - Fix ESLint issues
+- `npm run format` - Format files with Prettier
 
 ## Project Structure
 
 ```md
 .
 ├── src/
+│   ├── components/ # UI components (Astro & React)
 │   ├── layouts/    # Astro layouts
+│   ├── lib/        # Helper functions and API logic
+│   ├── middleware/ # Astro middleware
 │   ├── pages/      # Astro pages
 │   │   └── api/    # API endpoints
-│   ├── components/ # UI components (Astro & React)
-│   └── assets/     # Static assets
+│   ├── styles/     # Global styles
+│   └── types.ts    # TypeScript types
 ├── public/         # Public assets
 ```
 
@@ -77,14 +99,6 @@ This project is configured with AI development tools to enhance the development 
 
 The project includes AI rules in `.cursor/rules/` directory that help Cursor IDE understand the project structure and provide better code suggestions, including frontend-specific guidelines for Astro, React, and Tailwind CSS.
 
-### GitHub Copilot
-
-AI instructions for GitHub Copilot are available in `.github/copilot-instructions.md`
-
-### Windsurf
-
-The `.windsurfrules` file contains AI configuration for Windsurf.
-
 ## Features
 
 - User registration with username, password, and 8-character PIN
@@ -97,7 +111,3 @@ The `.windsurfrules` file contains AI configuration for Windsurf.
 ## Contributing
 
 Please follow the AI guidelines and coding practices defined in the AI configuration files when contributing to this project.
-
-## License
-
-MIT
