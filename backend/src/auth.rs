@@ -1,6 +1,5 @@
 use actix_web::{web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
-use sqlx::Row;
 use bcrypt::{hash, verify};
 use jsonwebtoken::{encode, Header, EncodingKey};
 use chrono::{Utc, Duration};
@@ -139,17 +138,22 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
 
     // Insert new user
     // The `pin` is not stored directly. It's used to encrypt private keys when created.
-    // We will set a default role of 'USER'.
-    match sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)")
+    // We will set a default role of 'USER' and return the newly created user.
+    match sqlx::query_as::<_, User>("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING id, username, password_hash, role")
         .bind(&username)
         .bind(&password_hash)
         .bind(UserRole::USER) // Set default role
-        .execute(&state.pool)
+        .fetch_one(&state.pool)
         .await
     {
-        Ok(_) => {
-            log::info!("Registration successful for user '{}'", username);
-            HttpResponse::Created().body("User registered successfully")
+        Ok(new_user) => {
+            log::info!("Registration successful for user '{}'", new_user.username);
+            let ui = UserInfo{
+                username: new_user.username,
+                id: new_user.id.to_string(),
+                role: new_user.role.to_string(),
+            };
+            HttpResponse::Created().json(ui)
         },
         Err(_) => {
             log::error!("Failed to insert new user '{}' during registration", username);
