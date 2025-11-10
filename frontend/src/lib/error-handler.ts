@@ -21,6 +21,7 @@ export class ErrorHandler {
 
     // Handle specific error codes
     if (typeof message === "string") {
+      console.info("handleError message:", message);
       if (message.includes("401") || message.includes("Unauthorized")) {
         // Redirect to login is handled by API client
         toast.error("Session expired. Please log in again.");

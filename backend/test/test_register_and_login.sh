@@ -7,8 +7,8 @@
 # This script registers a new user with a random name and then tests login.
 
 BASE_URL="${1:-http://localhost:8080}"
-REGISTER_URL="${BASE_URL}/api/users"
-LOGIN_URL="${BASE_URL}/api/login"
+REGISTER_URL="${BASE_URL}/users"
+LOGIN_URL="${BASE_URL}/login"
 
 echo "=========================================="
 echo "Testing /register and /login endpoints"

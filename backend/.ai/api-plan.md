@@ -8,7 +8,7 @@
 
 ### Users Resource
 - **Method**: POST
-- **URL Path**: /api/users
+- **URL Path**: /users
 - **Description**: Register a new user.
 - **Query Parameters**: None
 - **Request JSON Structure**: {"username": "string", "password": "string", "pin": "string (min 8 chars)"}
@@ -17,7 +17,7 @@
 - **Error Codes and Messages**: 400 Bad Request - "Invalid input data", 409 Conflict - "Username already exists"
 
 - **Method**: POST
-- **URL Path**: /api/login
+- **URL Path**: /auth/login
 - **Description**: Authenticate a user and return a JWT token.
 - **Query Parameters**: None
 - **Request JSON Structure**: {"username": "string", "password": "string"}
@@ -26,7 +26,7 @@
 - **Error Codes and Messages**: 401 Unauthorized - "Invalid credentials"
 
 - **Method**: GET
-- **URL Path**: /api/users/{id}
+- **URL Path**: /users/{id}
 - **Description**: Retrieve user details (self or admin).
 - **Query Parameters**: None
 - **Request JSON Structure**: None
@@ -36,7 +36,7 @@
 
 ### Certificates Resource
 - **Method**: POST
-- **URL Path**: /api/users/{user_id}/certificates
+- **URL Path**: /users/{user_id}/certificates
 - **Description**: Create a new certificate for a user (admin only).
 - **Query Parameters**: None
 - **Request JSON Structure**: {"validity_period_days": "integer", "hash_algorithm": "string (SHA-256|SHA-384|SHA-512)", "dn": "string"}
@@ -45,7 +45,7 @@
 - **Error Codes and Messages**: 403 Forbidden - "Admin access required", 400 Bad Request - "Invalid DN or parameters"
 
 - **Method**: GET
-- **URL Path**: /api/certificates
+- **URL Path**: /certificates
 - **Description**: List certificates for the authenticated user, with pagination, filtering, and sorting.
 - **Query Parameters**: page=integer, limit=integer, status=string, sort_by=string (e.g., expiration_date), order=asc|desc
 - **Request JSON Structure**: None
@@ -54,7 +54,7 @@
 - **Error Codes and Messages**: 401 Unauthorized - "Authentication required"
 
 - **Method**: GET
-- **URL Path**: /api/certificates/expiring
+- **URL Path**: /certificates/expiring
 - **Description**: Get certificates expiring soon for the authenticated user.
 - **Query Parameters**: days=integer (default 30)
 - **Request JSON Structure**: None
@@ -63,7 +63,7 @@
 - **Error Codes and Messages**: 401 Unauthorized - "Authentication required"
 
 - **Method**: PUT
-- **URL Path**: /api/certificates/{id}/renew
+- **URL Path**: /certificates/{id}/renew
 - **Description**: Renew a certificate (user only for own certificates).
 - **Query Parameters**: None
 - **Request JSON Structure**: None
@@ -72,7 +72,7 @@
 - **Error Codes and Messages**: 403 Forbidden - "Access denied", 404 Not Found - "Certificate not found", 400 Bad Request - "Certificate not renewable"
 
 - **Method**: POST
-- **URL Path**: /api/certificates/{id}/download
+- **URL Path**: /certificates/{id}/download
 - **Description**: Download PKCS#12 file for the certificate (user only for own).
 - **Query Parameters**: None
 - **Request JSON Structure**: {"pin": "string"}
@@ -81,7 +81,7 @@
 - **Error Codes and Messages**: 403 Forbidden - "Access denied", 400 Bad Request - "Invalid PIN", 404 Not Found - "Certificate not found"
 
 - **Method**: PUT
-- **URL Path**: /api/certificates/{id}/revoke
+- **URL Path**: /certificates/{id}/revoke
 - **Description**: Revoke a certificate (admin only).
 - **Query Parameters**: None
 - **Request JSON Structure**: {"reason": "string"}

@@ -158,7 +158,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // Forward the request to the backend
-    const response = await fetch(`${backendUrl}/api/users`, {
+    const response = await fetch(`${backendUrl}/users`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

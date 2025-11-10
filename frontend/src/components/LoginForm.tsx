@@ -11,52 +11,25 @@ const LoginForm: React.FC = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
-  const hasCheckedAuth = useRef(false);
+  const [redirectUrl, setRedirectUrl] = useState<string>("/dashboard");
 
-  // Check if user is already logged in and redirect
-  // Also check for query params (redirect, message)
-  // Only check once when component mounts
+  // Check for query params (redirect, message) on component mount
   useEffect(() => {
-    // Prevent multiple checks - this ensures the check only runs once
-    if (hasCheckedAuth.current) {
-      return;
-    }
-    hasCheckedAuth.current = true;
-
-    // Check query params first (synchronous, no API call)
     const params = new URLSearchParams(window.location.search);
     const redirect = params.get("redirect");
     const message = params.get("message");
-    
+
     if (redirect) {
       setRedirectUrl(redirect);
     }
-    
+
     if (message) {
       setError(decodeURIComponent(message));
     }
-
-    // Check authentication status (only once)
-    const checkAuth = async () => {
-      try {
-        const user = await api.getCurrentUser();
-        // User is logged in, redirect based on role
-        if (user.role === "ADMIN") {
-          window.location.href = "/admin/dashboard";
-        } else {
-          window.location.href = "/dashboard";
-        }
-      } catch (error) {
-        console.debug("checkAuth error", error);
-      }
-    };
-    
-    checkAuth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
+    console.info("LoginForm.handleLogin", e);
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -72,13 +45,12 @@ const LoginForm: React.FC = () => {
       const request: LoginRequest = { username, password };
       const response = await api.login(request);
 
-      console.info("login response {}", response.user);
       // Token should be set in httpOnly cookie by backend
       // Redirect based on role or redirect URL
       if (redirectUrl) {
         window.location.href = redirectUrl;
       } else if (response.user.role === "ADMIN") {
-        window.location.href = "/admin/dashboard";
+        window.location.href = redirectUrl.startsWith("/admin") ? redirectUrl : "/admin/dashboard";
       } else {
         window.location.href = "/dashboard";
       }

@@ -22,6 +22,7 @@ async function verifyToken(token: string): Promise<{ valid: boolean; role?: stri
   try {
     const backendUrl = import.meta.env.BACKEND_URL;
     if (!backendUrl) {
+      console.error("verifyToken. No backendUrl");
       return { valid: false };
     }
 
@@ -34,16 +35,19 @@ async function verifyToken(token: string): Promise<{ valid: boolean; role?: stri
     });
 
     if (!response.ok) {
+      console.error("verifyToken failure", response.status, response.statusText);
       return { valid: false };
     }
 
     const data = await response.json();
+    console.info("Token valid for user", data.userId);
     return {
       valid: true,
       role: data.role || data.user?.role || "USER",
       userId: data.userId || data.user?.id,
     };
-  } catch {
+  } catch (error) {
+    console.error("verifyToken exception:", error);
     return { valid: false };
   }
 }
@@ -62,6 +66,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 
   if (!token) {
     // No token, redirect to login
+    console.info("No token, redirecting to login");
     if (pathname.startsWith("/admin") || pathname.startsWith("/dashboard")) {
       return new Response(null, {
         status: 302,
@@ -70,6 +75,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
         },
       });
     }
+    console.info("downloaded token, next()");
     return next();
   }
 
@@ -111,4 +117,3 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 
   return next();
 };
-

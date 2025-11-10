@@ -126,7 +126,7 @@ JWT_SECRET=your_jwt_secret_key
 
 #### Login
 - **Method**: `POST`
-- **Path**: `/auth/login`
+- **Path**: `/login`
 - **Description**: Authenticate a user and receive a JWT token
 - **Request Body**:
   ```json
@@ -316,7 +316,7 @@ JWT_SECRET=your_jwt_secret_key
 ## Authentication & Authorization
 
 ### JWT Authentication
-- Tokens are issued via `POST /auth/login`
+- Tokens are issued via `POST /login`
 - Tokens expire after 1 hour
 - Include token in subsequent requests: `Authorization: Bearer <token>`
 
@@ -379,4 +379,3 @@ cargo clippy --lib --bins -- -D "clippy::correctness" -D "clippy::suspicious" -D
 - [Product Requirements Document](../.ai/prd.md)
 - [API Plan](.ai/api-plan.md)
 - [Backend Coding Guidelines](AGENTS.md)
-

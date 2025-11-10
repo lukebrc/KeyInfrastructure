@@ -4,7 +4,6 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
     const { username, password } = body;
-    console.log(`Login attempt for user: ${username}`);
 
     if (!username || !password) {
       console.log(`username or password not passed`);
@@ -37,8 +36,9 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
+    console.log(`Login attempt for user: ${username}`);
     // Forward the request to the backend
-    const response = await fetch(`${backendUrl}/api/login`, {
+    const response = await fetch(`${backendUrl}/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -54,7 +54,7 @@ export const POST: APIRoute = async ({ request }) => {
       } catch {
         errorMessage = response.statusText || errorMessage;
       }
-      console.log(`/auth/login returned ${response.status} with message: ${errorMessage}`);
+      console.info(`/auth/login returned ${response.status} with message: ${errorMessage}`);
 
       return new Response(
         JSON.stringify({

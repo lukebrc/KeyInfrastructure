@@ -1,7 +1,7 @@
-use actix_web::{cookie::{Cookie, SameSite}, web, HttpResponse, Responder};
+use actix_web::{cookie::{Cookie, SameSite}, web, HttpRequest, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use bcrypt::{hash, verify};
-use jsonwebtoken::{encode, Header, EncodingKey};
+use jsonwebtoken::{encode, decode, Header, EncodingKey, DecodingKey, Validation};
 use chrono::{Utc, Duration};
 
 use crate::AppState;
@@ -31,6 +31,13 @@ pub struct UserInfo {
     id: String,
     username: String,
     role: String,
+}
+
+#[derive(Serialize)]
+pub struct VerifyResponse {
+    valid: bool,
+    role: Option<String>,
+    userId: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -102,6 +109,59 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
         Err(_) => {
             log::error!("Password verification failed for user: {}", username);
             HttpResponse::InternalServerError().finish()
+        }
+    }
+}
+
+pub async fn verify_token(state: web::Data<AppState>, req: HttpRequest) -> impl Responder {
+    let auth_header = req.headers().get("Authorization");
+
+    let token = match auth_header {
+        Some(value) => {
+            let parts: Vec<&str> = value.to_str().unwrap_or("").split_whitespace().collect();
+            if parts.len() == 2 && parts[0] == "Bearer" {
+                Some(parts[1].to_string())
+            } else {
+                None
+            }
+        },
+        None => None,
+    };
+
+    let token = match token {
+        Some(t) => t,
+        None => {
+            log::warn!("Verify token failed: No Authorization header or malformed token");
+            return HttpResponse::Ok().json(VerifyResponse {
+                valid: false,
+                role: None,
+                userId: None,
+            });
+        }
+    };
+    log::info!("Verifying token: {}", token);
+
+    log::info!("Verifying token");
+
+    let decoding_key = DecodingKey::from_secret(state.jwt_secret.as_ref());
+    let validation = Validation::default();
+
+    match decode::<Claims>(&token, &decoding_key, &validation) {
+        Ok(token_data) => {
+            log::info!("Token valid for user: {}, role: {}", token_data.claims.sub, token_data.claims.role);
+            HttpResponse::Ok().json(VerifyResponse {
+                valid: true,
+                role: Some(token_data.claims.role),
+                userId: Some(token_data.claims.sub),
+            })
+        }
+        Err(e) => {
+            log::warn!("Token verification failed: {:?}", e);
+            HttpResponse::Ok().json(VerifyResponse {
+                valid: false,
+                role: None,
+                userId: None,
+            })
         }
     }
 }
