@@ -79,7 +79,10 @@ export const POST: APIRoute = async ({ request }) => {
     });
 
     if (setCookieHeaders) {
+      console.info(`Setting cookie ${setCookieHeaders} for user: ${username}`);
       headers.set("set-cookie", setCookieHeaders);
+    } else {
+      console.warn("Backend did not return 'Set-Cookie' header for user:", username);
     }
 
     return new Response(

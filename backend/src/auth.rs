@@ -1,8 +1,9 @@
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{cookie::{Cookie, SameSite}, web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use bcrypt::{hash, verify};
 use jsonwebtoken::{encode, Header, EncodingKey};
 use chrono::{Utc, Duration};
+
 use crate::AppState;
 use crate::db_model::{User, UserRole};
 
@@ -43,7 +44,6 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
     let username = req.username.clone();
     let password = req.password.clone();
 
-    // Log login attempt (do NOT log the password!)
     log::info!("Login attempt for user: {}", username);
 
     let user = match sqlx::query_as::<_, User>("SELECT id, username, password_hash, role FROM users WHERE username = $1")
@@ -51,7 +51,10 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
         .fetch_optional(&state.pool)
         .await
     {
-        Ok(Some(user)) => user,
+        Ok(Some(user)) => {
+            log::info!("Found user {}, id: {}, role: {}", user.username, user.id, user.role.to_string());
+            user
+        },
         Ok(None) => {
             log::warn!("Login failed: user '{}' not found", username);
             return HttpResponse::Unauthorized().body("Invalid credentials");
@@ -78,11 +81,19 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
                 username: user.username,
                 role: user.role.to_string(),
             };
+            log::info!("Returning token: {}", token);
 
-            HttpResponse::Ok().json(LoginResponse {
-                token,
-                user: user_info,
-            })
+            let cookie = Cookie::build("auth_token", token.clone())
+                .path("/")
+                .http_only(true)
+                .same_site(SameSite::Lax)
+                // The cookie will expire when the token does
+                .max_age(actix_web::cookie::time::Duration::hours(1)) 
+                .finish();
+
+            HttpResponse::Ok()
+                .cookie(cookie)
+                .json(LoginResponse { token, user: user_info })
         },
         Ok(false) => {
             log::warn!("Login failed (bad password) for user '{}'", username);

@@ -48,8 +48,7 @@ const LoginForm: React.FC = () => {
           window.location.href = "/dashboard";
         }
       } catch (error) {
-        // User is not logged in - this is expected on login page
-        // Don't do anything, just let the user see the login form
+        console.debug("checkAuth error", error);
       }
     };
     
@@ -73,16 +72,19 @@ const LoginForm: React.FC = () => {
       const request: LoginRequest = { username, password };
       const response = await api.login(request);
 
+      console.info("login response {}", response.user);
       // Token should be set in httpOnly cookie by backend
       // Redirect based on role or redirect URL
       if (redirectUrl) {
         window.location.href = redirectUrl;
-      } else if (response.role === "ADMIN") {
+      } else if (response.user.role === "ADMIN") {
         window.location.href = "/admin/dashboard";
       } else {
         window.location.href = "/dashboard";
       }
     } catch (err) {
+      console.error("Login failed", err);
+
       const apiError = err as ApiError;
       // Handle 401 - invalid credentials
       if (apiError.message.includes("401") || apiError.message.includes("Unauthorized")) {
