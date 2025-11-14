@@ -1,18 +1,18 @@
-Frontend - Astro z React dla komponentów interaktywnych:
-- Astro 5 pozwala na tworzenie szybkich, wydajnych stron i aplikacji z minimalną ilością JavaScript
-- React 19 zapewni interaktywność tam, gdzie jest potrzebna
-- TypeScript 5 dla statycznego typowania kodu i lepszego wsparcia IDE
-- Tailwind 4 pozwala na wygodne stylowanie aplikacji
-- Shadcn/ui zapewnia bibliotekę dostępnych komponentów React, na których oprzemy UI
+Frontend – Astro with React for interactive components:
+- Astro 5 enables the creation of fast, efficient sites and applications with minimal JavaScript
+- React 19 provides interactivity where needed
+- TypeScript 5 offers static type checking and improved IDE support
+- Tailwind 4 allows for convenient application styling
+- Shadcn/ui supplies an accessible React component library that forms the foundation of our UI
 
-Backend - Rust + actix-web + sqlx
-- Połączenie do bazy danych PostgreSQL
-- Posiada wbudowaną autentykację użytkowników
+Backend – Rust + actix-web + sqlx:
+- Connects to a PostgreSQL database
+- Includes built-in user authentication
 
-AI - Komunikacja z modelami przez usługę Openrouter.ai:
-- Dostęp do szerokiej gamy modeli (OpenAI, Anthropic, Google i wiele innych), które pozwolą nam znaleźć rozwiązanie zapewniające wysoką efektywność i niskie koszta
-- Pozwala na ustawianie limitów finansowych na klucze API
+AI – Communication with models via the Openrouter.ai service:
+- Access to a wide range of models (OpenAI, Anthropic, Google, and many others), allowing us to select solutions that ensure high efficiency and low cost
+- Enables setting of financial limits for API keys
 
-CI/CD i Hosting:
-- Github Actions do tworzenia pipeline’ów CI/CD
-- DigitalOcean do hostowania aplikacji za pośrednictwem obrazu docker
+CI/CD and Hosting:
+- Github Actions for building CI/CD pipelines
+- DigitalOcean for hosting the application via Docker images
