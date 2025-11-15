@@ -3,7 +3,7 @@ use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage,
 };
-use actix_web::error::ErrorInternalServerError;
+use actix_web::error::{ErrorInternalServerError, ErrorUnauthorized};
 use futures_util::future::LocalBoxFuture;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use crate::auth::Claims;
@@ -43,20 +43,19 @@ where
 
     forward_ready!(service);
 
-    fn call(&self, req: ServiceRequest) -> Self::Future {
+    fn call(&self, mut req: ServiceRequest) -> Self::Future {
         let token = match req.headers().get("Authorization") {
-            Some(value) => {
-                let parts: Vec<&str> = value.to_str().unwrap_or("").split_whitespace().collect();
-                if parts.len() == 2 && parts[0] == "Bearer" {
-                    Some(parts[1].to_string())
+            Some(header_value) => {
+                if let Ok(value_str) = header_value.to_str() {
+                    value_str.strip_prefix("Bearer ").map(String::from)
                 } else {
-                    log::warn!("Invalid authorization header: {:?}", value);
-                    None
+                    // Header contains non-UTF8 characters, immediately reject.
+                    return Box::pin(async { Err(ErrorUnauthorized("Invalid Authorization header encoding.")) });
                 }
             }
             None => None,
         };
-        log::info!("Verifying token: {}", token.is_some());
+
         log::debug!("Verifying token: {:?}", token);
 
         if let Some(token) = token {
@@ -73,15 +72,20 @@ where
 
             match decode::<Claims>(&token, &decoding_key, &validation) {
                 Ok(token_data) => {
-                    req.extensions_mut().insert(token_data.claims);
+                    // Deconstruct, modify, and reconstruct the request to safely add extensions.
+                    let (http_req, payload) = req.into_parts();
+                    http_req.extensions_mut().insert(token_data.claims);
+                    req = ServiceRequest::from_parts(http_req, payload);
                 }
                 Err(err) => {
-                    log::error!("Token is invalid: {:?}", err);
-                    // Token is invalid, but we don't error out here.
-                    // The handler will decide if it needs a valid token.
+                    log::warn!("Invalid token provided: {}", err);
+                    return Box::pin(async { Err(ErrorUnauthorized("Invalid token")) });
                 }
             }
-            log::info!("Validation {:?}", validation);
+            log::debug!("Validation {:?}", validation);
+        } else {
+            // No token was provided, but this is a protected route.
+            return Box::pin(async { Err(ErrorUnauthorized("Authentication token required.")) });
         }
 
         let fut = self.service.call(req);

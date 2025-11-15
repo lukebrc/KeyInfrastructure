@@ -1,12 +1,12 @@
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder};
 use serde::Deserialize;
-use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
     auth::Claims,
     db_model::{CertificateInfo, CertificateStatus},
     errors::ApiError,
+    AppState,
 };
 
 #[derive(Deserialize, Debug)]
@@ -26,10 +26,11 @@ pub struct ListCertificatesResponse {
 }
 
 pub async fn list_certificates(
-    pool: web::Data<PgPool>,
+    state: web::Data<AppState>,
     req: HttpRequest,
     query: web::Query<ListCertificatesQuery>,
 ) -> Result<impl Responder, ApiError> {
+    log::info!("Listing certificates");
     let claims = req
         .extensions()
         .get::<Claims>()
@@ -64,7 +65,7 @@ pub async fn list_certificates(
         count_query_builder = count_query_builder.bind(status);
     }
 
-    let total: i64 = count_query_builder.fetch_one(pool.get_ref()).await?;
+    let total: i64 = count_query_builder.fetch_one(&state.pool).await?;
 
     // Build query for fetching certificates
     let select_query = format!(
@@ -89,7 +90,7 @@ pub async fn list_certificates(
         query_builder = query_builder.bind(cert_status);
     }
 
-    let certificates = query_builder.fetch_all(pool.get_ref()).await?;
+    let certificates = query_builder.fetch_all(&state.pool).await?;
 
     Ok(HttpResponse::Ok().json(ListCertificatesResponse {
         certificates,
