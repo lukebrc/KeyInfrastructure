@@ -26,6 +26,15 @@
 - **Error Codes and Messages**: 401 Unauthorized - "Invalid credentials"
 
 - **Method**: GET
+- **URL Path**: /auth/verify
+- **Description**: Verify the validity of a JWT token provided in the Authorization header.
+- **Query Parameters**: None
+- **Request JSON Structure**: None
+- **Response JSON Structure**: {"valid": "boolean", "role": "string" (optional), "userId": "string" (optional)}
+- **Success Codes and Messages**: 200 OK - Returns whether the token is valid, and if so, the user's role and ID.
+- **Error Codes and Messages**: 200 OK - with `{"valid": false, "role": null, "userId": null}` if the token is missing, malformed, or invalid.
+
+- **Method**: GET
 - **URL Path**: /users/{id}
 - **Description**: Retrieve user details (self or admin).
 - **Query Parameters**: None
