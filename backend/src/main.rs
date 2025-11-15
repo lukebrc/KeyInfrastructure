@@ -1,4 +1,4 @@
-use actix_web::{web, App, HttpServer};
+use actix_web::{middleware::Logger, web, App, HttpServer};
 use crate::auth::{login, register, verify_token};
 use crate::certificate::list_certificates;
 use crate::middleware::JwtMiddlewareFactory;
@@ -36,14 +36,15 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
+            .wrap(Logger::default())
             .app_data(app_state.clone())
             .route("/users", web::post().to(register))
             .route("/auth/login", web::post().to(login))
             .route("/auth/verify", web::get().to(verify_token))
             .service(
-                web::scope("/api")
+                web::resource("/certificates")
                     .wrap(JwtMiddlewareFactory)
-                    .route("/certificates", web::get().to(list_certificates)), // Add other protected routes here
+                    .route(web::get().to(list_certificates)),
             )
     })
     .bind(("0.0.0.0", 8080))?

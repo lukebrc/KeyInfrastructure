@@ -40,6 +40,8 @@ export const GET: APIRoute = async ({ request }) => {
     const url = new URL(request.url);
     const queryString = url.search;
 
+    console.info(`Getting certificates: ${backendUrl}/certificates${queryString}`);
+
     // Forward the request to the backend
     const response = await fetch(`${backendUrl}/certificates${queryString}`, {
       method: "GET",

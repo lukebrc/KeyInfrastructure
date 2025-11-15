@@ -3,6 +3,7 @@ use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage,
 };
+use actix_web::error::ErrorInternalServerError;
 use futures_util::future::LocalBoxFuture;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use crate::auth::Claims;
@@ -49,14 +50,24 @@ where
                 if parts.len() == 2 && parts[0] == "Bearer" {
                     Some(parts[1].to_string())
                 } else {
+                    log::warn!("Invalid authorization header: {:?}", value);
                     None
                 }
             }
             None => None,
         };
+        log::info!("Verifying token: {}", token.is_some());
+        log::debug!("Verifying token: {:?}", token);
 
         if let Some(token) = token {
-            let state = req.app_data::<actix_web::web::Data<crate::AppState>>().unwrap();
+            let state = match req.app_data::<actix_web::web::Data<crate::AppState>>() {
+                Some(state) => state,
+                None => {
+                    log::error!("App state not configured");
+                    return Box::pin(async { Err(ErrorInternalServerError("App state not configured")) })
+                }
+            };
+
             let decoding_key = DecodingKey::from_secret(state.jwt_secret.as_ref());
             let validation = Validation::default();
 
@@ -64,17 +75,20 @@ where
                 Ok(token_data) => {
                     req.extensions_mut().insert(token_data.claims);
                 }
-                Err(_) => {
+                Err(err) => {
+                    log::error!("Token is invalid: {:?}", err);
                     // Token is invalid, but we don't error out here.
                     // The handler will decide if it needs a valid token.
                 }
             }
+            log::info!("Validation {:?}", validation);
         }
 
         let fut = self.service.call(req);
 
         Box::pin(async move {
             let res = fut.await?;
+            log::info!("Verifying token result: {}", res.status());
             Ok(res)
         })
     }
