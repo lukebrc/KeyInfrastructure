@@ -106,6 +106,10 @@ CREATE POLICY admin_revoked_certificates ON revoked_certificates FOR ALL USING (
     EXISTS (SELECT 1 FROM users WHERE id = current_setting('app.current_user_id', true)::UUID AND role = 'ADMIN')
 );
 
+INSERT INTO users (username, password_hash, role, created_at, last_login_at)
+    VALUES('admin', '$2b$12$SoOS5Rb8Eqt9gUXEoJ3D3Objyd13ipwTe4t0aBFQqXCEhl7QZF.32', --admin123
+        'ADMIN', CURRENT_TIMESTAMP, null);
+
 -- Additional notes:
 -- 1. RLS: The policies assume a custom setting 'app.current_user_id' is set by the application (e.g., via SET LOCAL).
 --    Adjust based on your authentication mechanism (e.g., using JWT or session-based user context).

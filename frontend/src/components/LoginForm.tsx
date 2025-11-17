@@ -45,6 +45,7 @@ const LoginForm: React.FC = () => {
       const request: LoginRequest = { username, password };
       const response = await api.login(request);
 
+      console.info("Login response", response.user.username, response.user.role);
       // Token should be set in httpOnly cookie by backend
       // Redirect based on role or redirect URL
       if (redirectUrl) {

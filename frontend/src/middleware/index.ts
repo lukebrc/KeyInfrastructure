@@ -95,10 +95,21 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
     return next();
   }
 
+  console.info("Logged in as ", verification.role, verification.userId);
+  if (pathname.startsWith("/dashboard") && verification.role == "ADMIN") {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: `/admin${pathname}`
+        },
+      });
+    }
+
   // Check admin routes
   if (pathname.startsWith("/admin")) {
     if (verification.role !== "ADMIN") {
       // User is not admin, redirect to dashboard
+      console.error("User is not admin, redirecting to dashboard");
       return new Response(null, {
         status: 302,
         headers: {

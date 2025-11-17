@@ -141,8 +141,6 @@ pub async fn verify_token(state: web::Data<AppState>, req: HttpRequest) -> impl 
     };
     log::info!("Verifying token: {}", token);
 
-    log::info!("Verifying token");
-
     let decoding_key = DecodingKey::from_secret(state.jwt_secret.as_ref());
     let validation = Validation::default();
 
