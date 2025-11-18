@@ -1,4 +1,4 @@
-use actix_web::{cookie::{Cookie, SameSite}, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{cookie::{Cookie, SameSite}, web, HttpMessage, HttpRequest, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use bcrypt::{hash, verify};
 use jsonwebtoken::{encode, decode, Header, EncodingKey, DecodingKey, Validation};
@@ -228,5 +228,45 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
             log::error!("Failed to insert new user '{}' during registration", username);
             HttpResponse::InternalServerError().finish()
         },
+    }
+}
+
+pub async fn list_users(state: web::Data<AppState>, req: HttpRequest) -> impl Responder {
+    // 1. Extract claims inserted by the JWT middleware.
+    let claims = match req.extensions().get::<Claims>().cloned() {
+        Some(c) => c,
+        None => {
+            // This case should ideally not be reached if middleware is applied correctly.
+            log::warn!("list_users endpoint reached without claims.");
+            return HttpResponse::Unauthorized().json("Not authenticated.");
+        }
+    };
+
+    // 2. Check if the user has the ADMIN role.
+    if claims.role != UserRole::ADMIN.to_string() {
+        log::warn!("User '{}' with role '{}' attempted to access list_users.", claims.sub, claims.role);
+        return HttpResponse::Forbidden().json("Insufficient permissions. Administrator role required.");
+    }
+
+    log::info!("Admin user '{}' is listing all users.", claims.sub);
+
+    // 3. Fetch all users from the database.
+    match sqlx::query_as::<_, User>("SELECT id, username, password_hash, role FROM users")
+        .fetch_all(&state.pool)
+        .await
+    {
+        Ok(users) => {
+            // 4. Map the full User struct to the public UserInfo struct.
+            let user_infos: Vec<UserInfo> = users.into_iter().map(|user| UserInfo {
+                id: user.id.to_string(),
+                username: user.username,
+                role: user.role.to_string(),
+            }).collect();
+            HttpResponse::Ok().json(user_infos)
+        },
+        Err(e) => {
+            log::error!("Failed to fetch users from database: {:?}", e);
+            HttpResponse::InternalServerError().json("Failed to retrieve users.")
+        }
     }
 }

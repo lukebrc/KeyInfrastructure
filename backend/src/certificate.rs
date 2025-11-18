@@ -50,7 +50,7 @@ pub async fn list_certificates(
     // Basic validation to prevent SQL injection
     let allowed_sort_columns = ["serial_number", "dn", "status", "expiration_date", "renewed_count"];
     if !allowed_sort_columns.contains(&sort_by) {
-        return Err(ApiError::Internal("Invalid sort_by parameter".into()));
+        return Err(ApiError::BadRequest("Invalid sort_by parameter".into()));
     }
     let order_direction = if order.eq_ignore_ascii_case("desc") { "DESC" } else { "ASC" };
 
@@ -67,29 +67,31 @@ pub async fn list_certificates(
 
     let total: i64 = count_query_builder.fetch_one(&state.pool).await?;
 
-    // Build query for fetching certificates
+    // Build query for fetching certificates with correct parameter indexing
+    let status_clause = if status_filter.is_some() { "AND status = $2" } else { "" };
+    let limit_offset_params = if status_filter.is_some() { "LIMIT $3 OFFSET $4" } else { "LIMIT $2 OFFSET $3" };
+
     let select_query = format!(
-        "SELECT id, serial_number, dn, status, expiration_date, renewed_count FROM certificates WHERE user_id = $1 {} ORDER BY {} {} LIMIT $2 OFFSET $3",
-        if status_filter.is_some() { "AND status = $4" } else { "" },
+        "SELECT id, serial_number, dn, status, expiration_date, renewed_count FROM certificates WHERE user_id = $1 {} ORDER BY {} {} {}",
+        status_clause,
         sort_by,
-        order_direction
+        order_direction,
+        limit_offset_params
     );
 
-    let mut query_builder = sqlx::query_as::<_, CertificateInfo>(&select_query)
-        .bind(user_id)
-        .bind(limit)
-        .bind(offset);
+    let mut query_builder = sqlx::query_as::<_, CertificateInfo>(&select_query).bind(user_id);
 
     if let Some(status) = status_filter {
         let cert_status: CertificateStatus = match status.to_uppercase().as_str() {
             "ACTIVE" => CertificateStatus::ACTIVE,
             "EXPIRED" => CertificateStatus::EXPIRED,
             "REVOKED" => CertificateStatus::REVOKED,
-            _ => return Err(ApiError::Internal("Invalid status filter".into())),
+            _ => return Err(ApiError::BadRequest("Invalid status filter".into())),
         };
         query_builder = query_builder.bind(cert_status);
     }
 
+    let query_builder = query_builder.bind(limit).bind(offset);
     let certificates = query_builder.fetch_all(&state.pool).await?;
 
     Ok(HttpResponse::Ok().json(ListCertificatesResponse {

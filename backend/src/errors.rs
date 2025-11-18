@@ -7,6 +7,8 @@ pub enum ApiError {
     Database(#[from] sqlx::Error),
     #[error("Unauthorized: {0}")]
     Unauthorized(String),
+    #[error("Bad Request: {0}")]
+    BadRequest(String),
     #[error("Internal server error: {0}")]
     Internal(String),
     #[error("Conflict: {0}")]
@@ -18,6 +20,7 @@ impl ResponseError for ApiError {
         match self {
             ApiError::Database(_) => HttpResponse::InternalServerError().json("Database error"),
             ApiError::Unauthorized(msg) => HttpResponse::Unauthorized().json(msg),
+            ApiError::BadRequest(msg) => HttpResponse::BadRequest().json(msg),
             ApiError::Internal(msg) => HttpResponse::InternalServerError().json(msg),
             ApiError::Conflict(msg) => HttpResponse::Conflict().json(msg),
         }
