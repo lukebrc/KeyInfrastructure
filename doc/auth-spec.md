@@ -1,87 +1,87 @@
-# Specyfikacja Techniczna: Moduł Rejestracji i Logowania
+# Technical Specification: Registration and Login Module
 
-Niniejszy dokument opisuje architekturę i implementację funkcjonalności rejestracji i logowania użytkowników dla projektu KeyInfrastructure, zgodnie z wymaganiami PRD i zdefiniowanym stosem technologicznym.
+This document describes the architecture and implementation of user registration and login functionality for the KeyInfrastructure project, in accordance with PRD requirements and the defined technology stack.
 
-## 1. Architektura Interfejsu Użytkownika (Frontend)
+## 1. User Interface Architecture (Frontend)
 
-Architektura UI opiera się na integracji stron generowanych przez Astro z interaktywnymi komponentami React, dostarczanymi przez bibliotekę `shadcn/ui`.
+The UI architecture is based on integrating Astro-generated pages with interactive React components provided by the `shadcn/ui` library.
 
-### 1.1. Zmiany w Strukturze Stron i Layoutów
+### 1.1. Changes in Page and Layout Structure
 
-Wprowadzone zostaną dwie główne ścieżki/layouty w aplikacji: dla użytkowników nieuwierzytelnionych (`/login`, `/register`) oraz uwierzytelnionych (`/dashboard`, `/admin/*`).
+Two main paths/layouts will be introduced in the application: for unauthenticated users (`/login`, `/register`) and authenticated users (`/dashboard`, `/admin/*`).
 
-*   **Layout Nieuwierzytelniony (`src/layouts/PublicLayout.astro`):**
-    *   Prosty layout zawierający podstawowy nagłówek z logo aplikacji oraz stopkę.
-    *   Nie będzie zawierał nawigacji do chronionych części serwisu.
-    *   Będzie używany przez strony `/login` i `/register`.
+*   **Unauthenticated Layout (`src/layouts/PublicLayout.astro`):**
+    *   Simple layout containing a basic header with the application logo and footer.
+    *   Will not contain navigation to protected parts of the service.
+    *   Will be used by `/login` and `/register` pages.
 
-*   **Layout Uwierzytelniony (`src/layouts/AppLayout.astro`):**
-    *   Rozszerzy istniejący layout aplikacji.
-    *   Będzie zawierał nawigację specyficzną dla roli użytkownika (USER lub ADMIN), pobranej z tokenu JWT.
-    *   W nagłówku znajdzie się nazwa zalogowanego użytkownika oraz przycisk "Wyloguj".
+*   **Authenticated Layout (`src/layouts/AppLayout.astro`):**
+    *   Will extend the existing application layout.
+    *   Will contain navigation specific to the user's role (USER or ADMIN), retrieved from the JWT token.
+    *   The header will display the logged-in user's name and a "Logout" button.
 
-### 1.2. Nowe i Zmodyfikowane Strony (Astro)
+### 1.2. New and Modified Pages (Astro)
 
-*   **Strona Logowania (`src/pages/login.astro`):**
-    *   **Cel:** Umożliwienie logowania użytkownikom i administratorom.
-    *   **Struktura:** Wykorzysta `PublicLayout.astro`. Będzie renderować po stronie serwera kontener dla formularza logowania.
-    *   **Komponenty:** Będzie osadzać kliencki komponent `<LoginForm client:load />`.
-    *   **Logika:** Middleware Astro będzie automatycznie przekierowywać już zalogowanych użytkowników ze strony `/login` na odpowiedni dashboard (`/dashboard` lub `/admin/dashboard`).
+*   **Login Page (`src/pages/login.astro`):**
+    *   **Purpose:** Enable login for users and administrators.
+    *   **Structure:** Will use `PublicLayout.astro`. Will render a container for the login form on the server side.
+    *   **Components:** Will embed the client component `<LoginForm client:load />`.
+    *   **Logic:** Astro middleware will automatically redirect already logged-in users from the `/login` page to the appropriate dashboard (`/dashboard` or `/admin/dashboard`).
 
-*   **Strona Rejestracji (`src/pages/register.astro`):**
-    *   **Cel:** Umożliwienie samodzielnej rejestracji nowym użytkownikom.
-    *   **Struktura:** Wykorzysta `PublicLayout.astro`.
-    *   **Komponenty:** Będzie osadzać kliencki komponent `<RegisterForm client:load />`.
-    *   **Logika:** Podobnie jak strona logowania, będzie przekierowywać zalogowanych użytkowników.
+*   **Registration Page (`src/pages/register.astro`):**
+    *   **Purpose:** Enable self-registration for new users.
+    *   **Structure:** Will use `PublicLayout.astro`.
+    *   **Components:** Will embed the client component `<RegisterForm client:load />`.
+    *   **Logic:** Similar to the login page, will redirect logged-in users.
 
-### 1.3. Komponenty Interaktywne (React)
+### 1.3. Interactive Components (React)
 
-Komponenty te będą odpowiedzialne za całą interakcję z użytkownikiem, zarządzanie stanem formularza, walidację i komunikację z API.
+These components will be responsible for all user interaction, form state management, validation, and API communication.
 
-*   **Komponent `RegisterForm` (`src/components/auth/RegisterForm.tsx`):**
-    *   **Odpowiedzialność:** Zarządzanie stanem formularza rejestracji, walidacja i obsługa komunikacji z API.
-    *   **Pola formularza:**
+*   **`RegisterForm` Component (`src/components/auth/RegisterForm.tsx`):**
+    *   **Responsibility:** Managing registration form state, validation, and handling API communication.
+    *   **Form Fields:**
         *   `username`: `string`
-        *   `password`: `string` (typ `password`)
-        *   `pin`: `string` (typ `password`)
-    *   **Walidacja (client-side, z użyciem biblioteki np. `zod`):**
-        *   `username`: pole wymagane.
-        *   `password`: pole wymagane, minimum 8 znaków.
-        *   `pin`: pole wymagane, minimum 8 znaków.
-    *   **Obsługa Błędów:**
-        *   Wyświetlanie komunikatów walidacji pod odpowiednimi polami (np. "Hasło musi mieć co najmniej 8 znaków").
-        *   Obsługa błędów z API:
-            *   `409 Conflict`: Wyświetlenie komunikatu "Nazwa użytkownika jest już zajęta."
-            *   `400 Bad Request`: Wyświetlenie ogólnego komunikatu o błędnych danych.
-            *   `500 Internal Server Error`: Wyświetlenie komunikatu "Wystąpił błąd serwera. Spróbuj ponownie później."
-    *   **Scenariusze:**
-        1.  **Pomyślna rejestracja:** Po otrzymaniu odpowiedzi `201 Created` z `POST /users`, komponent automatycznie wywoła `POST /auth/login` z danymi użytkownika. Po pomyślnym zalogowaniu, nastąpi przekierowanie na stronę `/dashboard` za pomocą `window.location.href`.
-        2.  **Nieudana rejestracja:** Wyświetlenie odpowiedniego komunikatu o błędzie (np. za pomocą komponentu `Toast` z `shadcn/ui`).
+        *   `password`: `string` (type `password`)
+        *   `pin`: `string` (type `password`)
+    *   **Validation (client-side, using a library like `zod`):**
+        *   `username`: required field.
+        *   `password`: required field, minimum 8 characters.
+        *   `pin`: required field, minimum 8 characters.
+    *   **Error Handling:**
+        *   Display validation messages under appropriate fields (e.g., "Password must be at least 8 characters long").
+        *   Handle API errors:
+            *   `409 Conflict`: Display message "Username is already taken."
+            *   `400 Bad Request`: Display general message about invalid data.
+            *   `500 Internal Server Error`: Display message "A server error occurred. Please try again later."
+    *   **Scenarios:**
+        1.  **Successful registration:** After receiving a `201 Created` response from `POST /users`, the component will automatically call `POST /auth/login` with the user's credentials. After successful login, redirect to the `/dashboard` page using `window.location.href`.
+        2.  **Failed registration:** Display an appropriate error message (e.g., using the `Toast` component from `shadcn/ui`).
 
-*   **Komponent `LoginForm` (`src/components/auth/LoginForm.tsx`):**
-    *   **Odpowiedzialność:** Zarządzanie stanem formularza logowania i obsługa komunikacji z API.
-    *   **Pola formularza:**
+*   **`LoginForm` Component (`src/components/auth/LoginForm.tsx`):**
+    *   **Responsibility:** Managing login form state and handling API communication.
+    *   **Form Fields:**
         *   `username`: `string`
-        *   `password`: `string` (typ `password`)
-    *   **Walidacja (client-side):**
-        *   Wszystkie pola są wymagane.
-    *   **Obsługa Błędów:**
-        *   `401 Unauthorized`: Wyświetlenie komunikatu "Nieprawidłowa nazwa użytkownika lub hasło."
-        *   Inne błędy (400, 500) będą obsługiwane analogicznie jak w formularzu rejestracji.
-    *   **Scenariusze:**
-        1.  **Pomyślne logowanie:** Po otrzymaniu odpowiedzi `200 OK` z `POST /auth/login` zawierającej token JWT, komponent dokona przeładowania strony (`window.location.reload()`). Backend ustawi token w ciasteczku `httpOnly`, a middleware Astro po przeładowaniu przekieruje użytkownika na właściwą stronę na podstawie roli w tokenie.
-        2.  **Nieudane logowanie:** Wyświetlenie komunikatu o błędzie.
+        *   `password`: `string` (type `password`)
+    *   **Validation (client-side):**
+        *   All fields are required.
+    *   **Error Handling:**
+        *   `401 Unauthorized`: Display message "Invalid username or password."
+        *   Other errors (400, 500) will be handled similarly to the registration form.
+    *   **Scenarios:**
+        1.  **Successful login:** After receiving a `200 OK` response from `POST /auth/login` containing the JWT token, the component will reload the page (`window.location.reload()`). The backend will set the token in an `httpOnly` cookie, and Astro middleware will redirect the user to the appropriate page based on the role in the token after reload.
+        2.  **Failed login:** Display an error message.
 
-## 2. Logika Backendowa (Rust / actix-web)
+## 2. Backend Logic (Rust / actix-web)
 
-Backend będzie odpowiedzialny za logikę biznesową, walidację po stronie serwera oraz bezpieczną komunikację z bazą danych.
+The backend will be responsible for business logic, server-side validation, and secure database communication.
 
-### 2.1. Struktura Endpointów API
+### 2.1. API Endpoint Structure
 
-Zmiany będą dotyczyć istniejących endpointów z `rest-plan.md`.
+Changes will affect existing endpoints from `rest-plan.md`.
 
-*   **`POST /users` - Rejestracja użytkownika**
-    *   **Model Danych (Request Body):**
+*   **`POST /users` - User Registration**
+    *   **Data Model (Request Body):**
         ```rust
         // src/models/dto.rs
         #[derive(Deserialize, Validate)]
@@ -94,19 +94,19 @@ Zmiany będą dotyczyć istniejących endpointów z `rest-plan.md`.
             pub pin: String, // PIN nie jest zapisywany w bazie, używany tylko do szyfrowania klucza
         }
         ```
-    *   **Logika:**
-        1.  Walidacja `RegisterUserDto` przy użyciu `validator`.
-        2.  Sprawdzenie, czy użytkownik o podanej nazwie już istnieje w tabeli `users`. Jeśli tak, zwróć `409 Conflict`.
-        3.  Haszowanie hasła użytkownika (np. przy użyciu biblioteki `argon2` lub `bcrypt`).
-        4.  Utworzenie nowego rekordu w tabeli `users` z `username`, `password_hash` i domyślną rolą `USER`.
-        5.  Zwrócenie `201 Created`.
-    *   **Obsługa Wyjątków:**
-        *   Błąd walidacji -> `400 Bad Request`.
-        *   Użytkownik istnieje -> `409 Conflict`.
-        *   Błąd bazy danych -> `500 Internal Server Error`.
+    *   **Logic:**
+        1.  Validate `RegisterUserDto` using `validator`.
+        2.  Check if a user with the given username already exists in the `users` table. If so, return `409 Conflict`.
+        3.  Hash the user's password (e.g., using the `argon2` or `bcrypt` library).
+        4.  Create a new record in the `users` table with `username`, `password_hash`, and default role `USER`.
+        5.  Return `201 Created`.
+    *   **Exception Handling:**
+        *   Validation error -> `400 Bad Request`.
+        *   User exists -> `409 Conflict`.
+        *   Database error -> `500 Internal Server Error`.
 
-*   **`POST /auth/login` - Logowanie użytkownika**
-    *   **Model Danych (Request Body):**
+*   **`POST /auth/login` - User Login**
+    *   **Data Model (Request Body):**
         ```rust
         // src/models/dto.rs
         #[derive(Deserialize, Validate)]
@@ -117,7 +117,7 @@ Zmiany będą dotyczyć istniejących endpointów z `rest-plan.md`.
             pub password: String,
         }
         ```
-    *   **Model Danych (Response Body):**
+    *   **Data Model (Response Body):**
         ```rust
         // src/models/dto.rs
         #[derive(Serialize)]
@@ -125,61 +125,61 @@ Zmiany będą dotyczyć istniejących endpointów z `rest-plan.md`.
             pub token: String,
         }
         ```
-    *   **Logika:**
-        1.  Walidacja `LoginUserDto`.
-        2.  Wyszukanie użytkownika w tabeli `users` po `username`. Jeśli nie istnieje, zwróć `401 Unauthorized`.
-        3.  Weryfikacja podanego hasła z hashem zapisanym w bazie (`password_hash`). Jeśli się nie zgadza, zwróć `401 Unauthorized`.
-        4.  Wygenerowanie tokenu JWT zawierającego `user_id`, `username` i `role`.
-        5.  Zaktualizowanie pola `last_login_at` dla użytkownika.
-        6.  Zwrócenie `200 OK` z tokenem JWT w ciele odpowiedzi oraz ustawienie go w bezpiecznym ciasteczku `httpOnly`.
-    *   **Obsługa Wyjątków:**
-        *   Błąd walidacji -> `400 Bad Request`.
-        *   Błędne dane logowania -> `401 Unauthorized`.
-        *   Błąd generowania tokenu / błąd bazy danych -> `500 Internal Server Error`.
+    *   **Logic:**
+        1.  Validate `LoginUserDto`.
+        2.  Search for the user in the `users` table by `username`. If not found, return `401 Unauthorized`.
+        3.  Verify the provided password against the hash stored in the database (`password_hash`). If it doesn't match, return `401 Unauthorized`.
+        4.  Generate a JWT token containing `user_id`, `username`, and `role`.
+        5.  Update the `last_login_at` field for the user.
+        6.  Return `200 OK` with the JWT token in the response body and set it in a secure `httpOnly` cookie.
+    *   **Exception Handling:**
+        *   Validation error -> `400 Bad Request`.
+        *   Invalid login credentials -> `401 Unauthorized`.
+        *   Token generation error / database error -> `500 Internal Server Error`.
 
-### 2.2. Walidacja Danych Wejściowych
+### 2.2. Input Data Validation
 
-Walidacja będzie realizowana na dwóch poziomach:
-1.  **Frontend:** Podstawowa walidacja w czasie rzeczywistym w komponentach React, aby zapewnić natychmiastowy feedback dla użytkownika.
-2.  **Backend:** Rygorystyczna walidacja po stronie serwera przy użyciu crate'a `validator` na modelach DTO. Jest to kluczowe zabezpieczenie przed zmanipulowanymi żądaniami.
+Validation will be implemented at two levels:
+1.  **Frontend:** Basic real-time validation in React components to provide immediate feedback to the user.
+2.  **Backend:** Rigorous server-side validation using the `validator` crate on DTO models. This is a critical safeguard against manipulated requests.
 
-## 3. System Autentykacji
+## 3. Authentication System
 
-System będzie oparty na bezstanowych tokenach JWT, co jest zgodne z architekturą REST i stosem technologicznym.
+The system will be based on stateless JWT tokens, which is consistent with REST architecture and the technology stack.
 
-### 3.1. Generowanie i Zarządzanie Tokenem JWT
+### 3.1. JWT Token Generation and Management
 
-*   **Biblioteka:** `jsonwebtoken` w Rust.
-*   **Klucz Sekretny:** Klucz do podpisywania tokenów będzie ładowany ze zmiennej środowiskowej (`JWT_SECRET`), aby uniknąć hardkodowania go w kodzie.
-*   **Payload (Zawartość) Tokenu:**
+*   **Library:** `jsonwebtoken` in Rust.
+*   **Secret Key:** The key for signing tokens will be loaded from an environment variable (`JWT_SECRET`) to avoid hardcoding it in the code.
+*   **Token Payload (Contents):**
     ```json
     {
-      "sub": "user_id_uuid", // Subject (ID użytkownika)
+      "sub": "user_id_uuid", // Subject (User ID)
       "username": "user_login",
-      "role": "USER", // lub "ADMIN"
-      "exp": 1678886400 // Timestamp wygaśnięcia (np. 1 godzina od wystawienia)
+      "role": "USER", // or "ADMIN"
+      "exp": 1678886400 // Expiration timestamp (e.g., 1 hour from issuance)
     }
     ```
-*   **Przesyłanie Tokenu:** Po pomyślnym logowaniu, backend ustawi token w ciasteczku `httpOnly`, `Secure`, `SameSite=Strict`. Dzięki temu token będzie automatycznie dołączany do kolejnych żądań, a jednocześnie niedostępny dla skryptów JavaScript po stronie klienta, co chroni przed atakami XSS. Frontend nie musi zarządzać przechowywaniem tokenu.
+*   **Token Transmission:** After successful login, the backend will set the token in an `httpOnly`, `Secure`, `SameSite=Strict` cookie. This ensures the token is automatically included in subsequent requests while being inaccessible to client-side JavaScript scripts, protecting against XSS attacks. The frontend does not need to manage token storage.
 
-### 3.2. Middleware Autoryzacyjny (actix-web)
+### 3.2. Authorization Middleware (actix-web)
 
-Zostanie stworzony middleware dla `actix-web`, który będzie chronił zabezpieczone endpointy.
+Middleware will be created for `actix-web` to protect secured endpoints.
 
-*   **Logika Middleware:**
-    1.  Odczytanie tokenu JWT z ciasteczka w przychodzącym żądaniu.
-    2.  Jeśli tokenu nie ma, zwróć `401 Unauthorized`.
-    3.  Weryfikacja podpisu i daty wygaśnięcia tokenu przy użyciu `JWT_SECRET`.
-    4.  Jeśli token jest nieprawidłowy lub wygasł, zwróć `401 Unauthorized`.
-    5.  Jeśli token jest prawidłowy, zdekodowane dane (np. `user_id`, `role`) zostaną dołączone do żądania (np. jako `request extension`), aby były dostępne w handlerach endpointów.
-    6.  Opcjonalnie, middleware może sprawdzać wymaganą rolę dla danego endpointu (np. `/admin/*` wymaga roli `ADMIN`) i zwrócić `403 Forbidden` w przypadku braku uprawnień.
+*   **Middleware Logic:**
+    1.  Read the JWT token from the cookie in the incoming request.
+    2.  If the token is missing, return `401 Unauthorized`.
+    3.  Verify the token's signature and expiration date using `JWT_SECRET`.
+    4.  If the token is invalid or expired, return `401 Unauthorized`.
+    5.  If the token is valid, decoded data (e.g., `user_id`, `role`) will be attached to the request (e.g., as a `request extension`) to be available in endpoint handlers.
+    6.  Optionally, the middleware can check the required role for a given endpoint (e.g., `/admin/*` requires the `ADMIN` role) and return `403 Forbidden` if permissions are lacking.
 
-### 3.3. Wylogowanie
+### 3.3. Logout
 
-Wylogowanie będzie realizowane przez usunięcie ciasteczka z tokenem.
+Logout will be implemented by removing the cookie containing the token.
 
 *   **Endpoint `POST /auth/logout`:**
-    *   Nie wymaga ciała żądania.
-    *   **Logika:** Czyści ciasteczko `httpOnly` zawierające token JWT, ustawiając jego datę wygaśnięcia na przeszłą.
-    *   **Odpowiedź:** `200 OK`.
-*   **Interakcja na Frontendzie:** Przycisk "Wyloguj" w `AppLayout.astro` wywoła ten endpoint, a następnie przekieruje użytkownika na stronę `/login`.
+    *   Does not require a request body.
+    *   **Logic:** Clears the `httpOnly` cookie containing the JWT token by setting its expiration date to the past.
+    *   **Response:** `200 OK`.
+*   **Frontend Interaction:** The "Logout" button in `AppLayout.astro` will call this endpoint and then redirect the user to the `/login` page.

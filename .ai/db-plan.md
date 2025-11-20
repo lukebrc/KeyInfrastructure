@@ -1,6 +1,6 @@
 # Database Schema for KeyInfrastructure Project
 
-## 1. Lista tabel z ich kolumnami, typami danych i ograniczeniami
+## 1. List of tables with their columns, data types, and constraints
 
 ### users
 - **id**: UUID PRIMARY KEY (generowane automatycznie)
@@ -10,92 +10,92 @@
 - **created_at**: TIMESTAMPTZ NOT NULL DEFAULT NOW()
 - **last_login_at**: TIMESTAMPTZ (NULLABLE, aktualizowane przy logowaniu)
 
-**Ograniczenia**:
-- UNIQUE na username
-- CHECK na role (tylko 'ADMIN' lub 'USER')
+**Constraints**:
+- UNIQUE on username
+- CHECK on role (only 'ADMIN' or 'USER')
 
 ### certificates
 - **id**: UUID PRIMARY KEY (generowane automatycznie)
 - **user_id**: UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
-- **serial_number**: VARCHAR(255) UNIQUE NOT NULL (kryptograficznie bezpieczny, generowany w Rust)
-- **dn**: TEXT NOT NULL (np. "C=PL,CN=username,O=Organization,OU=Unit")
+- **serial_number**: VARCHAR(255) UNIQUE NOT NULL (cryptographically secure, generated in Rust)
+- **dn**: TEXT NOT NULL (e.g., "C=PL,CN=username,O=Organization,OU=Unit")
 - **status**: ENUM('ACTIVE', 'REVOKED') NOT NULL DEFAULT 'ACTIVE'
-- **expiration_date**: TIMESTAMPTZ NOT NULL (obliczane jako created_at + validity_period_days)
+- **expiration_date**: TIMESTAMPTZ NOT NULL (calculated as created_at + validity_period_days)
 - **created_at**: TIMESTAMPTZ NOT NULL DEFAULT NOW()
 - **renewed_count**: INTEGER NOT NULL DEFAULT 0
-- **renewal_date**: TIMESTAMPTZ (NULLABLE, aktualizowane przy odnowieniu)
+- **renewal_date**: TIMESTAMPTZ (NULLABLE, updated on renewal)
 
-**Ograniczenia**:
-- UNIQUE na serial_number
-- CHECK na status (tylko dozwolone wartości)
+**Constraints**:
+- UNIQUE on serial_number
+- CHECK on status (only allowed values)
 
 ### private_keys
 - **id**: UUID PRIMARY KEY (generowane automatycznie)
 - **certificate_id**: UUID NOT NULL REFERENCES certificates(id) ON DELETE CASCADE
-- **encrypted_key**: BYTEA NOT NULL (klucz prywatny zaszyfrowany AES-256 z PIN-em użytkownika)
-- **salt**: BYTEA NOT NULL (losowa sól dla szyfrowania)
+- **encrypted_key**: BYTEA NOT NULL (private key encrypted with AES-256 using user's PIN)
+- **salt**: BYTEA NOT NULL (random salt for encryption)
 
-**Ograniczenia**:
-- UNIQUE na certificate_id (jeden klucz na certyfikat)
+**Constraints**:
+- UNIQUE on certificate_id (one key per certificate)
 
 ### revoked_certificates
 - **id**: UUID PRIMARY KEY (generowane automatycznie)
 - **certificate_id**: UUID NOT NULL REFERENCES certificates(id) ON DELETE CASCADE
 - **revocation_date**: TIMESTAMPTZ NOT NULL DEFAULT NOW()
-- **reason**: VARCHAR(255) (np. 'KEY_COMPROMISE', 'AFFILIATION_CHANGED')
+- **reason**: VARCHAR(255) (e.g., 'KEY_COMPROMISE', 'AFFILIATION_CHANGED')
 
-**Ograniczenia**:
-- UNIQUE na certificate_id (certyfikat może być odwołany tylko raz)
+**Constraints**:
+- UNIQUE on certificate_id (certificate can be revoked only once)
 
-## 2. Relacje między tabelami
+## 2. Relationships between tables
 
-- **users do certificates**: Jeden-do-wielu (jeden użytkownik może mieć wiele certyfikatów)
-- **certificates do private_keys**: Jeden-do-jednego (każdy certyfikat ma jeden klucz prywatny)
-- **certificates do revoked_certificates**: Jeden-do-jednego (certyfikat może być odwołany tylko raz, jeśli w ogóle)
+- **users to certificates**: One-to-many (one user can have multiple certificates)
+- **certificates to private_keys**: One-to-one (each certificate has one private key)
+- **certificates to revoked_certificates**: One-to-one (certificate can be revoked only once, if at all)
 
-## 3. Indeksy
+## 3. Indexes
 
 - **users**:
-  - UNIQUE INDEX na username (dla szybkiego wyszukiwania przy logowaniu)
-  - INDEX na role (dla zapytań administracyjnych)
+  - UNIQUE INDEX on username (for fast lookup during login)
+  - INDEX on role (for administrative queries)
 
 - **certificates**:
-  - UNIQUE INDEX na serial_number (wymagane dla unikalności)
-  - INDEX na user_id (dla zapytań użytkownika o swoje certyfikaty)
-  - INDEX na expiration_date (dla powiadomień o wygaśnięciu)
-  - COMPOSITE INDEX na (user_id, status) (optymalizacja zapytań użytkownika)
-  - COMPOSITE INDEX na (expiration_date, status) (dla zapytań o wygasające certyfikaty)
-  - PARTIAL INDEX na expiration_date WHERE status = 'ACTIVE' (tylko aktywne certyfikaty)
+  - UNIQUE INDEX on serial_number (required for uniqueness)
+  - INDEX on user_id (for user queries about their certificates)
+  - INDEX on expiration_date (for expiration notifications)
+  - COMPOSITE INDEX on (user_id, status) (optimization for user queries)
+  - COMPOSITE INDEX on (expiration_date, status) (for queries about expiring certificates)
+  - PARTIAL INDEX on expiration_date WHERE status = 'ACTIVE' (only active certificates)
 
 - **private_keys**:
-  - INDEX na certificate_id (dla szybkiego dostępu do klucza)
+  - INDEX on certificate_id (for fast key access)
 
 - **revoked_certificates**:
-  - INDEX na certificate_id (dla sprawdzeń odwołania)
-  - INDEX na revocation_date (dla raportów)
+  - INDEX on certificate_id (for revocation checks)
+  - INDEX on revocation_date (for reports)
 
-## 4. Zasady PostgreSQL (RLS)
+## 4. PostgreSQL Row-Level Security (RLS) Policies
 
-- **users**: Brak RLS (administratorzy zarządzają bezpośrednio)
+- **users**: No RLS (administrators manage directly)
 - **certificates**: 
-  - Użytkownicy widzą tylko swoje certyfikaty (WHERE user_id = current_user_id())
-  - Administratorzy widzą wszystkie certyfikaty
+  - Users see only their own certificates (WHERE user_id = current_user_id())
+  - Administrators see all certificates
 - **private_keys**: 
-  - Użytkownicy widzą tylko klucze swoich certyfikatów
-  - Administratorzy widzą wszystkie klucze
-- **revoked_certificates**: Podobnie jak certificates
+  - Users see only keys for their certificates
+  - Administrators see all keys
+- **revoked_certificates**: Similar to certificates
 
-## 5. Wszelkie dodatkowe uwagi lub wyjaśnienia dotyczące decyzji projektowych
+## 5. Additional notes and explanations regarding design decisions
 
-- **Normalizacja**: Schemat jest w 3NF; denormalizacja nie jest wymagana, ponieważ wydajność jest zapewniona przez indeksy.
-- **Szyfrowanie**: Klucze prywatne są szyfrowane AES-256 z PIN-em użytkownika jako kluczem (PIN nie przechowywany w bazie). Klucz CA jest szyfrowany hasłem z ENV.
-- **UUID**: Użyte dla globalnej unikalności i bezpieczeństwa (trudniejsze do zgadnięcia niż sekwencyjne ID).
-- **Status certyfikatów**: 'ACTIVE' dla ważnych, 'EXPIRED' dla wygasłych, 'REVOKED' dla odwołanych.
-- **Rozwiązanie problemów**:
-  - PIN: Nie przechowywany; używany tylko do szyfrowania PKCS#12 przy pobieraniu.
-  - Pola DN: Standardowe (C, CN, O, OU, itp.), przechowywane jako ciąg tekstowy.
-  - Kopia klucza: Zaszyfrowana kopia w private_keys.
-  - Algorytm klucza: RSA 4096 (hardkodowany w backendzie).
-  - Okres ważności: 1 dzień do 10 lat.
-- **Wydajność**: Zoptymalizowana dla 100 użytkowników, 10 certyfikatów na użytkownika, 10 współbieżnych użytkowników poprzez indeksy.
-- **Rozszerzenia PostgreSQL**: Wymagane: pgcrypto dla szyfrowania, uuid-ossp dla UUID.
+- **Normalization**: Schema is in 3NF; denormalization is not required as performance is ensured through indexes.
+- **Encryption**: Private keys are encrypted with AES-256 using user's PIN as the key (PIN not stored in database). CA key is encrypted with password from ENV.
+- **UUID**: Used for global uniqueness and security (harder to guess than sequential IDs).
+- **Certificate status**: 'ACTIVE' for valid, 'EXPIRED' for expired, 'REVOKED' for revoked.
+- **Problem resolution**:
+  - PIN: Not stored; used only for PKCS#12 encryption during download.
+  - DN fields: Standard (C, CN, O, OU, etc.), stored as text string.
+  - Key backup: Encrypted copy in private_keys.
+  - Key algorithm: RSA 4096 (hardcoded in backend).
+  - Validity period: 1 day to 10 years.
+- **Performance**: Optimized for 100 users, 10 certificates per user, 10 concurrent users through indexes.
+- **PostgreSQL extensions**: Required: pgcrypto for encryption, uuid-ossp for UUID.

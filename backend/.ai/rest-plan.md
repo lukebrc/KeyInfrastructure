@@ -10,71 +10,71 @@
 tech-stack.md
 </tech-stack>
 
-Jesteś doświadczonym architektem API, którego zadaniem jest stworzenie kompleksowego planu API REST. Twój plan będzie oparty na podanym schemacie bazy danych, dokumencie wymagań produktu (PRD) i stacku technologicznym podanym powyżej. Uważnie przejrzyj dane wejściowe i wykonaj następujące kroki:
+You are an experienced API architect whose task is to create a comprehensive REST API plan. Your plan will be based on the provided database schema, product requirements document (PRD), and technology stack mentioned above. Carefully review the input data and perform the following steps:
 
-1. Przeanalizuj schemat bazy danych:
-   - Zidentyfikuj główne encje (tabele)
-   - Zanotuj relacje między jednostkami
-   - Rozważ wszelkie indeksy, które mogą mieć wpływ na projekt API
-   - Zwróć uwagę na warunki walidacji określone w schemacie.
+1. Analyze the database schema:
+   - Identify main entities (tables)
+   - Note relationships between entities
+   - Consider any indexes that may impact API design
+   - Pay attention to validation conditions specified in the schema
 
-2. Przeanalizuj PRD:
-   - Zidentyfikuj kluczowe cechy i funkcjonalności
-   - Zwróć uwagę na konkretne wymagania dotyczące operacji na danych (pobieranie, tworzenie, aktualizacja, usuwanie)
-   - Zidentyfikuj wymagania logiki biznesowej, które wykraczają poza operacje CRUD
+2. Analyze the PRD:
+   - Identify key features and functionalities
+   - Note specific requirements for data operations (retrieve, create, update, delete)
+   - Identify business logic requirements that go beyond CRUD operations
 
-3. Rozważ stack technologiczny:
-   - Upewnij się, że plan API jest zgodny z określonymi technologiami.
-   - Rozważ, w jaki sposób te technologie mogą wpłynąć na projekt API
+3. Consider the technology stack:
+   - Ensure the API plan is compatible with the specified technologies
+   - Consider how these technologies may impact API design
 
-4. Tworzenie kompleksowego planu interfejsu API REST:
-   - Zdefiniowanie głównych zasobów w oparciu o encje bazy danych i wymagania PRD
-   - Zaprojektowanie punktów końcowych CRUD dla każdego zasobu
-   - Zaprojektuj punkty końcowe dla logiki biznesowej opisanej w PRD
-   - Uwzględnienie paginacji, filtrowania i sortowania dla punktów końcowych listy.
-   - Zaplanuj odpowiednie użycie metod HTTP
-   - Zdefiniowanie struktur ładunku żądania i odpowiedzi
-   - Uwzględnienie mechanizmów uwierzytelniania i autoryzacji, jeśli wspomniano o nich w PRD
-   - Rozważenie ograniczenia szybkości i innych środków bezpieczeństwa
+4. Create a comprehensive REST API plan:
+   - Define main resources based on database entities and PRD requirements
+   - Design CRUD endpoints for each resource
+   - Design endpoints for business logic described in the PRD
+   - Include pagination, filtering, and sorting for list endpoints
+   - Plan appropriate use of HTTP methods
+   - Define request and response payload structures
+   - Include authentication and authorization mechanisms if mentioned in the PRD
+   - Consider rate limiting and other security measures
 
-Przed dostarczeniem ostatecznego planu, pracuj wewnątrz tagów <api_analysis> w swoim bloku myślenia, aby rozbić swój proces myślowy i upewnić się, że uwzględniłeś wszystkie niezbędne aspekty. W tej sekcji:
+Before delivering the final plan, work inside <api_analysis> tags in your thinking block to break down your thought process and ensure you've considered all necessary aspects. In this section:
 
-1. Wymień główne encje ze schematu bazy danych. Ponumeruj każdą encję i zacytuj odpowiednią część schematu.
-2. Wymień kluczowe funkcje logiki biznesowej z PRD. Ponumeruj każdą funkcję i zacytuj odpowiednią część PRD.
-3. Zmapuj funkcje z PRD do potencjalnych punktów końcowych API. Dla każdej funkcji rozważ co najmniej dwa możliwe projekty punktów końcowych i wyjaśnij, który z nich wybrałeś i dlaczego.
-4. Rozważ i wymień wszelkie wymagania dotyczące bezpieczeństwa i wydajności. Dla każdego wymagania zacytuj część dokumentów wejściowych, która je obsługuje.
-5. Wyraźnie mapuj logikę biznesową z PRD na punkty końcowe API.
-6. Uwzględnienie warunków walidacji ze schematu bazy danych w planie API.
+1. List the main entities from the database schema. Number each entity and quote the relevant part of the schema.
+2. List key business logic features from the PRD. Number each feature and quote the relevant part of the PRD.
+3. Map features from the PRD to potential API endpoints. For each feature, consider at least two possible endpoint designs and explain which one you chose and why.
+4. Consider and list any security and performance requirements. For each requirement, quote the part of the input documents that addresses it.
+5. Explicitly map business logic from the PRD to API endpoints.
+6. Include validation conditions from the database schema in the API plan.
 
-Ta sekcja może być dość długa.
+This section may be quite long.
 
-Ostateczny plan API powinien być sformatowany w markdown i zawierać następujące sekcje:
+The final API plan should be formatted in markdown and include the following sections:
 
 ```markdown
 # REST API Plan
 
-## 1. Zasoby
-- Wymień każdy główny zasób i odpowiadającą mu tabelę bazy danych
+## 1. Resources
+- List each main resource and its corresponding database table
 
-## 2. Punkty końcowe
-Dla każdego zasobu podaj:
-- Metoda HTTP
-- Ścieżka URL
-- Krótki opis
-- Parametry zapytania (jeśli dotyczy)
-- Struktura ładunku żądania JSON (jeśli dotyczy)
-- Struktura ładunku odpowiedzi JSON
-- Kody i komunikaty powodzenia
-- Kody i komunikaty błędów
+## 2. Endpoints
+For each resource provide:
+- HTTP Method
+- URL Path
+- Brief description
+- Query parameters (if applicable)
+- JSON request payload structure (if applicable)
+- JSON response payload structure
+- Success codes and messages
+- Error codes and messages
 
-## 3. Uwierzytelnianie i autoryzacja
-- Opisz wybrany mechanizm uwierzytelniania i szczegóły implementacji
+## 3. Authentication and Authorization
+- Describe the chosen authentication mechanism and implementation details
 
-## 4. Walidacja i logika biznesowa
-- Lista warunków walidacji dla każdego zasobu
-- Opisz, w jaki sposób logika biznesowa jest zaimplementowana w API
+## 4. Validation and Business Logic
+- List validation conditions for each resource
+- Describe how business logic is implemented in the API
 ```
 
-Upewnij się, że Twój plan jest kompleksowy, dobrze skonstruowany i odnosi się do wszystkich aspektów materiałów wejściowych. Jeśli musisz przyjąć jakieś założenia z powodu niejasnych informacji wejściowych, określ je wyraźnie w swojej analizie.
+Ensure your plan is comprehensive, well-structured, and addresses all aspects of the input materials. If you need to make any assumptions due to unclear input information, state them explicitly in your analysis.
 
-Końcowy wynik powinien składać się wyłącznie z planu API w formacie markdown w języku angielskim, który zapiszesz w .ai/api-plan.md i nie powinien powielać ani powtarzać żadnej pracy wykonanej w bloku myślenia.
+The final output should consist solely of the API plan in markdown format in English, which you will save to .ai/api-plan.md and should not duplicate or repeat any work done in the thinking block.
