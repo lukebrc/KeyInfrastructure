@@ -1,96 +1,92 @@
-### Plan Testów dla Aplikacji Backendowej
+### Test Plan for the Backend Application
 
----
+#### 1. Introduction and Scope
 
-#### 1. Wprowadzenie i Zakres
+This document describes the test plan for the backend application, written in Rust using the `actix-web` framework and the `sqlx` library. The goal of the tests is to verify the correct implementation of functional and non-functional requirements defined in the `prd_summary.md` document, as well as to ensure the stability, security, and performance of the system.
 
-Niniejszy dokument opisuje plan testów dla aplikacji backendowej, napisanej w języku Rust z wykorzystaniem frameworka `actix-web` i biblioteki `sqlx`. Celem testów jest weryfikacja poprawności implementacji wymagań funkcjonalnych i niefunkcjonalnych zdefiniowanych w dokumencie `prd_summary.md`, a także zapewnienie stabilności, bezpieczeństwa i wydajności systemu.
+**Tests will cover:**
+*   Application business logic.
+*   API endpoints (RESTful endpoints).
+*   Integration with the PostgreSQL database.
+*   Authentication and authorization mechanisms.
+*   Concurrency handling and basic performance tests.
 
-**Testy obejmą:**
-*   Logikę biznesową aplikacji.
-*   Punkty końcowe API (RESTful endpoints).
-*   Integrację z bazą danych PostgreSQL.
-*   Mechanizmy uwierzytelniania i autoryzacji.
-*   Obsługę współbieżności i podstawowe testy wydajnościowe.
+**Out of scope for these tests are:**
+*   User interface (frontend) tests.
+*   Full E2E flow tests involving a browser.
+*   Infrastructure tests (DigitalOcean, Docker).
 
-**Poza zakresem testów znajdują się:**
-*   Testy interfejsu użytkownika (frontend).
-*   Testy pełnego przepływu E2E z udziałem przeglądarki.
-*   Testy infrastruktury (DigitalOcean, Docker).
+#### 2. Test Objectives
 
-#### 2. Cele Testów
+*   **Functional Verification:** To ensure that all functional requirements and user stories have been implemented correctly.
+*   **Security Verification:** To check key security aspects, such as encryption, authentication, and authorization.
+*   **Performance Verification:** To confirm that the backend meets the defined success criteria for concurrency and capacity.
+*   **Error Handling Verification:** To ensure that the API handles invalid input and exceptional states in a predictable and consistent manner.
+*   **Integration Verification:** To check the correctness of the interaction between the service and the database.
 
-*   **Weryfikacja Funkcjonalna:** Upewnienie się, że wszystkie wymagania funkcjonalne i historyjki użytkownika zostały zaimplementowane poprawnie.
-*   **Weryfikacja Bezpieczeństwa:** Sprawdzenie kluczowych aspektów bezpieczeństwa, takich jak szyfrowanie, uwierzytelnianie i autoryzacja.
-*   **Weryfikacja Wydajności:** Potwierdzenie, że backend spełnia zdefiniowane kryteria sukcesu dotyczące współbieżności i pojemności.
-*   **Weryfikacja Obsługi Błędów:** Zapewnienie, że API w sposób przewidywalny i spójny obsługuje nieprawidłowe dane wejściowe i stany wyjątkowe.
-*   **Weryfikacja Integracji:** Sprawdzenie poprawności współpracy między serwisem a bazą danych.
+#### 3. Testing Strategy
 
-#### 3. Strategia Testowania
+According to the `prd_summary.md` document, the main focus will be on integration tests written in Rust.
 
-Zgodnie z dokumentem `prd_summary.md`, główny nacisk zostanie położony na testy integracyjne napisane w Rust.
+*   **Unit Tests:**
+    *   **Objective:** Isolated testing of individual functions, especially those containing complex logic (e.g., cryptographic functions, DN validation).
+    *   **Tools:** Rust's built-in test framework (`#[test]`).
 
-*   **Testy Jednostkowe (Unit Tests):**
-    *   **Cel:** Izolowane testowanie poszczególnych funkcji, zwłaszcza tych zawierających złożoną logikę (np. funkcje kryptograficzne, walidacja DN).
-    *   **Narzędzia:** Wbudowany framework testowy Rust (`#[test]`).
+*   **Integration Tests:**
+    *   **Objective:** Testing the interaction between application components, mainly at the API level. They will simulate HTTP requests to endpoints and verify the responses and the state of the database.
+    *   **Tools:** `actix-web::test`, `sqlx` with the `sqlx::test` feature for managing transactions in tests, `tokio` for asynchronous tests.
+    *   **Environment:** A separate test database, initialized before running the tests.
 
-*   **Testy Integracyjne (Integration Tests):**
-    *   **Cel:** Testowanie współpracy między komponentami aplikacji, głównie na poziomie API. Będą symulować żądania HTTP do endpointów i weryfikować odpowiedzi oraz stan bazy danych.
-    *   **Narzędzia:** `actix-web::test`, `sqlx` z funkcją `sqlx::test` do zarządzania transakcjami w testach, `tokio` do testów asynchronicznych.
-    *   **Środowisko:** Osobna baza danych testowych, inicjalizowana przed uruchomieniem testów.
+*   **Load Tests:**
+    *   **Objective:** Verification of the success criterion regarding handling 10 concurrent users.
+    *   **Tools:** Rust integration tests with `tokio::spawn` can be used to simulate concurrent requests, or an external tool like `k6` or `wrk`.
 
-*   **Testy Obciążeniowe (Load Tests):**
-    *   **Cel:** Weryfikacja kryterium sukcesu dotyczącego obsługi 10 współbieżnych użytkowników.
-    *   **Narzędzia:** Można wykorzystać testy integracyjne w Rust z `tokio::spawn` do symulacji współbieżnych żądań lub zewnętrzne narzędzie jak `k6` lub `wrk`.
+#### 4. Test Scenarios
 
-#### 4. Scenariusze Testowe
+The following scenarios are based on the requirements and user stories.
 
-Poniższe scenariusze bazują na wymaganiach i historyjkach użytkownika.
+##### 4.1. User Management and Authentication
 
-##### 4.1. Zarządzanie Użytkownikami i Uwierzytelnianie
+| Test ID   | Description                                                                          | Expected Result                                                              | Priority  | Test Type     |
+| :-------- | :----------------------------------------------------------------------------------- | :--------------------------------------------------------------------------- | :-------- | :------------ |
+| **AUTH-01** | Register a new user with valid data (unique username, password, PIN min. 8 chars). | User is created in the database (status 201). The password is hashed.       | **Critical**  | Integration   |
+| **AUTH-02** | Attempt to register with an existing `username`.                                     | The server returns a 409 (Conflict) error.                                   | High      | Integration   |
+| **AUTH-03** | Attempt to register with a PIN shorter than 8 characters.                            | The server returns a 400 (Bad Request) error with a validation message.      | High      | Integration   |
+| **AUTH-04** | Log in with correct credentials.                                                     | The server returns a JWT token (status 200).                                 | **Critical**  | Integration   |
+| **AUTH-05** | Log in with an incorrect password.                                                   | The server returns a 401 (Unauthorized) error.                               | **Critical**  | Integration   |
+| **AUTH-06** | Access a protected resource (e.g., `GET /certificates`) without a token.            | The server returns a 401 (Unauthorized) error.                               | **Critical**  | Integration   |
+| **AUTH-07** | Access a protected resource with an expired token.                                   | The server returns a 401 (Unauthorized) error.                               | High      | Integration   |
+| **AUTH-08** | Access an admin resource (`/admin/*`) as a regular user.                             | The server returns a 403 (Forbidden) error.                                  | **Critical**  | Integration   |
 
-| ID Testu | Opis | Oczekiwany Rezultat | Priorytet | Typ Testu |
-| :--- | :--- | :--- | :--- | :--- |
-| **AUTH-01** | Rejestracja nowego użytkownika z poprawnymi danymi (unikalny username, hasło, PIN min. 8 znaków). | Użytkownik zostaje utworzony w bazie danych (status 201). Hasło jest zahashowane. | **Krytyczny** | Integracyjny |
-| **AUTH-02** | Próba rejestracji z istniejącym `username`. | Serwer zwraca błąd 409 (Conflict). | Wysoki | Integracyjny |
-| **AUTH-03** | Próba rejestracji z PIN-em krótszym niż 8 znaków. | Serwer zwraca błąd 400 (Bad Request) z komunikatem walidacyjnym. | Wysoki | Integracyjny |
-| **AUTH-04** | Logowanie z poprawnymi danymi uwierzytelniającymi. | Serwer zwraca token JWT (status 200). | **Krytyczny** | Integracyjny |
-| **AUTH-05** | Logowanie z niepoprawnym hasłem. | Serwer zwraca błąd 401 (Unauthorized). | **Krytyczny** | Integracyjny |
-| **AUTH-06** | Dostęp do chronionego zasobu (np. `GET /certificates`) bez tokenu. | Serwer zwraca błąd 401 (Unauthorized). | **Krytyczny** | Integracyjny |
-| **AUTH-07** | Dostęp do chronionego zasobu z wygasłym tokenem. | Serwer zwraca błąd 401 (Unauthorized). | Wysoki | Integracyjny |
-| **AUTH-08** | Dostęp do zasobu administratora (`/admin/*`) przez zwykłego użytkownika. | Serwer zwraca błąd 403 (Forbidden). | **Krytyczny** | Integracyjny |
+##### 4.2. Certificate Lifecycle
 
-##### 4.2. Cykl Życia Certyfikatu
+| Test ID   | Description                                                                          | Expected Result                                                                                      | Priority  | Test Type     |
+| :-------- | :----------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- | :-------- | :------------ |
+| **CERT-01** | Administrator creates a certificate for a user with valid data (DN, validity, hash). | The certificate is created and saved to the database (status 201). The private key is encrypted with the user's PIN and stored. | **Critical**  | Integration   |
+| **CERT-02** | Attempt to create a certificate for a non-existent user.                             | The server returns a 404 (Not Found) error.                                                          | High      | Integration   |
+| **CERT-03** | User downloads their certificate (PKCS#12) by providing the correct PIN.             | The server returns a binary file (status 200). The file is encrypted with the provided PIN.         | **Critical**  | Integration   |
+| **CERT-04** | User attempts to download a certificate by providing an incorrect PIN.               | The server returns a 400 (Bad Request) error with a message about the incorrect PIN.               | **Critical**  | Integration   |
+| **CERT-05** | User attempts to download another user's certificate.                                | The server returns a 403 (Forbidden) or 404 (Not Found) error.                                       | **Critical**  | Integration   |
+| **CERT-06** | User initiates certificate renewal.                                                  | A new certificate is generated, the old one is marked accordingly (if that is the logic).          | High      | Integration   |
+| **CERT-07** | A query to `GET /certificates/expiring` returns a list of certificates expiring within N days. | The list contains the correct certificates. If there are none, the list is empty.                    | High      | Integration   |
 
-| ID Testu | Opis | Oczekiwany Rezultat | Priorytet | Typ Testu |
-| :--- | :--- | :--- | :--- | :--- |
-| **CERT-01** | Administrator tworzy certyfikat dla użytkownika z poprawnymi danymi (DN, validity, hash). | Certyfikat jest tworzony i zapisywany w bazie danych (status 201). Klucz prywatny jest szyfrowany PIN-em użytkownika i przechowywany. | **Krytyczny** | Integracyjny |
-| **CERT-02** | Próba utworzenia certyfikatu dla nieistniejącego użytkownika. | Serwer zwraca błąd 404 (Not Found). | Wysoki | Integracyjny |
-| **CERT-03** | Użytkownik pobiera swój certyfikat (PKCS#12) podając poprawny PIN. | Serwer zwraca plik binarny (status 200). Plik jest zaszyfrowany podanym PIN-em. | **Krytyczny** | Integracyjny |
-| **CERT-04** | Użytkownik próbuje pobrać certyfikat podając niepoprawny PIN. | Serwer zwraca błąd 400 (Bad Request) z komunikatem o błędnym PIN-ie. | **Krytyczny** | Integracyjny |
-| **CERT-05** | Użytkownik próbuje pobrać certyfikat innego użytkownika. | Serwer zwraca błąd 403 (Forbidden) lub 404 (Not Found). | **Krytyczny** | Integracyjny |
-| **CERT-06**| Użytkownik inicjuje odnowienie certyfikatu. | Nowy certyfikat jest generowany, stary jest odpowiednio oznaczany (jeśli taka jest logika). | Wysoki | Integracyjny |
-| **CERT-07** | Zapytanie do `GET /certificates/expiring` zwraca listę certyfikatów wygasających w ciągu N dni. | Lista zawiera poprawne certyfikaty. Jeśli brak, lista jest pusta. | Wysoki | Integracyjny |
+##### 4.3. Concurrency and Performance Tests
 
-##### 4.3. Testy Współbieżności i Wydajności
+| Test ID   | Description                                                                     | Expected Result                                                                      | Priority | Test Type  |
+| :-------- | :------------------------------------------------------------------------------ | :----------------------------------------------------------------------------------- | :------- | :--------- |
+| **PERF-01** | Simulate 10 concurrent logins of different users.                               | All users successfully receive JWT tokens without errors and in an acceptable time (< 500ms). | High     | Load Test  |
+| **PERF-02** | Simulate 10 concurrent requests for the list of certificates (`GET /certificates`). | All requests complete successfully (status 200) without timeouts.                      | High     | Load Test  |
 
-| ID Testu | Opis | Oczekiwany Rezultat | Priorytet | Typ Testu |
-| :--- | :--- | :--- | :--- | :--- |
-| **PERF-01** | Symulacja 10 jednoczesnych logowań różnych użytkowników. | Wszyscy użytkownicy pomyślnie otrzymują tokeny JWT bez błędów i w akceptowalnym czasie (< 500ms). | Wysoki | Obciążeniowy |
-| **PERF-02** | Symulacja 10 jednoczesnych zapytań o listę certyfikatów (`GET /certificates`). | Wszystkie zapytania kończą się sukcesem (status 200) bez timeoutów. | Wysoki | Obciążeniowy |
+#### 5. Test Environment and Tools
 
-#### 5. Środowisko Testowe i Narzędzia
+*   **Language and Framework:** Rust, `actix-web`.
+*   **Database:** Dedicated PostgreSQL instance for tests, managed by `sqlx-cli` and `sqlx::test`.
+*   **Build and CI Tools:** GitHub Actions for automatically running tests (`cargo test`) on every push to the repository.
+*   **Additional Tools:** `k6` (optional) for more advanced load testing.
 
-*   **Język i Framework:** Rust, `actix-web`.
-*   **Baza Danych:** Dedykowana instancja PostgreSQL dla testów, zarządzana przez `sqlx-cli` i `sqlx::test`.
-*   **Narzędzia Budowania i CI:** GitHub Actions do automatycznego uruchamiania testów (`cargo test`) przy każdym pushu do repozytorium.
-*   **Narzędzia Dodatkowe:** `k6` (opcjonalnie) do bardziej zaawansowanych testów obciążeniowych.
+#### 6. Risks and Contingency Plan
 
-#### 6. Ryzyka i Plan Awaryjny
-
-*   **Ryzyko:** Niejasność w obsłudze PIN-u po stronie serwera (zgodnie z `unresolved_issues`). Testy mogą ujawnić lukę w bezpieczeństwie lub błędny przepływ.
-    *   **Plan:** Priorytetowe potraktowanie testów `CERT-03` i `CERT-04`. W przypadku wykrycia problemu, konieczna będzie konsultacja z zespołem deweloperskim w celu zmiany architektury.
-*   **Ryzyko:** Brak zdefiniowanych ograniczeń dla pól DN i ważności certyfikatu.
-    *   **Plan:** Użycie w testach szerokiego zakresu wartości (krótkich, długich, ze znakami specjalnymi) w celu odkrycia potencjalnych problemów z walidacją lub obsługą przez biblioteki kryptograficzne.
-
----
+*   **Risk:** Ambiguity in handling the PIN on the server-side (as per `unresolved_issues`). Tests may reveal a security vulnerability or an incorrect flow.
+*   **Plan:** Prioritize tests `CERT-03` and `CERT-04`. If a problem is detected, consultation with the development team will be necessary to change the architecture.
+*   **Risk:** Lack of defined constraints for DN and certificate validity fields.
+*   **Plan:** Use a wide range of values in tests (short, long, with special characters) to uncover potential validation or handling issues by cryptographic libraries.
