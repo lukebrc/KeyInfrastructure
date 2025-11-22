@@ -14,10 +14,10 @@ pub struct Claims {
     pub exp: usize,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct LoginRequest {
-    username: String,
-    password: String,
+    pub username: String,
+    pub password: String,
 }
 
 #[derive(Serialize)]
@@ -37,14 +37,15 @@ pub struct UserInfo {
 pub struct VerifyResponse {
     valid: bool,
     role: Option<String>,
-    userId: Option<String>,
+    #[serde(rename = "userId")]
+    user_id: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct RegisterRequest {
-    username: String,
-    password: String,
-    pin: String, // Must be exactly 8 characters, should be validated before insert
+    pub username: String,
+    pub password: String,
+    pub pin: String, // Must be exactly 8 characters, should be validated before insert
 }
 
 pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> impl Responder {
@@ -135,7 +136,7 @@ pub async fn verify_token(state: web::Data<AppState>, req: HttpRequest) -> impl 
             return HttpResponse::Ok().json(VerifyResponse {
                 valid: false,
                 role: None,
-                userId: None,
+                user_id: None,
             });
         }
     };
@@ -150,7 +151,7 @@ pub async fn verify_token(state: web::Data<AppState>, req: HttpRequest) -> impl 
             HttpResponse::Ok().json(VerifyResponse {
                 valid: true,
                 role: Some(token_data.claims.role),
-                userId: Some(token_data.claims.sub),
+                user_id: Some(token_data.claims.sub),
             })
         }
         Err(e) => {
@@ -158,7 +159,7 @@ pub async fn verify_token(state: web::Data<AppState>, req: HttpRequest) -> impl 
             HttpResponse::Ok().json(VerifyResponse {
                 valid: false,
                 role: None,
-                userId: None,
+                user_id: None,
             })
         }
     }
