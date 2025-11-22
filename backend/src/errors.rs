@@ -13,6 +13,10 @@ pub enum ApiError {
     Internal(String),
     #[error("Conflict: {0}")]
     Conflict(String),
+    #[error("Forbidden: {0}")]
+    Forbidden(String),
+    #[error("Not Found: {0}")]
+    NotFound(String),
 }
 
 impl ResponseError for ApiError {
@@ -23,6 +27,8 @@ impl ResponseError for ApiError {
             ApiError::BadRequest(msg) => HttpResponse::BadRequest().json(msg),
             ApiError::Internal(msg) => HttpResponse::InternalServerError().json(msg),
             ApiError::Conflict(msg) => HttpResponse::Conflict().json(msg),
+            ApiError::Forbidden(msg) => HttpResponse::Forbidden().json(msg),
+            ApiError::NotFound(msg) => HttpResponse::NotFound().json(msg),
         }
     }
 }

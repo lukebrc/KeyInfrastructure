@@ -1,6 +1,6 @@
 use actix_web::{middleware::Logger, web, App, HttpServer};
 use crate::auth::{list_users, login, register, verify_token};
-use crate::certificate::list_certificates;
+use crate::certificate::{create_certificate, download_certificate, list_certificates};
 use crate::middleware::JwtMiddlewareFactory;
 use dotenv::dotenv;
 use sqlx::{Postgres, Pool};
@@ -47,7 +47,9 @@ async fn main() -> std::io::Result<()> {
                 web::scope("")
                     .wrap(JwtMiddlewareFactory)
                     .route("/users", web::get().to(list_users))
-                    .route("/certificates", web::get().to(list_certificates)),
+                    .route("/certificates", web::get().to(list_certificates))
+                    .route("/certificates", web::post().to(create_certificate))
+                    .route("/certificates/{cert_id}/download", web::post().to(download_certificate)),
             )
     })
     .bind(("0.0.0.0", 8080))?
@@ -60,7 +62,7 @@ mod tests {
     use super::*;
     use actix_http;
     use actix_web::{http, test, App};
-    use crate::auth::{LoginRequest, RegisterRequest};
+    use crate::auth::{Claims, LoginRequest, RegisterRequest};
     use serde_json::json;
 
     async fn setup_test_app() -> (impl actix_web::dev::Service<actix_http::Request, Response = actix_web::dev::ServiceResponse, Error = actix_web::Error>, Pool<Postgres>) {
@@ -114,7 +116,13 @@ mod tests {
             App::new()
                 .app_data(app_state.clone())
                 .route("/users", web::post().to(register))
-                .route("/auth/login", web::post().to(login)),
+                .route("/auth/login", web::post().to(login))
+                .service(
+                    web::scope("")
+                        .wrap(JwtMiddlewareFactory)
+                        .route("/certificates", web::post().to(create_certificate))
+                        .route("/certificates/{cert_id}/download", web::post().to(download_certificate)),
+                ),
         )
         .await;
 
@@ -170,6 +178,90 @@ mod tests {
         let req = test::TestRequest::post().uri("/auth/login").set_json(&wrong_pass_req).to_request();
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), http::StatusCode::UNAUTHORIZED, "AUTH-05 Failed: Incorrect password login");
+
+        // Rollback the transaction to clean up the database
+        tx.rollback().await.unwrap();
+    }
+
+    #[actix_web::test]
+    async fn test_certificate_lifecycle() {
+        let (app, pool) = setup_test_app().await;
+        let mut tx = pool.begin().await.unwrap();
+
+        // 1. Register an admin and a regular user
+        sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'ADMIN')")
+            .bind("adminuser")
+            .bind(argon2::hash_encoded("adminpass".as_bytes(), &[0; 32], &argon2::Config::default()).unwrap())
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+
+        let register_req = RegisterRequest {
+            username: "certuser".to_string(),
+            password: "password123".to_string(),
+            pin: "87654321".to_string(),
+        };
+        let req = test::TestRequest::post().uri("/users").set_json(&register_req).to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), http::StatusCode::CREATED, "Failed to register user for cert test");
+        let user_body: serde_json::Value = test::read_body_json(resp).await;
+        let user_id = user_body["id"].as_str().unwrap();
+
+        // 2. Admin logs in
+        let login_req = LoginRequest {
+            username: "adminuser".to_string(),
+            password: "adminpass".to_string(),
+        };
+        let req = test::TestRequest::post().uri("/auth/login").set_json(&login_req).to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), http::StatusCode::OK, "Admin login failed");
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        let admin_token = body["token"].as_str().unwrap();
+
+        // 3. CERT-01: Admin creates a certificate for the user
+        let create_cert_req = json!({
+            "user_id": user_id,
+            "common_name": "certuser.example.com",
+            "days_valid": 365
+        });
+        let req = test::TestRequest::post()
+            .uri("/certificates")
+            .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+            .set_json(&create_cert_req)
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), http::StatusCode::CREATED, "CERT-01 Failed: Certificate creation");
+        let cert_body: serde_json::Value = test::read_body_json(resp).await;
+        let cert_id = cert_body["id"].as_str().unwrap();
+
+        // 4. Regular user logs in
+        let user_login_req = LoginRequest {
+            username: "certuser".to_string(),
+            password: "password123".to_string(),
+        };
+        let req = test::TestRequest::post().uri("/auth/login").set_json(&user_login_req).to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), http::StatusCode::OK, "User login failed");
+        let user_login_body: serde_json::Value = test::read_body_json(resp).await;
+        let user_token = user_login_body["token"].as_str().unwrap();
+
+        // 5. CERT-03: User downloads their certificate with the correct PIN
+        let download_req = json!({ "pin": "87654321" });
+        let download_uri = format!("/certificates/{}/download", cert_id);
+        let req = test::TestRequest::post()
+            .uri(&download_uri)
+            .insert_header(("Authorization", format!("Bearer {}", user_token)))
+            .set_json(&download_req)
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), http::StatusCode::OK, "CERT-03 Failed: Certificate download with correct PIN");
+        
+        let content_type = resp.headers().get(http::header::CONTENT_TYPE).unwrap();
+        assert_eq!(content_type, "application/octet-stream", "CERT-03 Failed: Incorrect content type for download");
+
+        let body_bytes = test::read_body(resp).await;
+        assert!(!body_bytes.is_empty(), "CERT-03 Failed: Downloaded file is empty");
 
         // Rollback the transaction to clean up the database
         tx.rollback().await.unwrap();
