@@ -184,6 +184,10 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
         .bind(&username)
         .fetch_optional(&state.pool)
         .await
+        .map_err(|e| {
+            log::error!("Database error while checking if user exists: {:?}", e);
+            e
+        })
     {
         Ok(opt) => opt.is_some(),
         Err(_) => {
@@ -207,6 +211,7 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
     };
 
     // Insert new user
+    log::debug!("Insert new user: {}", username);
     // The `pin` is not stored directly. It's used to encrypt private keys when created.
     // We will set a default role of 'USER' and return the newly created user.
     match sqlx::query_as::<_, User>("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING id, username, password_hash, role")
@@ -215,6 +220,10 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
         .bind(UserRole::USER) // Set default role
         .fetch_one(&state.pool)
         .await
+        .map_err(|e| {
+            log::error!("Database error while inserting new user: {:?}", e);
+            e
+        })
     {
         Ok(new_user) => {
             log::info!("Registration successful for user '{}'", new_user.username);

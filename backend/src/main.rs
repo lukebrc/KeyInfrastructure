@@ -6,6 +6,7 @@ use dotenv::dotenv;
 use sqlx::{Postgres, Pool};
 use sqlx::postgres::PgPoolOptions;
 use std::env;
+use log::LevelFilter;
 
 mod auth;
 mod certificate;
@@ -61,22 +62,48 @@ mod tests {
     use actix_web::{http, test, App};
     use crate::auth::{LoginRequest, RegisterRequest};
     use serde_json::json;
-    use sqlx::{Connection, PgConnection};
 
     async fn setup_test_app() -> (impl actix_web::dev::Service<actix_http::Request, Response = actix_web::dev::ServiceResponse, Error = actix_web::Error>, Pool<Postgres>) {
+        let _ = env_logger::builder().filter_level(LevelFilter::Debug).is_test(true).try_init();
         dotenv().ok();
-        let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set for tests");
+        // If DATABASE_URL is not set, try loading it from .test-env
+        if env::var("DATABASE_URL").is_err() {
+            dotenv::from_filename(".test-env").ok();
+        }
+        let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set for tests. Provide it in the environment or a .test-env file.");
+        log::info!("Connecting to {}", database_url);
         let jwt_secret = "test_secret".to_string();
 
-        // Create a connection and run migrations for the test database
-        let _conn = PgConnection::connect(&database_url).await.expect("Failed to connect to Postgres for migrations");
-        //sqlx::migrate!("./migrations").run(&mut conn).await.expect("Failed to run migrations");
-
         let pool = PgPoolOptions::new()
-            .max_connections(1) // Use a single connection for tests to ensure isolation
+            .max_connections(2) // Use a single connection for tests to ensure isolation
             .connect(&database_url)
             .await
             .expect("Failed to create Postgres connection pool for tests");
+
+        // Set up the database schema in a block to ensure the connection is released
+        {
+            let mut conn = pool.acquire().await.expect("Failed to acquire connection from pool");
+            
+            sqlx::query("DROP TABLE IF EXISTS users CASCADE").execute(&mut *conn).await.unwrap();
+            sqlx::query("DROP TYPE IF EXISTS user_role").execute(&mut *conn).await.unwrap();
+
+            // Not all postgres users have permission to create extensions. This might fail.
+            // It's better to ensure the extension is created by a superuser beforehand.
+            // However, for a local test setup, this is often fine.
+            sqlx::query("CREATE EXTENSION IF NOT EXISTS pgcrypto").execute(&mut *conn).await.ok(); // Use .ok() to ignore errors if the user doesn't have permission
+            
+            sqlx::query("CREATE TYPE user_role AS ENUM ('ADMIN', 'USER')").execute(&mut *conn).await.unwrap();
+            
+            sqlx::query(
+                "CREATE TABLE users (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    username TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    role user_role NOT NULL
+                )"
+            ).execute(&mut *conn).await.unwrap();
+            log::info!("Table users created");
+        }
 
         let app_state = web::Data::new(AppState {
             pool: pool.clone(),
