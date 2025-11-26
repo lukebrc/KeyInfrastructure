@@ -19,23 +19,30 @@ CREATE TABLE users (
     last_login_at TIMESTAMPTZ
 );
 
--- Create certificates table
-CREATE TABLE certificates (
+CREATE TABLE certificate_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    serial_number VARCHAR(255) UNIQUE NOT NULL,
     dn TEXT NOT NULL,
     validity_period_days INTEGER NOT NULL CHECK (validity_period_days >= 1 AND validity_period_days <= 3650),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create certificates table
+CREATE TABLE certificates (
+    id UUID PRIMARY KEY REFERENCES certificate_requests(id),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    serial_number VARCHAR(255) UNIQUE NOT NULL,
     status certificate_status NOT NULL DEFAULT 'ACTIVE',
     expiration_date TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     renewed_count INTEGER NOT NULL DEFAULT 0,
+    certificate_der BYTEA,
     renewal_date TIMESTAMPTZ
 );
 
 -- Create private_keys table
 CREATE TABLE private_keys (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY REFERENCES certificates(id),
     certificate_id UUID NOT NULL REFERENCES certificates(id) ON DELETE CASCADE,
     encrypted_key BYTEA NOT NULL,
     salt BYTEA NOT NULL,

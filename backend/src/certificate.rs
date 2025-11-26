@@ -32,9 +32,8 @@ pub struct ListCertificatesQuery {
 #[derive(Deserialize)]
 pub struct CreateCertificateRequest {
     user_id: Uuid,
-    common_name: String,
+    dn: String,
     days_valid: i64,
-    encrypted_private_key: String,
 }
 
 #[derive(Deserialize)]
@@ -59,7 +58,7 @@ pub struct CertificateCreatedResponse {
 struct CertificateDownloadInfo {
     user_id: Uuid,
     dn: String,
-    certificate_pem: String,
+    certificate_der: String,
     encrypted_private_key: String,
     pin_hash: String,
 }
@@ -84,24 +83,20 @@ pub async fn create_certificate(
         .await?
         .ok_or_else(|| ApiError::NotFound("User not found".to_string()))?;
 
-    //TODO: send csr instead of generating certificate from encrypted_private_key
-    let encrypted_private_key_b64 = &body.encrypted_private_key;
-    let not_after = Utc::now() + Duration::days(body.days_valid);
-    let cert_pem = generate_certificate();
+    let days_valid = body.days_valid;
+    log::info!("Adding certificate request for user {} dn: {}, days_valid: {}", body.user_id, body.dn, days_valid);
 
     // Store certificate details in the database
     let new_cert_id: Uuid = sqlx::query_scalar(
-        "INSERT INTO certificates (user_id, dn, certificate_pem, encrypted_private_key, expiration_date, status) VALUES ($1, $2, $3, $4, $5, 'ACTIVE') RETURNING id"
+        "INSERT INTO certificate_requests (user_id, dn, validity_period_days) VALUES ($1, $2, $3) RETURNING id"
     )
-    .bind(user.id)
-    .bind(&body.common_name)
-    .bind(&cert_pem)
-    .bind(&encrypted_private_key_b64)
-    .bind(not_after)
-    .fetch_one(&state.pool)
-    .await?;
+        .bind(user.id)
+        .bind(&body.dn)
+        .bind(days_valid)
+        .fetch_one(&state.pool)
+        .await?;
 
-    log::info!("Successfully created certificate with id: {}", new_cert_id);
+    log::info!("Successfully created certificate request with id: {}", new_cert_id);
     let response = CertificateCreatedResponse {
         id: new_cert_id.to_string(),
         user_id: user.id.to_string(),
@@ -122,17 +117,21 @@ pub async fn download_certificate(
     // Fetch certificate data and user PIN hash from DB
     let row = sqlx::query_as::<_, CertificateDownloadInfo>(
         "SELECT 
-            c.user_id, c.dn, c.certificate_pem, c.encrypted_private_key,
-            u.pin_hash
+             c.user_id,
+             cr.dn,
+             c.certificate_der,
+             pk.encrypted_key,
+             u.password_hash
         FROM certificates c
+        JOIN certificate_requests cr ON cr.id=c.id
         JOIN users u ON c.user_id = u.id
+        JOIN private_keys pk on pk.id=c.id
         WHERE c.id = $1"
     )
     .bind(cert_id)
     .fetch_optional(&state.pool)
     .await?
     .ok_or_else(|| ApiError::NotFound("Certificate not found".to_string()))?;
-
 
     // Authorization: User can only download their own certificate.
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| ApiError::Internal("Invalid UUID in claims".to_string()))?;
@@ -155,7 +154,7 @@ pub async fn download_certificate(
         .map_err(|_| ApiError::Internal("Private key decryption failed. The key may be corrupt or the PIN hash changed.".to_string()))?;
 
     // Create PKCS#12 archive
-    let x509 = X509::from_pem(row.certificate_pem.as_bytes()).map_err(|_| ApiError::Internal("Failed to parse certificate PEM".to_string()))?;
+    let x509 = X509::from_der(row.certificate_der.as_bytes()).map_err(|_| ApiError::Internal("Failed to parse certificate PEM".to_string()))?;
     let pkey = PKey::private_key_from_pem(&private_key_pem).map_err(|_| ApiError::Internal("Failed to parse private key PEM".to_string()))?;
 
     let pkcs12_builder = Pkcs12::builder()

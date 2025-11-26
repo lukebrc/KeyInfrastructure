@@ -184,22 +184,70 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_certificate_lifecycle() {
+    async fn test_admin_register_and_login() {
         let (app, pool) = setup_test_app().await;
-        let mut tx: sqlx::Transaction<'_, Postgres> = pool.begin().await.unwrap();
-        let password_hash = bcrypt::hash("adminpass", 12).unwrap();
+        let mut tx = pool.begin().await.unwrap();
+        
+        let admin_name = "admin";
+        let admin_password = "password123";
 
-        // 1. Register an admin and a regular user
-        sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'ADMIN')")
-            .bind("adminuser")
-            .bind(password_hash)
+        // AUTH-01: Register a new user with valid data
+        let register_req = RegisterRequest {
+            username: admin_name.to_string(),
+            password: admin_password.to_string(),
+            pin: "12345678".to_string(),
+        };
+        let req = test::TestRequest::post().uri("/users").set_json(&register_req).to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), http::StatusCode::CREATED, "AUTH-01 Failed: Successful registration");
+
+        //change user type manually
+        let update_result = sqlx::query("UPDATE users set role = 'ADMIN' where username = $1")
+            .bind(admin_name)
             .execute(&mut *tx)
             .await
             .unwrap();
 
+        assert_eq!(1, update_result.rows_affected());
+        tx.commit().await.unwrap();
+
+        // AUTH-04: Log in with correct credentials
+        let login_req = LoginRequest {
+            username: admin_name.to_string(),
+            password: admin_password.to_string(),
+        };
+        let req = test::TestRequest::post().uri("/auth/login").set_json(&login_req).to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), http::StatusCode::OK, "AUTH-04 Failed: Successful login");
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert!(body["token"].as_str().is_some(), "AUTH-04 Failed: Token not found in response");
+        let user = &body["user"];
+        assert_eq!(user["role"].as_str().unwrap(), "ADMIN", "User should be logged in as admin");
+    }
+
+    #[actix_web::test]
+    async fn test_certificate_lifecycle() {
+        let (app, pool) = setup_test_app().await;
+        let mut tx: sqlx::Transaction<'_, Postgres> = pool.begin().await.unwrap();
+        let admin_user = "adminuser";
+        let admin_password= "adminpass";
+        let password_hash = bcrypt::hash(admin_password, 12).unwrap();
+
+        // 1. Register an admin and a regular user
+        sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'ADMIN')")
+            .bind(admin_user)
+            .bind(password_hash)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+
+        let test_user = "certuser";
+        let test_password = "password123";
+
         let register_req = RegisterRequest {
-            username: "certuser".to_string(),
-            password: "password123".to_string(),
+            username: test_user.to_string(),
+            password: test_password.to_string(),
             pin: "87654321".to_string(),
         };
         let req = test::TestRequest::post().uri("/users").set_json(&register_req).to_request();
@@ -210,20 +258,21 @@ mod tests {
 
         // 2. Admin logs in
         let login_req = LoginRequest {
-            username: "adminuser".to_string(),
-            password: "adminpass".to_string(),
+            username: admin_user.to_string(),
+            password: admin_password.to_string(),
         };
         let req = test::TestRequest::post().uri("/auth/login").set_json(&login_req).to_request();
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), http::StatusCode::OK, "Admin login failed");
         let body: serde_json::Value = test::read_body_json(resp).await;
         let admin_token = body["token"].as_str().unwrap();
+        assert_eq!(body["user"]["role"].as_str().unwrap(), "ADMIN", "Admin should be logged in as admin");
 
         // 3. CERT-01: Admin creates a certificate for the user
         let create_cert_req = json!({
             "user_id": user_id,
-            "common_name": "certuser.example.com",
-            "days_valid": 365
+            "dn": "CN=certuser/O=org/C=PL",
+            "days_valid": 365,
         });
         let req = test::TestRequest::post()
             .uri("/certificates")
@@ -237,8 +286,8 @@ mod tests {
 
         // 4. Regular user logs in
         let user_login_req = LoginRequest {
-            username: "certuser".to_string(),
-            password: "password123".to_string(),
+            username: test_user.to_string(),
+            password: test_password.to_string(),
         };
         let req = test::TestRequest::post().uri("/auth/login").set_json(&user_login_req).to_request();
         let resp = test::call_service(&app, req).await;
@@ -263,8 +312,5 @@ mod tests {
 
         let body_bytes = test::read_body(resp).await;
         assert!(!body_bytes.is_empty(), "CERT-03 Failed: Downloaded file is empty");
-
-        // Rollback the transaction to clean up the database
-        tx.rollback().await.unwrap();
     }
 }
