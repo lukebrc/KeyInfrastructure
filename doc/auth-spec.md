@@ -89,7 +89,7 @@ Changes will affect existing endpoints from `rest-plan.md`.
             #[validate(length(min = 1, message = "Username is required"))]
             pub username: String,
             #[validate(length(min = 8, message = "Password must be at least 8 characters long"))]
-            pub password: String,
+            pub password: String, //password for user login
             #[validate(length(min = 8, message = "PIN must be at least 8 characters long"))]
             pub pin: String, // PIN nie jest zapisywany w bazie, używany tylko do szyfrowania klucza
         }

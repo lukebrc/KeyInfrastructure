@@ -44,8 +44,8 @@ pub struct VerifyResponse {
 #[derive(Deserialize, Serialize)]
 pub struct RegisterRequest {
     pub username: String,
-    pub password: String,
-    pub pin: String, // Must be exactly 8 characters, should be validated before insert
+    pub password: String, //user login password
+    pub pin: String, //user PIN for key encryption
 }
 
 pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> impl Responder {

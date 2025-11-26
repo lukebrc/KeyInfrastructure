@@ -158,7 +158,10 @@ pub async fn download_certificate(
     let x509 = X509::from_pem(row.certificate_pem.as_bytes()).map_err(|_| ApiError::Internal("Failed to parse certificate PEM".to_string()))?;
     let pkey = PKey::private_key_from_pem(&private_key_pem).map_err(|_| ApiError::Internal("Failed to parse private key PEM".to_string()))?;
 
-    let pkcs12_builder = Pkcs12::builder().build(&body.pin, &row.dn, &pkey, &x509)
+    let pkcs12_builder = Pkcs12::builder()
+        .cert(&x509)
+        .pkey(&pkey)
+        .build2(&body.pin)
         .map_err(|e| ApiError::Internal(format!("Failed to build PKCS#12 archive: {}", e)))?;
     let pkcs12 = pkcs12_builder.to_der().map_err(|e| ApiError::Internal(format!("Failed to serialize PKCS#12 archive: {}", e)))?;
 

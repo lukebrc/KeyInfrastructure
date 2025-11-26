@@ -62,7 +62,7 @@ mod tests {
     use super::*;
     use actix_http;
     use actix_web::{http, test, App};
-    use crate::auth::{Claims, LoginRequest, RegisterRequest};
+    use crate::auth::{LoginRequest, RegisterRequest};
     use serde_json::json;
 
     async fn setup_test_app() -> (impl actix_web::dev::Service<actix_http::Request, Response = actix_web::dev::ServiceResponse, Error = actix_web::Error>, Pool<Postgres>) {
@@ -186,12 +186,13 @@ mod tests {
     #[actix_web::test]
     async fn test_certificate_lifecycle() {
         let (app, pool) = setup_test_app().await;
-        let mut tx = pool.begin().await.unwrap();
+        let mut tx: sqlx::Transaction<'_, Postgres> = pool.begin().await.unwrap();
+        let password_hash = bcrypt::hash("adminpass", 12).unwrap();
 
         // 1. Register an admin and a regular user
         sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'ADMIN')")
             .bind("adminuser")
-            .bind(argon2::hash_encoded("adminpass".as_bytes(), &[0; 32], &argon2::Config::default()).unwrap())
+            .bind(password_hash)
             .execute(&mut *tx)
             .await
             .unwrap();
