@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::{FromRow, Type};
+use sqlx::{FromRow, Type, Postgres, Pool};
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone, Copy, PartialEq, Eq)]
@@ -57,4 +57,9 @@ pub struct Certificate {
     pub renewed_count: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+pub struct AppState {
+    pub pool: Pool<Postgres>,
+    pub jwt_secret: String,
 }

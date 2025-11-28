@@ -136,6 +136,7 @@ pub async fn download_certificate(
     // Authorization: User can only download their own certificate.
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| ApiError::Internal("Invalid UUID in claims".to_string()))?;
     if row.user_id != user_id {
+        log::error!("User is not allowed to download certificate {}", cert_id);
         return Err(ApiError::Forbidden("You are not allowed to download this certificate".to_string()));
     }
 
