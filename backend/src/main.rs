@@ -1,6 +1,6 @@
 use actix_web::{middleware::Logger, web, App, HttpServer};
 use crate::auth::{list_users, login, register, verify_token};
-use crate::certificate::{create_certificate, download_certificate, list_certificates};
+use crate::certificate::{create_certificate_request, download_certificate, generate_certificate, list_active_certificates, list_pending_certificates};
 use crate::db_model::AppState;
 use crate::middleware::JwtMiddlewareFactory;
 use dotenv::dotenv;
@@ -39,12 +39,19 @@ async fn main() -> std::io::Result<()> {
             .route("/auth/verify", web::get().to(verify_token))
             // Protected routes
             .service(
-                web::scope("")
+                web::scope("/certificates")
+                    .wrap(JwtMiddlewareFactory)
+                    .route("/pending", web::get().to(list_pending_certificates))
+                    .route("/active", web::get().to(list_active_certificates))
+                    //.route("/certificates/expiring", web::get().to(list_expiring_certificates))
+                    .route("/{cert_id}/download", web::post().to(download_certificate))
+                    .route("/{cert_id}/generate", web::post().to(generate_certificate))
+                    .route("/", web::post().to(create_certificate_request)),
+            )
+            .service(
+                web::scope("/users")
                     .wrap(JwtMiddlewareFactory)
                     .route("/users", web::get().to(list_users))
-                    .route("/certificates", web::get().to(list_certificates))
-                    .route("/certificates", web::post().to(create_certificate))
-                    .route("/certificates/{cert_id}/download", web::post().to(download_certificate)),
             )
     })
     .bind(("0.0.0.0", 8080))?

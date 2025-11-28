@@ -2,7 +2,7 @@
 
 ## 1. Resources
 - Users: Corresponds to the `users` table, managing user accounts including registration, authentication, and role management.
-- Certificates: Corresponds to the `certificates` table, handling certificate creation, retrieval, renewal, and revocation. Includes related `private_keys` and `revoked_certificates` for secure key management and revocation tracking.
+- Certificates: Corresponds to the `certificates` and `certificate_requests` table, handling certificate creation, retrieval, renewal, and revocation. Includes related `private_keys` and `revoked_certificates` for secure key management and revocation tracking.
 
 ## 2. Endpoints
 
@@ -46,7 +46,7 @@
 ### Certificates Resource
 - **Method**: POST
 - **URL Path**: /users/{user_id}/certificates
-- **Description**: Create a new certificate for a user (admin only).
+- **Description**: Order new certificate generation for a user (admin only).
 - **Query Parameters**: None
 - **Request JSON Structure**: {"validity_period_days": "integer", "hash_algorithm": "string (SHA-256|SHA-384|SHA-512)", "dn": "string"}
 - **Response JSON Structure**: {"id": "uuid", "serial_number": "string", "dn": "string", "status": "string", "expiration_date": "timestamp", "created_at": "timestamp"}
@@ -54,12 +54,20 @@
 - **Error Codes and Messages**: 403 Forbidden - "Admin access required", 400 Bad Request - "Invalid DN or parameters"
 
 - **Method**: GET
-- **URL Path**: /certificates
-- **Description**: List certificates for the authenticated user, with pagination, filtering, and sorting.
+- **URL Path**: /certificates/active
+- **Description**: List active (not-expired and not-revoked) certificates for the authenticated user, with pagination, filtering, and sorting.
 - **Query Parameters**: page=integer, limit=integer, status=string, sort_by=string (e.g., expiration_date), order=asc|desc
 - **Request JSON Structure**: None
 - **Response JSON Structure**: {"certificates": [{"id": "uuid", "serial_number": "string", "dn": "string", "status": "string", "expiration_date": "timestamp", "renewed_count": "integer"}], "total": "integer", "page": "integer"}
 - **Success Codes and Messages**: 200 OK - "Certificates retrieved"
+- **Error Codes and Messages**: 401 Unauthorized - "Authentication required"
+
+- **Method**: GET
+- **URL Path**: /certificates/pending
+- **Description**: Get pending certificate requests for the authenticated user.
+- **Request JSON Structure**: None
+- **Response JSON Structure**: {"certificates": [{"id": "uuid", "valid_days": "integer"}]}
+- **Success Codes and Messages**: 200 OK - "List of certificate requests for user"
 - **Error Codes and Messages**: 401 Unauthorized - "Authentication required"
 
 - **Method**: GET
@@ -84,6 +92,15 @@
 - **URL Path**: /certificates/{id}/download
 - **Description**: Download PKCS#12 file for the certificate (user only for own).
 - **Query Parameters**: None
+- **Request JSON Structure**: {"pin": "string"}
+- **Response JSON Structure**: Binary PKCS#12 file
+- **Success Codes and Messages**: 200 OK - "File downloaded"
+- **Error Codes and Messages**: 403 Forbidden - "Access denied", 400 Bad Request - "Invalid PIN", 404 Not Found - "Certificate not found"
+
+- **Method**: POST
+- **URL Path**: /certificates/{id}/generate
+- **Description**: generate new certificate for user
+- **Query Parameters**: id: String
 - **Request JSON Structure**: {"pin": "string"}
 - **Response JSON Structure**: Binary PKCS#12 file
 - **Success Codes and Messages**: 200 OK - "File downloaded"

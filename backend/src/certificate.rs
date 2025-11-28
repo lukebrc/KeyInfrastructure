@@ -1,3 +1,4 @@
+use actix_web::error::ErrorNotImplemented;
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder, http::header};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -48,6 +49,17 @@ pub struct ListCertificatesResponse {
     page: i64,
 }
 
+#[derive(Serialize, sqlx::FromRow)]
+pub struct PendingCertificateInfo {
+    pub id: Uuid,
+    pub valid_days: i32,
+}
+
+#[derive(Serialize)]
+pub struct ListPendingCertificatesResponse {
+    pub certificates: Vec<PendingCertificateInfo>,
+}
+
 #[derive(Serialize)]
 pub struct CertificateCreatedResponse {
     id: String,
@@ -63,16 +75,20 @@ struct CertificateDownloadInfo {
     pin_hash: String,
 }
 
-pub async fn create_certificate(
-    state: web::Data<AppState>,
-    req: HttpRequest,
-    body: web::Json<CreateCertificateRequest>,
-) -> Result<impl Responder, ApiError> {
+pub async fn create_certificate_request(state: web::Data<AppState>,
+            req: HttpRequest,
+            body: web::Json<CreateCertificateRequest>) -> Result<impl Responder, ApiError> {
+
     log::info!("Attempting to create certificate for user_id: {}", body.user_id);
-    let claims = req.extensions().get::<Claims>().cloned().ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .cloned()
+        .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
 
     // Authorization: Only admins can create certificates.
     if claims.role != "ADMIN" {
+        log::error!("user_id: {} is not Admin", body.user_id);
         return Err(ApiError::Forbidden("Only admins can create certificates".to_string()));
     }
 
@@ -112,7 +128,11 @@ pub async fn download_certificate(
 ) -> Result<impl Responder, ApiError> {
     let cert_id = path.into_inner();
     log::info!("Attempting to download certificate with id: {}", cert_id);
-    let claims = req.extensions().get::<Claims>().cloned().ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .cloned()
+        .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
 
     // Fetch certificate data and user PIN hash from DB
     let row = sqlx::query_as::<_, CertificateDownloadInfo>(
@@ -121,7 +141,6 @@ pub async fn download_certificate(
              cr.dn,
              c.certificate_der,
              pk.encrypted_key,
-             u.password_hash
         FROM certificates c
         JOIN certificate_requests cr ON cr.id=c.id
         JOIN users u ON c.user_id = u.id
@@ -136,10 +155,9 @@ pub async fn download_certificate(
     // Authorization: User can only download their own certificate.
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| ApiError::Internal("Invalid UUID in claims".to_string()))?;
     if row.user_id != user_id {
-        log::error!("User is not allowed to download certificate {}", cert_id);
+        log::error!("User {} is not allowed to download certificate {}", user_id, cert_id);
         return Err(ApiError::Forbidden("You are not allowed to download this certificate".to_string()));
     }
-
     // Verify PIN against the user's stored hash
     if !bcrypt::verify(&body.pin, &row.pin_hash).map_err(|_| ApiError::Internal("PIN verification failed".to_string()))? {
         return Err(ApiError::BadRequest("Incorrect PIN".to_string()));
@@ -172,12 +190,11 @@ pub async fn download_certificate(
         .body(pkcs12))
 }
 
-pub async fn list_certificates(
-    state: web::Data<AppState>,
-    req: HttpRequest,
-    query: web::Query<ListCertificatesQuery>,
-) -> Result<impl Responder, ApiError> {
-    log::info!("Listing certificates");
+pub async fn list_active_certificates(state: web::Data<AppState>,
+                                     req: HttpRequest,
+                                     query: web::Query<ListCertificatesQuery>,
+                                     ) -> Result<impl Responder, ApiError> {
+
     let claims = req
         .extensions()
         .get::<Claims>()
@@ -193,6 +210,7 @@ pub async fn list_certificates(
 
     let sort_by = query.sort_by.as_deref().unwrap_or("expiration_date");
     let order = query.order.as_deref().unwrap_or("asc");
+    log::info!("Listing certificates for user {}, page {}, offset {}", user_id, page, offset);
 
     // Basic validation to prevent SQL injection
     let allowed_sort_columns = ["serial_number", "dn", "status", "expiration_date", "renewed_count"];
@@ -248,9 +266,41 @@ pub async fn list_certificates(
     }))
 }
 
-fn generate_certificate() -> String {
+pub async fn list_pending_certificates(state: web::Data<AppState>,
+                                       req: HttpRequest) -> Result<impl Responder, ApiError> {
+    log::info!("lba: Listing pending certificates");
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .cloned()
+        .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
+
+    let user_id =
+        Uuid::parse_str(&claims.sub).map_err(|_| ApiError::Internal("Invalid UUID in claims".into()))?;
+    log::info!("Listing pending certificates for user {}", user_id);
+
+    let certificates = sqlx::query_as::<_, PendingCertificateInfo>(
+        "SELECT cr.id, cr.validity_period_days as valid_days 
+            FROM certificate_requests cr
+            WHERE cr.user_id = $1")
+        .bind(user_id)
+        .fetch_all(&state.pool)
+    .await?;
+
+    Ok(HttpResponse::Ok().json(ListPendingCertificatesResponse {
+        certificates,
+    }))
+}
+
+pub async fn generate_certificate(state: web::Data<AppState>,
+                                  req: HttpRequest,
+                                  path: web::Path<Uuid>) -> Result<impl Responder, ApiError> {
     //TODO: generate using openssl
     fs::read_to_string("/tmp/cert.pem").unwrap_or_else(|e| {
         panic!("Failed to read certificate from /tmp/cert.pem: {}", e)
-    })
+    });
+    Ok(HttpResponse::NotImplemented().body("NOT IMPLEMENTED"))
+    // Ok(HttpResponse::Ok().json(ListPendingCertificatesResponse {
+    //     certificates,
+    // }))
 }

@@ -27,7 +27,6 @@ CREATE TABLE certificate_requests (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create certificates table
 CREATE TABLE certificates (
     id UUID PRIMARY KEY REFERENCES certificate_requests(id),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -40,7 +39,6 @@ CREATE TABLE certificates (
     renewal_date TIMESTAMPTZ
 );
 
--- Create private_keys table
 CREATE TABLE private_keys (
     id UUID PRIMARY KEY REFERENCES certificates(id),
     certificate_id UUID NOT NULL REFERENCES certificates(id) ON DELETE CASCADE,
@@ -49,7 +47,6 @@ CREATE TABLE private_keys (
     UNIQUE (certificate_id)
 );
 
--- Create revoked_certificates table
 CREATE TABLE revoked_certificates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     certificate_id UUID NOT NULL REFERENCES certificates(id) ON DELETE CASCADE,

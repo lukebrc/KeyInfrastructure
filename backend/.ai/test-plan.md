@@ -62,13 +62,15 @@ The following scenarios are based on the requirements and user stories.
 
 | Test ID   | Description                                                                          | Expected Result                                                                                      | Priority  | Test Type     |
 | :-------- | :----------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- | :-------- | :------------ |
-| **CERT-01** | Administrator creates a certificate for a user with valid data (DN, validity, hash). | The certificate is created and saved to the database (status 201). The private key is encrypted with the user's PIN and stored. | **Critical**  | Integration   |
+| **CERT-01** | Administrator creates a certificate requests for a user with valid data (DN, validity, hash). | The certificate order is created and saved to the database (status 201). | **Critical**  | Integration   |
 | **CERT-02** | Attempt to create a certificate for a non-existent user.                             | The server returns a 404 (Not Found) error.                                                          | High      | Integration   |
-| **CERT-03** | User downloads their certificate (PKCS#12) by providing the correct PIN.             | The server returns a binary file (status 200). The file is encrypted with the provided PIN.         | **Critical**  | Integration   |
-| **CERT-04** | User attempts to download a certificate by providing an incorrect PIN.               | The server returns a 400 (Bad Request) error with a message about the incorrect PIN.               | **Critical**  | Integration   |
-| **CERT-05** | User attempts to download another user's certificate.                                | The server returns a 403 (Forbidden) or 404 (Not Found) error.                                       | **Critical**  | Integration   |
-| **CERT-06** | User initiates certificate renewal.                                                  | A new certificate is generated, the old one is marked accordingly (if that is the logic).          | High      | Integration   |
-| **CERT-07** | A query to `GET /certificates/expiring` returns a list of certificates expiring within N days. | The list contains the correct certificates. If there are none, the list is empty.                    | High      | Integration   |
+| **CERT-03** | User get list of available certificate requests | The server returns a list of pending requests (status 200). | High      | Integration   |
+| **CERT-04** | User generate certificate basing on pending certificate request                      | The server generates a certificate using CSR sent by user (status 200). | **Critical** | Integration   |
+| **CERT-05** | User downloads their certificate (PKCS#12) by providing the correct PIN.             | The server returns a binary file (status 200). The file is encrypted with the provided PIN.         | **Critical**  | Integration   |
+| **CERT-06** | User attempts to download a certificate by providing an incorrect PIN.               | The server returns a 400 (Bad Request) error with a message about the incorrect PIN.               | **Critical**  | Integration   |
+| **CERT-07** | User attempts to download another user's certificate.                                | The server returns a 403 (Forbidden) or 404 (Not Found) error.                                       | **Critical**  | Integration   |
+| **CERT-08** | User initiates certificate renewal.                                                  | A new certificate is generated, the old one is marked accordingly (if that is the logic).          | High      | Integration   |
+| **CERT-09** | A query to `GET /certificates/expiring` returns a list of certificates expiring within N days. | The list contains the correct certificates. If there are none, the list is empty.                    | High      | Integration   |
 
 ##### 4.3. Concurrency and Performance Tests
 

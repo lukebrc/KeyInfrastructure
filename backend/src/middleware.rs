@@ -82,9 +82,9 @@ where
                     return Box::pin(async { Err(ErrorUnauthorized("Invalid token")) });
                 }
             }
-            log::debug!("Validation {:?}", validation);
+            log::debug!("Validation OK for {} request: {}", req.method(), req.path());
         } else {
-            // No token was provided, but this is a protected route.
+            log::warn!("No token was provided, but this is a protected route");
             return Box::pin(async { Err(ErrorUnauthorized("Authentication token required.")) });
         }
 

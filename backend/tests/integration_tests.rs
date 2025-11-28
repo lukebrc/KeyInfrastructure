@@ -64,7 +64,8 @@ async fn setup_test_app() -> (impl actix_web::dev::Service<actix_http::Request, 
             .service(
                 web::scope("")
                     .wrap(JwtMiddlewareFactory)
-                    .route("/certificates", web::post().to(create_certificate))
+                    .route("/certificates", web::get().to(list_active_certificates))
+                    .route("/certificates", web::post().to(create_certificate_request))
                     .route("/certificates/{cert_id}/download", web::post().to(download_certificate)),
             ),
     )
@@ -212,7 +213,7 @@ async fn test_certificate_lifecycle() {
     let admin_token = body["token"].as_str().unwrap();
     assert_eq!(body["user"]["role"].as_str().unwrap(), "ADMIN", "Admin should be logged in as admin");
 
-    // 3. CERT-01: Admin creates a certificate for the user
+    // 3. CERT-01: Admin creates a certificate request for the user
     let create_cert_req = json!({
         "user_id": user_id,
         "dn": "CN=certuser/O=org/C=PL",
@@ -224,7 +225,7 @@ async fn test_certificate_lifecycle() {
         .set_json(&create_cert_req)
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), http::StatusCode::CREATED, "CERT-01 Failed: Certificate creation");
+    assert_eq!(resp.status(), http::StatusCode::CREATED, "CERT-01 Failed: Certificate request creation");
     let cert_body: serde_json::Value = test::read_body_json(resp).await;
     let cert_id = cert_body["id"].as_str().unwrap();
 
@@ -233,13 +234,43 @@ async fn test_certificate_lifecycle() {
         username: test_user.to_string(),
         password: test_password.to_string(),
     };
-    let req = test::TestRequest::post().uri("/auth/login").set_json(&user_login_req).to_request();
+    let req = test::TestRequest::post()
+        .uri("/auth/login")
+        .set_json(&user_login_req)
+        .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), http::StatusCode::OK, "User login failed");
     let user_login_body: serde_json::Value = test::read_body_json(resp).await;
     let user_token = user_login_body["token"].as_str().unwrap();
+    assert_eq!(user_login_body["user"]["role"].as_str().unwrap(), "USER", "User should be logged in as a USER");
 
-    // 5. CERT-03: User downloads their certificate with the correct PIN
+    // 5. CERT-03: User get list of available certificate requests
+    let req = test::TestRequest::get()
+        .uri("/certificates/pending")
+        .insert_header(("Authorization", format!("Bearer {}", user_token)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-03 Failed: Get certificate requests");
+    let list_body: serde_json::Value = test::read_body_json(resp).await;
+    assert!(list_body["certificates"].is_array(), "CERT-03 Failed: Certificates should be array");
+    let certs = list_body["certificates"].as_array().unwrap();
+    assert_eq!(certs.len(), 1, "CERT-03 Failed: Should have one certificate request");
+    let cert = &certs[0];
+    assert_eq!(cert["dn"].as_str().unwrap(), "CN=certuser/O=org/C=PL", "CERT-03 Failed: DN mismatch");
+
+    // 6. CERT-04: User generate certificate basing on pending certificate request
+    let csr = "-----BEGIN CERTIFICATE REQUEST-----\nDummyCSR\n-----END CERTIFICATE REQUEST-----";
+    let generate_req = json!({ "csr": csr });
+    let generate_uri = format!("/certificates/{}/generate", cert_id);
+    let req = test::TestRequest::post()
+        .uri(&generate_uri)
+        .insert_header(("Authorization", format!("Bearer {}", user_token)))
+        .set_json(&generate_req)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-04 Failed: Generate certificate");
+
+    // 7. CERT-05: User downloads their certificate with the correct PIN
     let download_req = json!({ "pin": "87654321" });
     let download_uri = format!("/certificates/{}/download", cert_id);
     let req = test::TestRequest::post()
@@ -249,11 +280,11 @@ async fn test_certificate_lifecycle() {
         .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-03 Failed: Certificate download with correct PIN");
+    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-05 Failed: Certificate download with correct PIN");
 
     let content_type = resp.headers().get(http::header::CONTENT_TYPE).unwrap();
-    assert_eq!(content_type, "application/octet-stream", "CERT-03 Failed: Incorrect content type for download");
+    assert_eq!(content_type, "application/octet-stream", "CERT-05 Failed: Incorrect content type for download");
 
     let body_bytes = test::read_body(resp).await;
-    assert!(!body_bytes.is_empty(), "CERT-03 Failed: Downloaded file is empty");
+    assert!(!body_bytes.is_empty(), "CERT-05 Failed: Downloaded file is empty");
 }
