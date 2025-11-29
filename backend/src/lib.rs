@@ -1,9 +1,10 @@
 // Re-export modules for integration tests
 pub mod auth;
 pub mod certificate;
-pub mod middleware;
 pub mod db_model;
 pub mod errors;
+pub mod http_app;
+pub mod middleware;
 
 // Re-export commonly used types and functions
 pub use auth::{register, login, list_users, verify_token, LoginRequest, RegisterRequest};

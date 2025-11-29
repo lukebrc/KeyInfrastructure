@@ -1,4 +1,3 @@
-use actix_web::error::ErrorNotImplemented;
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder, http::header};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -8,7 +7,6 @@ use openssl::pkey::PKey;
 use openssl::symm::{decrypt, Cipher};
 use openssl::x509::X509;
 use base64::{engine::general_purpose, Engine as _};
-use chrono::{Utc, Duration};
 
 use crate::{
     auth::Claims,

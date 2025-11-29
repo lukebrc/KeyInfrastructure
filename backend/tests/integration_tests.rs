@@ -1,6 +1,7 @@
 use actix_http;
 use actix_web::{http, test, App, web};
 use dotenv::dotenv;
+use http_app;
 use login::auth::{LoginRequest, RegisterRequest};
 use login::*;
 use login::certificate::{list_pending_certificates, generate_certificate};
@@ -98,18 +99,7 @@ async fn setup_test_app() -> (impl actix_web::dev::Service<actix_http::Request, 
 
     let app = test::init_service(
         App::new()
-            .app_data(app_state.clone())
-            .route("/users", web::post().to(register))
-            .route("/auth/login", web::post().to(login))
-            .service(
-                web::scope("")
-                    .wrap(JwtMiddlewareFactory)
-                    .route("/certificates", web::get().to(list_active_certificates))
-                    .route("/certificates", web::post().to(create_certificate_request))
-                    .route("/certificates/pending", web::get().to(list_pending_certificates))
-                    .route("/certificates/{cert_id}/generate", web::post().to(generate_certificate))
-                    .route("/certificates/{cert_id}/download", web::post().to(download_certificate)),
-            ),
+            .configure(http_app::config_app(app_state.clone())),
     )
     .await;
 

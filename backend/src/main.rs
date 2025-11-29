@@ -1,8 +1,5 @@
 use actix_web::{middleware::Logger, web, App, HttpServer};
-use crate::auth::{list_users, login, register, verify_token};
-use crate::certificate::{create_certificate_request, download_certificate, generate_certificate, list_active_certificates, list_pending_certificates};
 use crate::db_model::AppState;
-use crate::middleware::JwtMiddlewareFactory;
 use dotenv::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
@@ -11,6 +8,7 @@ mod certificate;
 mod db_model;
 mod errors;
 mod middleware;
+mod http_app;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -31,26 +29,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
-            .app_data(app_state.clone())
-            .route("/users", web::post().to(register)) // Public route for registration
-            .route("/auth/login", web::post().to(login))
-            .route("/auth/verify", web::get().to(verify_token))
-            // Protected routes
-            .service(
-                web::scope("/certificates")
-                    .wrap(JwtMiddlewareFactory)
-                    .route("/pending", web::get().to(list_pending_certificates))
-                    .route("/active", web::get().to(list_active_certificates))
-                    //.route("/certificates/expiring", web::get().to(list_expiring_certificates))
-                    .route("/{cert_id}/download", web::post().to(download_certificate))
-                    .route("/{cert_id}/generate", web::post().to(generate_certificate))
-                    .route("/", web::post().to(create_certificate_request)),
-            )
-            .service(
-                web::scope("/users")
-                    .wrap(JwtMiddlewareFactory)
-                    .route("/users", web::get().to(list_users))
-            )
+            .configure(http_app::config_app(app_state.clone()))
     })
     .bind(("0.0.0.0", 8080))?
     .run()
