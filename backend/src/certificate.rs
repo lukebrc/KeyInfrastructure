@@ -53,6 +53,7 @@ pub struct ListCertificatesResponse {
 pub struct PendingCertificateInfo {
     pub id: Uuid,
     pub valid_days: i32,
+    pub dn: String,
 }
 
 #[derive(Serialize)]
@@ -121,11 +122,11 @@ pub async fn create_certificate_request(state: web::Data<AppState>,
 }
 
 pub async fn download_certificate(
-    state: web::Data<AppState>,
-    req: HttpRequest,
-    path: web::Path<Uuid>,
-    body: web::Json<DownloadCertificateRequest>,
-) -> Result<impl Responder, ApiError> {
+            state: web::Data<AppState>,
+            req: HttpRequest,
+            path: web::Path<Uuid>,
+            body: web::Json<DownloadCertificateRequest>,
+        ) -> Result<impl Responder, ApiError> {
     let cert_id = path.into_inner();
     log::info!("Attempting to download certificate with id: {}", cert_id);
     let claims = req
@@ -136,11 +137,7 @@ pub async fn download_certificate(
 
     // Fetch certificate data and user PIN hash from DB
     let row = sqlx::query_as::<_, CertificateDownloadInfo>(
-        "SELECT 
-             c.user_id,
-             cr.dn,
-             c.certificate_der,
-             pk.encrypted_key,
+        "SELECT c.user_id, cr.dn, c.certificate_der, pk.encrypted_key
         FROM certificates c
         JOIN certificate_requests cr ON cr.id=c.id
         JOIN users u ON c.user_id = u.id
@@ -279,17 +276,25 @@ pub async fn list_pending_certificates(state: web::Data<AppState>,
         Uuid::parse_str(&claims.sub).map_err(|_| ApiError::Internal("Invalid UUID in claims".into()))?;
     log::info!("Listing pending certificates for user {}", user_id);
 
-    let certificates = sqlx::query_as::<_, PendingCertificateInfo>(
-        "SELECT cr.id, cr.validity_period_days as valid_days 
+    let rows = sqlx::query_as::<_, PendingCertificateInfo>(
+        "SELECT cr.id, cr.validity_period_days as valid_days, cr.dn
             FROM certificate_requests cr
             WHERE cr.user_id = $1")
         .bind(user_id)
         .fetch_all(&state.pool)
-    .await?;
+    .await;
 
-    Ok(HttpResponse::Ok().json(ListPendingCertificatesResponse {
-        certificates,
-    }))
+    match rows {
+        Ok(certificates) =>
+            Ok(HttpResponse::Ok().json(ListPendingCertificatesResponse {
+                certificates,
+            })),
+        Err(err) => {
+            log::error!("Could not get certificates {}", err);
+            Ok(HttpResponse::InternalServerError().body(err.to_string()))
+        }
+    }
+
 }
 
 pub async fn generate_certificate(state: web::Data<AppState>,

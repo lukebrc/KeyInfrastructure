@@ -33,3 +33,5 @@ cargo clippy --lib --bins -- -D "clippy::correctness" -D "clippy::suspicious" -D
 - Keep dependency features minimal and explicit
 - **CRITICAL**: Never remove the `strum` crate dependency (essential for enum iteration)
 
+### Code Style
+- Follow Rust standard formatting (rustfmt)

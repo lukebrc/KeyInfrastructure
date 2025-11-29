@@ -3,6 +3,7 @@ use actix_web::{http, test, App, web};
 use dotenv::dotenv;
 use login::auth::{LoginRequest, RegisterRequest};
 use login::*;
+use login::certificate::{list_pending_certificates, generate_certificate};
 use serde_json::json;
 use sqlx::{Postgres, Pool};
 use sqlx::postgres::PgPoolOptions;
@@ -30,25 +31,29 @@ async fn setup_test_app() -> (impl actix_web::dev::Service<actix_http::Request, 
     {
         let mut conn = pool.acquire().await.expect("Failed to acquire connection from pool");
 
-        sqlx::query("DROP TABLE IF EXISTS users CASCADE").execute(&mut *conn).await.unwrap();
-        sqlx::query("DROP TYPE IF EXISTS user_role").execute(&mut *conn).await.unwrap();
-
         // Not all postgres users have permission to create extensions. This might fail.
         // It's better to ensure the extension is created by a superuser beforehand.
         // However, for a local test setup, this is often fine.
         sqlx::query("CREATE EXTENSION IF NOT EXISTS pgcrypto").execute(&mut *conn).await.ok(); // Use .ok() to ignore errors if the user doesn't have permission
+        sqlx::query("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"").execute(&mut *conn).await.ok();
 
-        sqlx::query("CREATE TYPE user_role AS ENUM ('ADMIN', 'USER')").execute(&mut *conn).await.unwrap();
-
-        sqlx::query(
-            "CREATE TABLE users (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                username TEXT NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL,
-                role user_role NOT NULL
-            )"
-        ).execute(&mut *conn).await.unwrap();
-        log::info!("Table users created");
+        log::info!("Clearing test tables");
+        sqlx::query("DELETE FROM users CASCADE")
+            .execute(&mut *conn)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM certificate_requests CASCADE")
+            .execute(&mut *conn)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM certificates CASCADE")
+            .execute(&mut *conn)
+            .await.unwrap();
+        sqlx::query("DELETE FROM private_keys CASCADE")
+            .execute(&mut *conn)
+            .await
+            .unwrap();
+        log::info!("Tables cleared");
     }
 
     let app_state = web::Data::new(AppState {
@@ -66,6 +71,8 @@ async fn setup_test_app() -> (impl actix_web::dev::Service<actix_http::Request, 
                     .wrap(JwtMiddlewareFactory)
                     .route("/certificates", web::get().to(list_active_certificates))
                     .route("/certificates", web::post().to(create_certificate_request))
+                    .route("/certificates/pending", web::get().to(list_pending_certificates))
+                    .route("/certificates/{cert_id}/generate", web::post().to(generate_certificate))
                     .route("/certificates/{cert_id}/download", web::post().to(download_certificate)),
             ),
     )
