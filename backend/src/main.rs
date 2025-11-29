@@ -6,8 +6,6 @@ use crate::middleware::JwtMiddlewareFactory;
 use dotenv::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
-use log::LevelFilter;
-
 mod auth;
 mod certificate;
 mod db_model;

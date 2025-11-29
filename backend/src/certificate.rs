@@ -265,7 +265,6 @@ pub async fn list_active_certificates(state: web::Data<AppState>,
 
 pub async fn list_pending_certificates(state: web::Data<AppState>,
                                        req: HttpRequest) -> Result<impl Responder, ApiError> {
-    log::info!("lba: Listing pending certificates");
     let claims = req
         .extensions()
         .get::<Claims>()
