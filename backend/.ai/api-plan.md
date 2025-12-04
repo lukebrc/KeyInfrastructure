@@ -90,7 +90,7 @@
 
 - **Method**: POST
 - **URL Path**: /certificates/{id}/download
-- **Description**: Download PKCS#12 file for the certificate (user only for own).
+- **Description**: Download PKCS#12 file for the certificate (user cano only download his own keys/certificates).
 - **Query Parameters**: None
 - **Request JSON Structure**: {"pin": "string"}
 - **Response JSON Structure**: Binary PKCS#12 file

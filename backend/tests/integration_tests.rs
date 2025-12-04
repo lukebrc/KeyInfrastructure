@@ -22,30 +22,6 @@ fn generate_private_key() -> PKey<openssl::pkey::Private> {
     PKey::from_rsa(rsa).expect("Failed to create PKey from RSA")
 }
 
-/// Generate a real CSR using openssl crate for testing
-fn generate_test_csr() -> String {
-    let private_key = generate_private_key();
-
-    // Create X509 name for the subject
-    let mut name_builder = X509Name::builder().expect("Failed to create X509Name builder");
-    name_builder.append_entry_by_text("C", "PL").expect("Failed to append country");
-    name_builder.append_entry_by_text("O", "Test Organization").expect("Failed to append organization");
-    name_builder.append_entry_by_text("CN", "certuser").expect("Failed to append common name");
-    let subject_name = name_builder.build();
-
-    // Create CSR
-    let mut csr_builder = X509Req::builder().expect("Failed to create X509Req builder");
-    csr_builder.set_subject_name(&subject_name).expect("Failed to set subject name");
-    csr_builder.set_pubkey(&private_key).expect("Failed to set public key");
-    csr_builder.sign(&private_key, openssl::hash::MessageDigest::sha256()).expect("Failed to sign CSR");
-
-    let csr = csr_builder.build();
-
-    // Convert CSR to PEM format
-    let pem = csr.to_pem().expect("Failed to convert CSR to PEM");
-    String::from_utf8(pem).expect("Failed to convert PEM to string")
-}
-
 async fn setup_test_app() -> (impl actix_web::dev::Service<actix_http::Request, Response = actix_web::dev::ServiceResponse, Error = actix_web::Error>, Pool<Postgres>) {
     let _ = env_logger::builder().filter_level(LevelFilter::Debug).is_test(true).try_init();
     dotenv().ok();
@@ -292,9 +268,8 @@ async fn test_certificate_lifecycle() {
     assert!(cert["valid_days"].as_i64().unwrap() > 0);
     assert_eq!(cert["id"].as_str().unwrap(), cert_id);
 
-    // 6. CERT-04: User generate certificate basing on pending certificate request
-    let csr = generate_test_csr();
-    let generate_req = json!({ "csr": csr });
+    // 6. CERT-04: User generate certificate
+    let generate_req = json!({});
     let generate_uri = format!("/certificates/{}/generate", cert_id);
     let req = test::TestRequest::post()
         .uri(&generate_uri)
