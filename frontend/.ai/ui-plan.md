@@ -1,23 +1,23 @@
-# Architektura UI dla KeyInfrastructure
+# UI Architecture for KeyInfrastructure
 
-## 1. Przegląd struktury UI
+## 1. UI Structure Overview
 
-Aplikacja KeyInfrastructure składa się z dwóch głównych sekcji funkcjonalnych: portalu użytkownika i panelu administratora. Współdzielą one wspólne strony logowania i rejestracji, ale po uwierzytelnieniu użytkownicy są przekierowywani do odpowiednich ścieżek w zależności od ich roli.
+The KeyInfrastructure application consists of two main functional sections: user portal and administrator panel. They share common login and registration pages, but after authentication, users are redirected to appropriate paths based on their role.
 
-**Struktura nawigacji:**
-- **Publiczne strony:** `/`, `/login`, `/register` — dostępne dla wszystkich użytkowników niezalogowanych
-- **Sekcja użytkownika:** `/dashboard` — główny dashboard z certyfikatami
-- **Sekcja administratora:** `/admin/*` — panel administracyjny z zarządzaniem certyfikatami i użytkownikami
+**Navigation structure:**
+- **Public pages:** `/`, `/login`, `/register` — available to all unauthenticated users
+- **User section:** `/dashboard` — main dashboard with certificates
+- **Administrator section:** `/admin/*` — administrative panel for certificate and user management
 
-**Wzorzec autoryzacji:**
-Wszystkie chronione ścieżki są zabezpieczone przez middleware Astro, który weryfikuje ważność tokenu JWT z httpOnly cookie. Przy wygaśnięciu sesji użytkownik jest automatycznie przekierowywany na stronę logowania z komunikatem o wygasłej sesji.
+**Authorization pattern:**
+All protected paths are secured by Astro middleware, which verifies the validity of the JWT token from httpOnly cookie. When the session expires, the user is automatically redirected to the login page with an expired session message.
 
-**Integracja z API:**
-Frontend komunikuje się bezpośrednio z backend REST API (Rust/actix-web) poprzez standardowe żądania HTTP. Token JWT jest przesyłany w nagłówku `Authorization: Bearer <token>`. Dla MVP nie jest wymagane zaawansowane buforowanie — dane są pobierane przy każdym załadowaniu widoku. System obsługi błędów mapuje kody HTTP na czytelne komunikaty dla użytkownika.
+**API integration:**
+The frontend communicates directly with the backend REST API (Rust/actix-web) via standard HTTP requests. The JWT token is sent in the `Authorization: Bearer <token>` header. For MVP, advanced caching is not required — data is fetched on every view load. The error handling system maps HTTP codes to readable messages for the user.
 
-## 2. Lista widoków
+## 2. View List
 
-### 2.1. Widok: Strona główna (Welcome)
+### 2.1. View: Welcome Page
 
 **Ścieżka:** `/`
 
@@ -47,13 +47,12 @@ Publiczna strona powitalna dla niezalogowanych użytkowników, prezentująca pod
 **Ścieżka:** `/register`
 
 **Główny cel:**
-Umożliwienie nowym użytkownikom samodzielnej rejestracji w systemie poprzez podanie nazwy użytkownika, hasła i PIN.
+Umożliwienie nowym użytkownikom samodzielnej rejestracji w systemie poprzez podanie nazwy użytkownika, hasła.
 
 **Kluczowe informacje do wyświetlenia:**
 - Formularz rejestracji z polami:
   - Username (wymagane, unikalne)
   - Password (wymagane, minimum 8 znaków)
-  - PIN (wymagane, minimum 8 znaków, używane do ochrony pliku PKCS#12)
 - Komunikaty walidacji po stronie klienta
 - Komunikaty błędów z API (409 — użytkownik już istnieje, 400 — nieprawidłowe dane)
 
@@ -66,9 +65,8 @@ Umożliwienie nowym użytkownikom samodzielnej rejestracji w systemie poprzez po
 
 **UX, dostępność i względy bezpieczeństwa:**
 - Walidacja po stronie klienta przed wysłaniem formularza
-- Wskazówki dotyczące wymagań (min. 8 znaków dla PIN i hasła)
+- Wskazówki dotyczące wymagań (min. 8 znaków dla hasła)
 - Po udanej rejestracji: automatyczne logowanie (POST /auth/login) i przekierowanie na `/dashboard`
-- PIN nie jest przechowywany dłużej niż konieczne — tylko podczas rejestracji
 - Formularz responsywny (kolumny na desktop, stack na mobile)
 - Touch target minimum 44x44px dla przycisków
 
@@ -133,7 +131,7 @@ Centralny widok dla użytkowników, prezentujący listę ich certyfikatów, stat
 - `StatusBadge` — badge statusu certyfikatu (ACTIVE/REVOKED)
 - `DateDisplay` — wyświetlanie daty wygaśnięcia z wyróżnieniem
 - `ActionButtons` — przyciski Renew i Download
-- `DownloadCertificateModal` — modal do pobierania certyfikatu (z polem PIN)
+- `DownloadCertificateModal` — modal do pobierania certyfikatu
 - `UserHeader` — nagłówek z informacjami o użytkowniku
 - `LogoutButton` — przycisk wylogowania
 
@@ -260,16 +258,16 @@ Przegląd wszystkich certyfikatów w systemie z możliwością unieważnienia (r
 
 ---
 
-## 3. Mapa podróży użytkownika
+## 3. User Journey Map
 
-### 3.1. Przepływ rejestracji i pierwszego logowania (Nowy użytkownik)
+### 3.1. Registration and First Login Flow (New User)
 
 1. **Użytkownik odwiedza stronę główną (`/`)**
    - Widzi informacje o systemie
    - Kliknie przycisk "Zarejestruj się"
 
 2. **Przejście do rejestracji (`/register`)**
-   - Wypełnia formularz: username, password, PIN (min. 8 znaków każdy)
+   - Wypełnia formularz: username, password
    - Walidacja po stronie klienta sprawdza wymagania
    - Wysyła żądanie POST /users
 
@@ -304,11 +302,11 @@ Przegląd wszystkich certyfikatów w systemie z możliwością unieważnienia (r
 
 2. **Pobieranie certyfikatu:**
    - Użytkownik klika przycisk "Download" przy certyfikacie
-   - Otwiera się modal z polem PIN
-   - Użytkownik wprowadza PIN (min. 8 znaków)
-   - Wysyła żądanie POST /certificates/{id}/download z PIN w body
+   - Otwiera się modal z polem wpisania hasła
+   - Użytkownik wprowadza hasło (min. 8 znaków)
+   - Wysyła żądanie POST /certificates/{id}/download z password w body
    - Przeglądarka automatycznie pobiera plik `.p12` lub `.pfx`
-   - W przypadku błędu 400 (Invalid PIN): wyświetla się komunikat błędu
+   - W przypadku błędu 400 (Invalid password): wyświetla się komunikat błędu
 
 3. **Odnawianie certyfikatu:**
    - Użytkownik widzi banner z wygasającym certyfikatem lub klika "Renew" w tabeli
@@ -364,7 +362,7 @@ Przegląd wszystkich certyfikatów w systemie z możliwością unieważnienia (r
    - Otrzymuje nowy token JWT
    - Przekierowanie na poprzedni widok (jeśli możliwe) lub dashboard
 
-## 4. Układ i struktura nawigacji
+## 4. Layout and Navigation Structure
 
 ### 4.1. Struktura nawigacji głównej
 
@@ -425,7 +423,7 @@ Admin > Certificates > Create
 Admin > Certificates > List
 ```
 
-## 5. Kluczowe komponenty
+## 5. Key Components
 
 ### 5.1. Komponenty uwierzytelniania
 
@@ -436,7 +434,7 @@ Admin > Certificates > List
 - Przekierowanie po udanym logowaniu
 
 **`RegisterForm` (React)**
-- Formularz rejestracji z polami username, password, PIN
+- Formularz rejestracji z polami username, password
 - Walidacja wymagań (min. 8 znaków)
 - Obsługa błędów 400, 409
 - Automatyczne logowanie po rejestracji
@@ -465,12 +463,11 @@ Admin > Certificates > List
 - Integracja z GET /certificates (query params: page, limit, status, sort_by, order)
 
 **`DownloadCertificateModal` (React)**
-- Modal z polem PIN (min. 8 znaków)
+- Modal z polem password (min. 8 znaków)
 - Przycisk pobierania i zamknięcia
 - Obsługa POST /certificates/{id}/download
 - Automatyczne pobieranie pliku `.p12`/.pfx
-- Obsługa błędu 400 (Invalid PIN)
-- PIN nie przechowywany dłużej niż konieczne
+- Obsługa błędu 400 (Invalid password)
 
 **`CertificateRow` (React)**
 - Pojedynczy wiersz certyfikatu w tabeli
@@ -579,12 +576,12 @@ Admin > Certificates > List
 
 ---
 
-## 6. Mapowanie wymagań PRD na elementy UI
+## 6. PRD Requirements Mapping to UI Elements
 
 ### 6.1. User Management
 
-**PRD:** "The system must allow new users to self-register with a username, password, and an 8-character minimum PIN."
-- **Element UI:** `RegisterForm` na `/register` z walidacją PIN (min. 8 znaków)
+**PRD:** "The system must allow new users to self-register with a username, password, and an 8-character minimum password."
+- **Element UI:** `RegisterForm` na `/register` z walidacją password (min. 8 znaków)
 
 **PRD:** "The system must authenticate users based on their username and password."
 - **Element UI:** `LoginForm` na `/login` z polami username i password
@@ -599,8 +596,8 @@ Admin > Certificates > List
 
 ### 6.3. User-Facing Functionality
 
-**PRD:** "The system must allow authenticated users to download their key/certificate pair in a PKCS#12 file protected by their PIN."
-- **Element UI:** `DownloadCertificateModal` z polem PIN, integracja z POST /certificates/{id}/download
+**PRD:** "The system must allow authenticated users to download their key/certificate pair in a PKCS#12 file protected by their password."
+- **Element UI:** `DownloadCertificateModal` z polem password, integracja z POST /certificates/{id}/download
 
 **PRD:** "The system must display a prominent banner to users whose certificate is near or past its expiration date, prompting them to renew."
 - **Element UI:** `ExpiringBanner` na `/dashboard` z polling GET /certificates/expiring
@@ -620,7 +617,7 @@ Admin > Certificates > List
 - **Element UI:** `ExpiringBanner` na `/dashboard` z wyróżnieniem kolorystycznym
 
 **"As a User, I want to download my certificate and private key securely..."**
-- **Element UI:** Przycisk "Download" → `DownloadCertificateModal` z PIN → pobranie `.p12`/.pfx
+- **Element UI:** Przycisk "Download" → `DownloadCertificateModal` z password → pobranie `.p12`/.pfx
 
 **"As an Administrator, I want to log in to the system..."**
 - **Element UI:** `/login` → `LoginForm` → przekierowanie na `/admin/dashboard`
@@ -630,7 +627,7 @@ Admin > Certificates > List
 
 ---
 
-## 7. Rozwiązanie punktów bólu użytkownika
+## 7. User Pain Points Solutions
 
 ### 7.1. Problem: Użytkownik nie wie, że jego certyfikat wygasa
 
@@ -644,9 +641,9 @@ Admin > Certificates > List
 
 **Rozwiązanie UI:**
 - Wyraźny przycisk "Download" przy każdym aktywnym certyfikacie
-- Modal z jasnymi instrukcjami dotyczącymi PIN
-- Automatyczne pobieranie pliku po wprowadzeniu poprawnego PIN
-- Czytelne komunikaty błędów przy nieprawidłowym PIN
+- Modal z jasnymi instrukcjami dotyczącymi hasła
+- Automatyczne pobieranie pliku po wprowadzeniu poprawnego hasła
+- Czytelne komunikaty błędów przy nieprawidłowym haśle
 
 ### 7.3. Problem: Administrator popełnia błędy przy tworzeniu certyfikatu (np. błędny DN)
 
@@ -671,22 +668,22 @@ Admin > Certificates > List
 - Opcjonalny timer odliczający czas do wygaśnięcia sesji (dla przyszłych wersji)
 - Przycisk wylogowania dla kontroli użytkownika
 
-### 7.6. Problem: Użytkownik zapomina PIN przy pobieraniu certyfikatu
+### 7.6. Problem: Użytkownik zapomina hasło przy pobieraniu certyfikatu
 
 **Rozwiązanie UI:**
-- Czytelny komunikat błędu: "Nieprawidłowy PIN"
+- Czytelny komunikat błędu: "Nieprawidłowe hasło"
 - Możliwość ponowienia próby bez zamknięcia modala
-- PIN ustawiany tylko podczas rejestracji — użytkownik musi go pamiętać (zgodnie z PRD, przypominanie PIN nie jest w zakresie MVP)
+- Hasło ustawiane tylko podczas rejestracji — użytkownik musi go pamiętać (zgodnie z PRD, przypominanie hasła nie jest w zakresie MVP)
 
 ---
 
-## 8. Stany błędów i przypadki brzegowe
+## 8. Error States and Edge Cases
 
 ### 8.1. Stany błędów API
 
 **400 Bad Request:**
 - Walidacja danych (formularze): inline error messages w polach formularza
-- Invalid PIN przy pobieraniu: komunikat w modalu "Nieprawidłowy PIN. Spróbuj ponownie."
+- Invalid password przy pobieraniu: komunikat w modalu "Nieprawidłowe hasło. Spróbuj ponownie."
 
 **401 Unauthorized:**
 - Brak tokenu lub wygasły token: automatyczne przekierowanie na `/login` z komunikatem "Sesja wygasła. Zaloguj się ponownie."
@@ -733,7 +730,7 @@ Admin > Certificates > List
 
 ---
 
-## 9. Zgodność z planem API
+## 9. API Plan Compliance
 
 Wszystkie widoki i komponenty są w pełni zgodne z planem API:
 
@@ -744,7 +741,7 @@ Wszystkie widoki i komponenty są w pełni zgodne z planem API:
 - **GET /certificates** → `CertificateTable` (z query params: page, limit, status, sort_by, order)
 - **GET /certificates/expiring** → `ExpiringBanner` (z query param: days=30)
 - **PUT /certificates/{id}/renew** → przycisk "Renew" w `CertificateTable` i `ExpiringBanner`
-- **POST /certificates/{id}/download** → `DownloadCertificateModal` (z PIN w body)
+- **POST /certificates/{id}/download** → `DownloadCertificateModal` (z password w body)
 - **PUT /certificates/{id}/revoke** → przycisk "Revoke" w `AdminCertificateTable` (z reason w body)
 
 **Uwaga:** Endpoint `GET /users` dla administratora (potrzebny w `UserSelect`) nie jest wymieniony w planie API. Należy to rozwiązać przez:
@@ -753,15 +750,15 @@ Wszystkie widoki i komponenty są w pełni zgodne z planem API:
 
 ---
 
-## 10. Podsumowanie
+## 10. Summary
 
-Architektura UI dla KeyInfrastructure MVP zapewnia:
+The UI Architecture for KeyInfrastructure MVP provides:
 
-- **Separację funkcjonalności:** Oddzielne ścieżki dla użytkowników i administratorów z wspólnym logowaniem
-- **Bezpieczeństwo:** Token JWT w httpOnly cookie, middleware chroniący ścieżki, walidacja po stronie klienta
-- **Użyteczność:** Prominentne powiadomienia o wygasających certyfikatach, intuicyjne formularze, czytelne komunikaty błędów
-- **Responsywność:** Mobile-first approach z Tailwind CSS, touch targets 44x44px
-- **Integrację z API:** Pełne mapowanie wymagań PRD i planu API na elementy UI
-- **Obsługę błędów:** Centralny system obsługi błędów z czytelnymi komunikatami i fallback UI
+- **Functionality Separation:** Separate paths for users and administrators with common login
+- **Security:** JWT token in httpOnly cookie, middleware protecting paths, client-side validation
+- **Usability:** Prominent notifications about expiring certificates, intuitive forms, clear error messages
+- **Responsiveness:** Mobile-first approach with Tailwind CSS, touch targets 44x44px
+- **API Integration:** Full mapping of PRD requirements and API plan to UI elements
+- **Error Handling:** Central error handling system with readable messages and fallback UI
 
-Architektura jest gotowa do implementacji w Astro 5 z React 19, Tailwind CSS 4 i Shadcn/ui.
+The architecture is ready for implementation in Astro 5 with React 19, Tailwind CSS 4, and Shadcn/ui.

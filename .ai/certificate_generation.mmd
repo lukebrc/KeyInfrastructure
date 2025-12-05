@@ -1,0 +1,27 @@
+sequenceDiagram
+    autonumber
+
+    participant User as User/Admin
+    participant API as Backend API
+    participant DB as Database
+    participant FS as Local Filesystem (CA)
+    participant Crypto as Crypto Library
+
+    User->>API: POST /certificates/{id}/generate
+    API->>API: Verify authentication & authorization
+    API->>DB: Fetch pending certificate request by ID
+    DB-->>API: Return request details (DN, validity_days)
+    API->>Crypto: Generate RSA key pair (2048 bit)
+    Crypto-->>API: Return private key & public key
+    API->>Crypto: Build X.509 certificate structure (subject DN, validity, extensions)
+    API->>FS: Load root CA certificate from filesystem
+    FS-->>API: Return root CA cert
+    API->>FS: Load encrypted root CA private key from filesystem
+    FS-->>API: Return encrypted root CA key
+    API->>API: Decrypt root CA key using env var password
+    API->>Crypto: Sign user certificate with root CA key
+    Crypto-->>API: Return signed certificate
+    API->>API: Encrypt user private key with user's password
+    API->>DB: Store certificate (DER), encrypted private key, serial number
+    API->>DB: Delete pending certificate request
+    API-->>User: Return success response (certificate details)

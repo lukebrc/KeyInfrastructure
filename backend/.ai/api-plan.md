@@ -11,7 +11,7 @@
 - **URL Path**: /users
 - **Description**: Register a new user.
 - **Query Parameters**: None
-- **Request JSON Structure**: {"username": "string", "password": "string", "pin": "string (min 8 chars)"}
+- **Request JSON Structure**: {"username": "string", "password": "string"}
 - **Response JSON Structure**: {"id": "uuid", "username": "string", "role": "string", "created_at": "timestamp"}
 - **Success Codes and Messages**: 201 Created - "User registered successfully"
 - **Error Codes and Messages**: 400 Bad Request - "Invalid input data", 409 Conflict - "Username already exists"
@@ -92,19 +92,19 @@
 - **URL Path**: /certificates/{id}/download
 - **Description**: Download PKCS#12 file for the certificate (user cano only download his own keys/certificates).
 - **Query Parameters**: None
-- **Request JSON Structure**: {"pin": "string"}
+- **Request JSON Structure**: {"password": "string"}
 - **Response JSON Structure**: Binary PKCS#12 file
 - **Success Codes and Messages**: 200 OK - "File downloaded"
-- **Error Codes and Messages**: 403 Forbidden - "Access denied", 400 Bad Request - "Invalid PIN", 404 Not Found - "Certificate not found"
+- **Error Codes and Messages**: 403 Forbidden - "Access denied", 400 Bad Request - "Invalid password", 404 Not Found - "Certificate not found"
 
 - **Method**: POST
 - **URL Path**: /certificates/{id}/generate
 - **Description**: generate new certificate for user
 - **Query Parameters**: id: String
-- **Request JSON Structure**: {"pin": "string"}
+- **Request JSON Structure**: {"password": "string"}
 - **Response JSON Structure**: Binary PKCS#12 file
 - **Success Codes and Messages**: 200 OK - "File downloaded"
-- **Error Codes and Messages**: 403 Forbidden - "Access denied", 400 Bad Request - "Invalid PIN", 404 Not Found - "Certificate not found"
+- **Error Codes and Messages**: 403 Forbidden - "Access denied", 400 Bad Request - "Invalid password", 404 Not Found - "Certificate not found"
 
 - **Method**: PUT
 - **URL Path**: /certificates/{id}/revoke
@@ -121,8 +121,8 @@
 
 ## 4. Validation and Business Logic
 - **Validation Conditions**:
-  - Users: Username must be unique, password hashed, role must be 'ADMIN' or 'USER', PIN min 8 chars during registration.
+  - Users: Username must be unique, password hashed, role must be 'ADMIN' or 'USER', password min 8 chars during registration.
   - Certificates: Serial number unique, status 'ACTIVE' or 'REVOKED', DN required, validity period 1 day to 10 years, hash algorithm one of SHA-256/384/512.
-  - Private Keys: Encrypted with user's PIN, stored securely.
+  - Private Keys: Encrypted with user's password, stored securely.
   - Revoked Certificates: One per certificate, reason optional.
-- **Business Logic Implementation**: Registration validates PIN length and uniqueness. Certificate creation generates keys via internal CA, signs with root CA key (password from ENV). Renewal updates expiration and count. Download decrypts key with PIN and packages PKCS#12. Notifications via expiring endpoint for frontend banner. Revocation updates status and logs reason. All operations enforce RLS-like access via JWT claims.
+- **Business Logic Implementation**: Registration validates password length and username uniqueness. Certificate creation generates keys via internal CA, signs with root CA key (password from ENV). Renewal updates expiration and count. Download decrypts key with password and packages PKCS#12. Notifications via expiring endpoint for frontend banner. Revocation updates status and logs reason. All operations enforce RLS-like access via JWT claims.

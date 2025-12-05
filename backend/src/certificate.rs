@@ -1,12 +1,11 @@
 use actix_web::{http::header, web, HttpMessage, HttpRequest, HttpResponse, Responder};
 use base64::{engine::general_purpose, Engine as _};
 use openssl::pkcs12::Pkcs12;
-use openssl::pkey::{PKey, Private};
+use openssl::pkey::PKey;
 use openssl::symm::{decrypt, Cipher};
 use openssl::x509::{X509, X509Builder, X509Name};
 use openssl::rsa::Rsa;
 use openssl::asn1::Asn1Time;
-use openssl::sign::Signer;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use uuid::Uuid;
@@ -36,7 +35,7 @@ pub struct CreateCertificateRequest {
 
 #[derive(Deserialize)]
 pub struct DownloadCertificateRequest {
-    pin: String,
+    password: String,
 }
 
 #[derive(Serialize)]
@@ -70,7 +69,6 @@ struct CertificateDownloadInfo {
     dn: String,
     certificate_der: String,
     encrypted_private_key: String,
-    pin_hash: String,
 }
 
 pub async fn create_certificate_request(
@@ -96,7 +94,7 @@ pub async fn create_certificate_request(
         ));
     }
 
-    // Fetch the user to get their hashed PIN for encryption
+    // Fetch the user to get their hashed password for encryption
     let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
         .bind(body.user_id)
         .fetch_optional(&state.pool)
@@ -146,8 +144,8 @@ pub async fn download_certificate(
         .cloned()
         .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
 
-    // Fetch certificate data and user PIN hash from DB
-    let row = sqlx::query_as::<_, CertificateDownloadInfo>(
+    // Fetch certificate data and user password hash from DB
+    let cert_row = sqlx::query_as::<_, CertificateDownloadInfo>(
         "SELECT c.user_id, cr.dn, c.certificate_der, pk.encrypted_key
         FROM certificates c
         JOIN certificate_requests cr ON cr.id=c.id
@@ -163,7 +161,7 @@ pub async fn download_certificate(
     // Authorization: User can only download their own certificate.
     let user_id = Uuid::parse_str(&claims.sub)
         .map_err(|_| ApiError::Internal("Invalid UUID in claims".to_string()))?;
-    if row.user_id != user_id {
+    if cert_row.user_id != user_id {
         log::error!(
             "User {} is not allowed to download certificate {}",
             user_id,
@@ -173,19 +171,26 @@ pub async fn download_certificate(
             "You are not allowed to download this certificate".to_string(),
         ));
     }
-    // Verify PIN against the user's stored hash
-    if !bcrypt::verify(&body.pin, &row.pin_hash)
-        .map_err(|_| ApiError::Internal("PIN verification failed".to_string()))?
+
+    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_optional(&state.pool)
+        .await?
+        .ok_or_else(|| ApiError::NotFound("User not found".to_string()))?;
+
+    // Verify password against the user's stored hash
+    if !bcrypt::verify(&body.password, &user.password_hash)
+        .map_err(|_| ApiError::Internal("password verification failed".to_string()))?
     {
         return Err(ApiError::BadRequest("Incorrect PIN".to_string()));
     }
 
     // Decrypt the private key
     let cipher = Cipher::aes_256_cbc();
-    let key = &row.pin_hash.as_bytes()[..32];
-    let iv = &row.pin_hash.as_bytes()[32..48];
+    let key = &user.password_hash.as_bytes()[..32];
+    let iv = &user.password_hash.as_bytes()[32..48];
     let encrypted_private_key = general_purpose::STANDARD
-        .decode(&row.encrypted_private_key)
+        .decode(&cert_row.encrypted_private_key)
         .map_err(|_| ApiError::Internal("Failed to decode private key".to_string()))?;
     let private_key_pem = decrypt(cipher, key, Some(iv), &encrypted_private_key).map_err(|_| {
         ApiError::Internal(
@@ -195,7 +200,7 @@ pub async fn download_certificate(
     })?;
 
     // Create PKCS#12 archive
-    let x509 = X509::from_der(row.certificate_der.as_bytes())
+    let x509 = X509::from_der(cert_row.certificate_der.as_bytes())
         .map_err(|_| ApiError::Internal("Failed to parse certificate PEM".to_string()))?;
     let pkey = PKey::private_key_from_pem(&private_key_pem)
         .map_err(|_| ApiError::Internal("Failed to parse private key PEM".to_string()))?;
@@ -203,13 +208,13 @@ pub async fn download_certificate(
     let pkcs12_builder = Pkcs12::builder()
         .cert(&x509)
         .pkey(&pkey)
-        .build2(&body.pin)
+        .build2(&body.password)
         .map_err(|e| ApiError::Internal(format!("Failed to build PKCS#12 archive: {}", e)))?;
     let pkcs12 = pkcs12_builder
         .to_der()
         .map_err(|e| ApiError::Internal(format!("Failed to serialize PKCS#12 archive: {}", e)))?;
 
-    let filename = format!("attachment; filename=\"{}.p12\"", &row.dn);
+    let filename = format!("attachment; filename=\"{}.p12\"", &cert_row.dn);
     Ok(HttpResponse::Ok()
         .insert_header((header::CONTENT_DISPOSITION, filename))
         .insert_header((header::CONTENT_TYPE, "application/octet-stream"))
@@ -359,7 +364,6 @@ pub async fn generate_certificate(
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, ApiError> {
     use openssl::x509::extension::{BasicConstraints, KeyUsage, SubjectKeyIdentifier, AuthorityKeyIdentifier};
-    use openssl::nid::Nid;
 
     // Authorization: Only admins may generate certificates
     let claims = req
@@ -408,7 +412,22 @@ pub async fn generate_certificate(
     builder.set_pubkey(&private_key)
         .map_err(|e| ApiError::Internal(format!("set_pubkey: {}", e)))?;
 
-    // Subject and issuer (for now, just set as DN from the request)
+    // Load root CA certificate and private key from filesystem
+    let ca_cert_pem = fs::read("ca/ca.crt")
+        .map_err(|e| ApiError::Internal(format!("Failed to read CA cert: {}", e)))?;
+    let ca_cert = X509::from_pem(&ca_cert_pem)
+        .map_err(|e| ApiError::Internal(format!("Failed to parse CA cert: {}", e)))?;
+
+    let ca_key_encrypted = fs::read("ca/ca.key")
+        .map_err(|e| ApiError::Internal(format!("Failed to read CA key: {}", e)))?;
+
+    let ca_password = std::env::var("CA_PASSWORD")
+        .map_err(|_| ApiError::Internal("CA_PASSWORD env var not set".to_string()))?;
+
+    let ca_private_key = PKey::private_key_from_pem_passphrase(&ca_key_encrypted, ca_password.as_bytes())
+        .map_err(|e| ApiError::Internal(format!("Failed to decrypt CA key: {}", e)))?;
+
+    // Subject (user's DN)
     let mut subject_name = X509Name::builder()
         .map_err(|e| ApiError::Internal(format!("X509Name::builder: {}", e)))?;
 
@@ -417,16 +436,19 @@ pub async fn generate_certificate(
     let subject_name = subject_name.build();
     builder.set_subject_name(&subject_name)
         .map_err(|e| ApiError::Internal(format!("set_subject_name: {}", e)))?;
-    builder.set_issuer_name(&subject_name)
+
+    // Issuer (CA's subject)
+    let issuer_name = ca_cert.subject_name();
+    builder.set_issuer_name(issuer_name)
         .map_err(|e| ApiError::Internal(format!("set_issuer_name: {}", e)))?;
 
     // Serial number
     use openssl::bn::BigNum;
-    let serial = BigNum::new()
-        .and_then(|mut bn| { bn.pseudo_rand(64, openssl::bn::MsbOption::MAYBE_ZERO, false)?; bn.to_asn1_integer() })
-        .map_err(|e| ApiError::Internal(format!("Serial: {}", e)))?;
-    builder.set_serial_number(&serial)
-        .map_err(|e| ApiError::Internal(format!("set_serial_number: {}", e)))?;
+    let mut serial_bn = BigNum::new().unwrap();
+    serial_bn.pseudo_rand(64, openssl::bn::MsbOption::MAYBE_ZERO, false).unwrap();
+    let serial = serial_bn.to_asn1_integer().unwrap();
+    let serial_str = serial_bn.to_hex_str().unwrap().to_string();
+    builder.set_serial_number(&serial).unwrap();
 
     // Set validity period
     let not_before = Asn1Time::days_from_now(0)
@@ -458,29 +480,160 @@ pub async fn generate_certificate(
     ).map_err(|e| ApiError::Internal(format!("append_extension: {}", e)))?;
 
     builder.append_extension(
-        AuthorityKeyIdentifier::new().keyid(true).build(&builder.x509v3_context(None, None))
+        AuthorityKeyIdentifier::new().keyid(true).build(&builder.x509v3_context(Some(&ca_cert), None))
             .map_err(|e| ApiError::Internal(format!("AuthorityKeyIdentifier: {}", e)))?
     ).map_err(|e| ApiError::Internal(format!("append_extension: {}", e)))?;
 
-    // Sign (self-signed for now)
-    builder.sign(&private_key, openssl::hash::MessageDigest::sha256())
+    // Sign with CA
+    builder.sign(&ca_private_key, openssl::hash::MessageDigest::sha256())
         .map_err(|e| ApiError::Internal(format!("sign: {}", e)))?;
 
     let cert = builder.build();
 
-    // Save certificate and private key as PEM for download (or later, as DER for DB)
-    let cert_pem = cert.to_pem()
-        .map_err(|e| ApiError::Internal(format!("cert.to_pem: {}", e)))?;
+    // Get user for password hash
+    let user_id = claims.sub.parse::<Uuid>()
+        .map_err(|_| ApiError::Internal("Invalid user ID in claims".to_string()))?;
+    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(|_| ApiError::NotFound("User not found".to_string()))?;
+
+    // Encrypt the private key with user's password hash
     let key_pem = private_key.private_key_to_pem_pkcs8()
         .map_err(|e| ApiError::Internal(format!("private_key_to_pem_pkcs8: {}", e)))?;
+    let cipher = Cipher::aes_256_cbc();
+    let key = &user.password_hash.as_bytes()[..32];
+    let iv = &user.password_hash.as_bytes()[32..48];
+    let encrypted_key = openssl::symm::encrypt(cipher, key, Some(iv), &key_pem)
+        .map_err(|e| ApiError::Internal(format!("Encrypt key: {}", e)))?;
+    let encrypted_key_b64 = general_purpose::STANDARD.encode(&encrypted_key);
 
-    // For now, just return them concatenated as plain text
-    let mut output = Vec::new();
-    output.extend_from_slice(&cert_pem);
-    output.extend_from_slice(b"\n");
-    output.extend_from_slice(&key_pem);
+    // Save certificate DER and encrypted private key to DB
+    let _cert_der = cert.to_der()
+        .map_err(|e| ApiError::Internal(format!("cert.to_der: {}", e)))?;
+    let expiration_date = not_after.to_string();
 
-    Ok(HttpResponse::Ok()
-        .insert_header(("Content-Type", "application/x-pem-file"))
-        .body(output))
+    let cert_id: Uuid = sqlx::query_scalar(
+        "INSERT INTO certificates (id, user_id, serial_number, dn, status, expiration_date, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING id"
+    )
+    .bind(cert_req_id)
+    .bind(user_id)
+    .bind(&serial_str)
+    .bind(&pending_request.dn)
+    .bind("ACTIVE")
+    .bind(expiration_date.to_string())
+    .fetch_one(&state.pool)
+    .await?;
+
+    sqlx::query(
+        "INSERT INTO private_keys (id, encrypted_key) VALUES ($1, $2)"
+    )
+    .bind(cert_id)
+    .bind(encrypted_key_b64)
+    .execute(&state.pool)
+    .await?;
+
+    // Delete the pending request
+    sqlx::query("DELETE FROM certificate_requests WHERE id = $1")
+        .bind(cert_req_id)
+        .execute(&state.pool)
+        .await?;
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "id": cert_id,
+        "serial_number": serial_str,
+        "dn": pending_request.dn,
+        "status": "ACTIVE",
+        "expiration_date": expiration_date
+    })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use openssl::x509::extension::{BasicConstraints, KeyUsage, SubjectKeyIdentifier, AuthorityKeyIdentifier};
+    use openssl::bn::BigNum;
+    use openssl::hash::MessageDigest;
+    use openssl::nid::Nid;
+
+    #[test]
+    fn test_key_generation() {
+        let rsa = Rsa::generate(2048).unwrap();
+        let pkey = PKey::from_rsa(rsa).unwrap();
+        assert_eq!(pkey.bits(), 2048);
+    }
+
+    #[test]
+    fn test_certificate_building_and_signing() {
+        // Set CA_PASSWORD for test
+        std::env::set_var("CA_PASSWORD", "ca_password");
+
+        // Load CA certificate and private key
+        let ca_cert_pem = fs::read("ca/ca.crt").unwrap();
+        let ca_cert = X509::from_pem(&ca_cert_pem).unwrap();
+        let ca_key_encrypted = fs::read("ca/ca.key").unwrap();
+        let ca_private_key = PKey::private_key_from_pem_passphrase(&ca_key_encrypted, b"ca_password").unwrap();
+
+        // Generate user private key
+        let rsa = Rsa::generate(2048).unwrap();
+        let private_key = PKey::from_rsa(rsa).unwrap();
+
+        // Build certificate
+        let mut builder = X509Builder::new().unwrap();
+        builder.set_pubkey(&private_key).unwrap();
+
+        // Set subject
+        let mut subject_name = X509Name::builder().unwrap();
+        subject_name.append_entry_by_text("CN", "test.example.com").unwrap();
+        let subject_name = subject_name.build();
+        builder.set_subject_name(&subject_name).unwrap();
+
+        // Set issuer to CA
+        let issuer_name = ca_cert.subject_name();
+        builder.set_issuer_name(issuer_name).unwrap();
+
+        // Set serial number
+        let mut serial_bn_test = BigNum::new().unwrap();
+        serial_bn_test.pseudo_rand(64, openssl::bn::MsbOption::MAYBE_ZERO, false).unwrap();
+        let serial = serial_bn_test.to_asn1_integer().unwrap();
+        builder.set_serial_number(&serial).unwrap();
+
+        // Set validity period
+        let not_before = Asn1Time::days_from_now(0).unwrap();
+        let not_after = Asn1Time::days_from_now(365).unwrap();
+        builder.set_not_before(&not_before).unwrap();
+        builder.set_not_after(&not_after).unwrap();
+
+        // Add extensions
+        builder.append_extension(
+            BasicConstraints::new().critical().build().unwrap()
+        ).unwrap();
+        builder.append_extension(
+            KeyUsage::new()
+                .digital_signature()
+                .key_encipherment()
+                .build().unwrap()
+        ).unwrap();
+        builder.append_extension(
+            SubjectKeyIdentifier::new().build(&builder.x509v3_context(None, None)).unwrap()
+        ).unwrap();
+        builder.append_extension(
+            AuthorityKeyIdentifier::new().keyid(true).build(&builder.x509v3_context(Some(&ca_cert), None)).unwrap()
+        ).unwrap();
+
+        // Sign with CA
+        builder.sign(&ca_private_key, MessageDigest::sha256()).unwrap();
+        let cert = builder.build();
+
+        // Verify certificate properties
+        let mut common_name_it = cert.subject_name().entries().filter(|e| e.object().nid() == Nid::COMMONNAME);
+        let cn_ref = common_name_it.next()
+            .unwrap()
+            .data()
+            .as_utf8()
+            .expect("Expected CN String");
+        assert_eq!(cn_ref.to_string(), "test.example.com");
+        assert!(cert.verify(&ca_private_key).unwrap()); // Verify signature
+    }
 }

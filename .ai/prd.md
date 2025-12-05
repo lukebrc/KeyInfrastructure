@@ -10,7 +10,7 @@ Generating and refreshing certificates for greater network is problematic for ad
 
 ## Functional requirements of the project
 *   **User Management:**
-    *   The system must allow new users to self-register with a username, password, and an 8-character minimum PIN.
+    *   The system must allow new users to self-register with a username, and password
     *   The system must authenticate users based on their username and password.
 *   **Administrator Management:**
     *   The system must support a single administrator role with full privileges.
@@ -20,7 +20,7 @@ Generating and refreshing certificates for greater network is problematic for ad
     *   This interface must allow the administrator to specify the certificate's validity period, hash algorithm (SHA-256, SHA-384, SHA-512), and all Distinguished Name (DN) fields.
     *   The system must store an encrypted backup of the user's private key in the database.
 *   **User-Facing Functionality:**
-    *   The system must allow authenticated users to download their key/certificate pair in a PKCS#12 file protected by their PIN.
+    *   The system must allow authenticated users to download their key/certificate pair in a PKCS#12 file protected by their password.
     *   The system must display a prominent banner to users whose certificate is near or past its expiration date, prompting them to renew.
     *   Users must be able to initiate the certificate renewal process.
 *   **Internal Certificate Authority:**
@@ -28,10 +28,10 @@ Generating and refreshing certificates for greater network is problematic for ad
     *   The root CA's private key must be accessible to the application, secured by a password loaded from an environment variable.
 
 ## Key user stories and use cases
-*   **As a User,** I want to register for an account by providing my credentials and a PIN so that I can have my certificates managed by the system.
+*   **As a User,** I want to register for an account by providing my credentials and a password so that I can have my certificates managed by the system.
 *   **As a User,** I want to log in to the portal with my username and password to access my certificate information.
 *   **As a User,** I want to be clearly notified when my certificate is about to expire so I can take action to renew it.
-*   **As a User,** I want to download my certificate and private key securely packaged in a file that is protected by my PIN.
+*   **As a User,** I want to download my certificate and private key securely packaged in a file that is protected by my password.
 *   **As an Administrator,** I want to log in to the system to manage users and their certificates.
 *   **As an Administrator,** I want to create a new certificate for a user by specifying all its required parameters to meet our organizational standards.
 
@@ -49,13 +49,13 @@ Generating and refreshing certificates for greater network is problematic for ad
 - The method of storing private keys and certificates by the user.
 - The transfer of temporary passwords from the administrator to the user.
 - Communication between the client and the administrator.
-- The situation where a user forgets their password or PIN.
+- The situation where a user forgets their password
 
 ## System design decisions
 
 1.  **User Registration:** Users will register via a simple form with a username and password. Email verification will not be implemented for the MVP.
-2.  **PIN Management:** A PIN of at least 8 characters will be set by the user only during the registration phase. It will be used to password-protect the downloaded PKCS#12 file.
-3.  **Key Storage & Security:** Private keys will be backed up on the server, encrypted with the user's PIN. The risk of a user brute-forcing the downloaded file is accepted, and no server-side lockout mechanism for PIN attempts will be implemented.
+2.  **Password Management:** A password of at least 8 characters will be set by the user only during the registration phase. It will be used to password-protect the downloaded PKCS#12 file.
+3.  **Key Storage & Security:** Private keys will be backed up on the server, encrypted with the user's password. The risk of a user brute-forcing the downloaded file is accepted, and no server-side lockout mechanism for password attempts will be implemented.
 4.  **Administrator Role:** A single administrator role will exist. Admins are created by adding them directly to the database. They are responsible for manually filling in the Distinguished Name (DN) for each new certificate.
 5.  **Certificate Configuration:** Administrators can set the certificate validity period and choose a hash algorithm from SHA-256, SHA-384, or SHA-512. The key algorithm is hardcoded.
 6.  **Certificate Lifecycle:** Renewal is initiated by the user. An eye-catching banner will notify logged-in users of pending or actual certificate expiration. The consequences of an expired certificate are outside the scope of this project.
