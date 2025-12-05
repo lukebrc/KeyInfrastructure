@@ -1,12 +1,15 @@
 use actix_web::{http::header, web, HttpMessage, HttpRequest, HttpResponse, Responder};
 use base64::{engine::general_purpose, Engine as _};
+use chrono::{DateTime, Utc};
+use futures_util::TryFutureExt;
 use openssl::pkcs12::Pkcs12;
-use openssl::pkey::PKey;
+use openssl::pkey::{PKey, Private};
 use openssl::symm::{decrypt, Cipher};
 use openssl::x509::{X509, X509Builder, X509Name};
 use openssl::rsa::Rsa;
 use openssl::asn1::Asn1Time;
 use serde::{Deserialize, Serialize};
+use sqlx::{Pool, Postgres};
 use std::fs;
 use uuid::Uuid;
 
@@ -341,7 +344,7 @@ pub async fn list_pending_certificates(
     let rows = sqlx::query_as::<_, PendingCertificateInfo>(
         "SELECT cr.id, cr.validity_period_days as valid_days, cr.dn
             FROM certificate_requests cr
-            WHERE cr.user_id = $1",
+            WHERE cr.user_id = $1 AND accepted_at IS NULL",
     )
     .bind(user_id)
     .fetch_all(&state.pool)
@@ -349,6 +352,7 @@ pub async fn list_pending_certificates(
 
     match rows {
         Ok(certificates) => {
+            log::debug!("Returning {} pending certificates", certificates.len());
             Ok(HttpResponse::Ok().json(ListPendingCertificatesResponse { certificates }))
         }
         Err(err) => {
@@ -358,58 +362,20 @@ pub async fn list_pending_certificates(
     }
 }
 
-pub async fn generate_certificate(
-    state: web::Data<AppState>,
-    req: HttpRequest,
-    path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+fn build_certificate(
+    private_key: &PKey<Private>,
+    pending_request: &PendingCertificateInfo,
+    not_after: &Asn1Time,
+) -> Result<(X509, String), ApiError> {
     use openssl::x509::extension::{BasicConstraints, KeyUsage, SubjectKeyIdentifier, AuthorityKeyIdentifier};
+    use openssl::bn::BigNum;
 
-    // Authorization: Only admins may generate certificates
-    let claims = req
-        .extensions()
-        .get::<Claims>()
-        .cloned()
-        .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
-
-    if claims.role != "ADMIN" && claims.role != "USER" {
-        log::error!("User {} is not authorized generate certificate, but is not admin", claims.sub);
-        return Err(ApiError::Unauthorized("Only admins and users can generate certificates".to_string()));
-    }
-
-    // Find the pending certificate request by UUID
-    let cert_req_id = path.into_inner();
-    let pending_request = sqlx::query_as::<_, PendingCertificateInfo>(
-        "SELECT id, validity_period_days as valid_days, dn
-        FROM certificate_requests
-        WHERE id = $1"
-    )
-    .bind(cert_req_id)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|e| {
-        log::error!("DB query error: {:?}", e);
-        ApiError::Internal("DB error".into())
-    })?;
-
-    let pending_request = match pending_request {
-        Some(req) => req,
-        None => return Err(ApiError::NotFound("Pending certificate request not found".into())),
-    };
-
-    let validity_days = pending_request.valid_days.max(1) as u32; // minimum 1 day
-
-    // Generate private key (RSA 2048)
-    let rsa = Rsa::generate(2048)
-        .map_err(|e| ApiError::Internal(format!("Keygen error: {}", e)))?;
-    let private_key = PKey::from_rsa(rsa)
-        .map_err(|e| ApiError::Internal(format!("PKey error: {}", e)))?;
-
+    log::debug!("Building certificate for {}", pending_request.dn);
     // Build certificate
     let mut builder = X509Builder::new()
         .map_err(|e| ApiError::Internal(format!("X509Builder error: {}", e)))?;
 
-    builder.set_pubkey(&private_key)
+    builder.set_pubkey(private_key)
         .map_err(|e| ApiError::Internal(format!("set_pubkey: {}", e)))?;
 
     // Load root CA certificate and private key from filesystem
@@ -443,7 +409,6 @@ pub async fn generate_certificate(
         .map_err(|e| ApiError::Internal(format!("set_issuer_name: {}", e)))?;
 
     // Serial number
-    use openssl::bn::BigNum;
     let mut serial_bn = BigNum::new().unwrap();
     serial_bn.pseudo_rand(64, openssl::bn::MsbOption::MAYBE_ZERO, false).unwrap();
     let serial = serial_bn.to_asn1_integer().unwrap();
@@ -453,8 +418,6 @@ pub async fn generate_certificate(
     // Set validity period
     let not_before = Asn1Time::days_from_now(0)
         .map_err(|e| ApiError::Internal(format!("not_before: {}", e)))?;
-    let not_after = Asn1Time::days_from_now(validity_days)
-        .map_err(|e| ApiError::Internal(format!("not_after: {}", e)))?;
     builder.set_not_before(&not_before)
         .map_err(|e| ApiError::Internal(format!("set_not_before: {}", e)))?;
     builder.set_not_after(&not_after)
@@ -489,15 +452,92 @@ pub async fn generate_certificate(
         .map_err(|e| ApiError::Internal(format!("sign: {}", e)))?;
 
     let cert = builder.build();
+    log::debug!("Built certificate with SN: {}", serial_str);
 
-    // Get user for password hash
-    let user_id = claims.sub.parse::<Uuid>()
-        .map_err(|_| ApiError::Internal("Invalid user ID in claims".to_string()))?;
-    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
+    Ok((cert, serial_str))
+}
+
+pub async fn generate_certificate(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+
+    let user = match get_authorized_user_data(req, &state.pool).await {
+        Ok(u) => u,
+        Err(err) => {
+            log::error!("Cannot get user data: {}", err);
+            return Err(err);
+        }
+    };
+
+    match generate_and_save_cert(path, user, &state.pool).await {
+        //Ok(ci) => Ok(HttpResponse::Ok().json(serde_json::json!(ci))),
+        Ok(ci) => Ok(HttpResponse::Ok().json(ci)),
+        Err(err) => {
+            log::error!("Cannot generate user certificate: {}", err);
+            Err(err)
+        }
+    }
+}
+
+fn authorize_user(req: HttpRequest) -> Result<Uuid, ApiError> {
+    // Authorization: Only admins may generate certificates
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .cloned()
+        .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
+
+    if claims.role != "ADMIN" && claims.role != "USER" {
+        log::error!("User {} is not authorized generate certificate, but is not admin", claims.sub);
+        return Err(ApiError::Unauthorized("Only admins and users can generate certificates".to_string()));
+    }
+    claims.sub.parse::<Uuid>().map_err(|_| ApiError::Unauthorized("Invalid UUID in claims".to_string()))
+}
+
+async fn get_authorized_user_data(req: HttpRequest, state_pool: &Pool<Postgres>) -> Result<User, ApiError> {
+    let user_id = authorize_user(req)?;
+    sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
         .bind(user_id)
-        .fetch_one(&state.pool)
+        .fetch_one(state_pool)
+        .map_err(|e| ApiError::Unauthorized(format!("Cannot authorize user {}", e)))
         .await
-        .map_err(|_| ApiError::NotFound("User not found".to_string()))?;
+}
+
+async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &Pool<Postgres>) -> Result<CertificateInfo, ApiError> {
+    // Find the pending certificate request by UUID
+    let cert_req_id = path.into_inner();
+    let pending_request = sqlx::query_as::<_, PendingCertificateInfo>(
+        "SELECT id, validity_period_days as valid_days, dn
+        FROM certificate_requests
+        WHERE id = $1"
+    )
+        .bind(cert_req_id)
+        .fetch_optional(state_pool)
+        .await
+        .map_err(|e| {
+            log::error!("DB query error: {:?}", e);
+            ApiError::Internal("DB error".into())
+        })?;
+
+    let pending_request = match pending_request {
+        Some(req) => req,
+        None => return Err(ApiError::NotFound("Pending certificate request not found".into())),
+    };
+
+    let validity_days = pending_request.valid_days.max(1) as u32; // minimum 1 day
+
+    // Generate private key (RSA 2048)
+    let rsa = Rsa::generate(2048)
+        .map_err(|e| ApiError::Internal(format!("Keygen error: {}", e)))?;
+    let private_key = PKey::from_rsa(rsa)
+        .map_err(|e| ApiError::Internal(format!("PKey error: {}", e)))?;
+    let not_after = Asn1Time::days_from_now(validity_days)
+        .map_err(|e| ApiError::Internal(format!("not_after: {}", e)))?;
+
+    // Build certificate
+    let (cert, serial_str) = build_certificate(&private_key, &pending_request, &not_after)?;
 
     // Encrypt the private key with user's password hash
     let key_pem = private_key.private_key_to_pem_pkcs8()
@@ -512,41 +552,46 @@ pub async fn generate_certificate(
     // Save certificate DER and encrypted private key to DB
     let _cert_der = cert.to_der()
         .map_err(|e| ApiError::Internal(format!("cert.to_der: {}", e)))?;
-    let expiration_date = not_after.to_string();
+
+    // Convert Asn1Time to DateTime<Utc> for proper SQL timestamp binding
+    let expiration_date = chrono::NaiveDateTime::parse_from_str(&not_after.to_string(), "%Y%m%d%H%M%SZ")
+        .map_err(|_| ApiError::Internal("Failed to parse expiration time".to_string()))?
+        .and_utc();
 
     let cert_id: Uuid = sqlx::query_scalar(
-        "INSERT INTO certificates (id, user_id, serial_number, dn, status, expiration_date, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING id"
-    )
-    .bind(cert_req_id)
-    .bind(user_id)
-    .bind(&serial_str)
-    .bind(&pending_request.dn)
-    .bind("ACTIVE")
-    .bind(expiration_date.to_string())
-    .fetch_one(&state.pool)
-    .await?;
+        "INSERT INTO certificates (id, user_id, serial_number, status, expiration_date) VALUES ($1, $2, $3, $4, $5) RETURNING id")
+        .bind(cert_req_id)
+        .bind(user.id)
+        .bind(&serial_str)
+        .bind(CertificateStatus::ACTIVE)
+        .bind(expiration_date)
+        .fetch_one(state_pool)
+        .await
+        .map_err(|e| {
+            log::error!("Failed to insert certificate into database: {}", e);
+            e
+        })?;
 
     sqlx::query(
         "INSERT INTO private_keys (id, encrypted_key) VALUES ($1, $2)"
     )
-    .bind(cert_id)
-    .bind(encrypted_key_b64)
-    .execute(&state.pool)
-    .await?;
-
-    // Delete the pending request
-    sqlx::query("DELETE FROM certificate_requests WHERE id = $1")
-        .bind(cert_req_id)
-        .execute(&state.pool)
+        .bind(cert_id)
+        .bind(encrypted_key_b64)
+        .execute(state_pool)
         .await?;
 
-    Ok(HttpResponse::Ok().json(serde_json::json!({
-        "id": cert_id,
-        "serial_number": serial_str,
-        "dn": pending_request.dn,
-        "status": "ACTIVE",
-        "expiration_date": expiration_date
-    })))
+    sqlx::query("UPDATE certificate_requests SET accepted_at = CURRENT_TIMESTAMP() WHERE id = $1")
+        .bind(cert_req_id)
+        .execute(state_pool)
+        .await?;
+
+    Ok(CertificateInfo { id: cert_id,
+        serial_number: serial_str,
+        dn: pending_request.dn,
+        status: CertificateStatus::ACTIVE,
+        expiration_date,
+        renewed_count: 0
+    })
 }
 
 #[cfg(test)]

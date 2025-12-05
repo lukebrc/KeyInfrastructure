@@ -10,7 +10,7 @@ CREATE TYPE user_role AS ENUM ('ADMIN', 'USER');
 CREATE TYPE certificate_status AS ENUM ('ACTIVE', 'REVOKED');
 
 -- Create users table
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
@@ -19,27 +19,27 @@ CREATE TABLE users (
     last_login_at TIMESTAMPTZ
 );
 
-CREATE TABLE certificate_requests (
+CREATE TABLE IF NOT EXISTS certificate_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     dn TEXT NOT NULL,
     validity_period_days INTEGER NOT NULL CHECK (validity_period_days >= 1 AND validity_period_days <= 3650),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    accepted_at TIMESTAMPTZ
 );
 
-CREATE TABLE certificates (
+CREATE TABLE IF NOT EXISTS certificates (
     id UUID PRIMARY KEY REFERENCES certificate_requests(id),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     serial_number VARCHAR(255) UNIQUE NOT NULL,
     status certificate_status NOT NULL DEFAULT 'ACTIVE',
     expiration_date TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     renewed_count INTEGER NOT NULL DEFAULT 0,
     certificate_der BYTEA,
     renewal_date TIMESTAMPTZ
 );
 
-CREATE TABLE private_keys (
+CREATE TABLE IF NOT EXISTS private_keys (
     id UUID PRIMARY KEY REFERENCES certificates(id),
     certificate_id UUID NOT NULL REFERENCES certificates(id) ON DELETE CASCADE,
     encrypted_key BYTEA NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE private_keys (
     UNIQUE (certificate_id)
 );
 
-CREATE TABLE revoked_certificates (
+CREATE TABLE IF NOT EXISTS revoked_certificates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     certificate_id UUID NOT NULL REFERENCES certificates(id) ON DELETE CASCADE,
     revocation_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
