@@ -11,8 +11,6 @@ pub enum ApiError {
     BadRequest(String),
     #[error("Internal server error: {0}")]
     Internal(String),
-    #[error("Conflict: {0}")]
-    Conflict(String),
     #[error("Forbidden: {0}")]
     Forbidden(String),
     #[error("Not Found: {0}")]
@@ -26,7 +24,6 @@ impl ResponseError for ApiError {
             ApiError::Unauthorized(msg) => HttpResponse::Unauthorized().json(msg),
             ApiError::BadRequest(msg) => HttpResponse::BadRequest().json(msg),
             ApiError::Internal(msg) => HttpResponse::InternalServerError().json(msg),
-            ApiError::Conflict(msg) => HttpResponse::Conflict().json(msg),
             ApiError::Forbidden(msg) => HttpResponse::Forbidden().json(msg),
             ApiError::NotFound(msg) => HttpResponse::NotFound().json(msg),
         }

@@ -71,7 +71,11 @@ The following scenarios are based on the requirements and user stories.
 | **CERT-06** | User attempts to download a certificate by providing an incorrect PIN.               | The server returns a 400 (Bad Request) error with a message about the incorrect PIN.               | **Critical**  | Integration   |
 | **CERT-07** | User attempts to download another user's certificate.                                | The server returns a 403 (Forbidden) or 404 (Not Found) error.                                       | **Critical**  | Integration   |
 | **CERT-08** | User initiates certificate renewal.                                                  | A new certificate is generated, the old one is marked accordingly (if that is the logic).          | High      | Integration   |
-| **CERT-09** | A query to `GET /certificates/expiring` returns a list of certificates expiring within N days. | The list contains the correct certificates. If there are none, the list is empty.                    | High      | Integration   |
+| **CERT-09A** | A normal user queries `GET /certificates/expiring` to get a list of their own certificates expiring within N days. | The list contains only the current user's certificates that are expiring. If there are none, the list is empty. | High      | Integration   |
+| **CERT-09B** | An ADMIN user queries `GET /certificates/expiring` to get a list of all certificates expiring within N days. | The list contains all certificates expiring within N days from all users. If there are none, the list is empty. | High      | Integration   |
+| **CERT-10** | Administrator revokes a certificate using `PUT /certificates/{id}/revoke` with a reason. | The server returns 200 OK. The certificate status is changed to REVOKED, revocation_date is set, and the certificate is recorded in revoked_certificates table. | **Critical**  | Integration   |
+| **CERT-11** | A regular user attempts to revoke a certificate. | The server returns a 403 (Forbidden) error with message "Admin access required". | **Critical**  | Integration   |
+| **CERT-12** | Attempt to revoke a non-existent certificate. | The server returns a 404 (Not Found) error with message "Certificate not found". | High      | Integration   |
 
 ##### 4.3. Concurrency and Performance Tests
 

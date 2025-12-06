@@ -59,18 +59,7 @@ pub struct CertificateListItem {
     pub renewed_count: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, FromRow)]
-pub struct Certificate {
-    pub id: Uuid,
-    pub user_id: Uuid,
-    pub serial_number: String,
-    pub dn: String,
-    pub status: CertificateStatus,
-    pub expiration_date: DateTime<Utc>,
-    pub renewed_count: i32,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
+
 
 pub struct AppState {
     pub pool: Pool<Postgres>,
