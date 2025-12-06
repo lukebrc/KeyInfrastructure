@@ -26,7 +26,7 @@ backend/
 ## Features
 
 ### User Management
-- Self-registration with username, password, and PIN (minimum 8 characters)
+- Self-registration with username and password (minimum 8 characters)
 - JWT-based authentication
 - Role-based access control (USER, ADMIN)
 
@@ -110,8 +110,7 @@ CA_PASSWORD=password_for_ca_key_file
   ```json
   {
     "username": "string",
-    "password": "string",
-    "pin": "string (min 8 chars)"
+    "password": "string (min 8 chars)"
   }
   ```
 - **Response** (201 Created):
@@ -129,7 +128,7 @@ CA_PASSWORD=password_for_ca_key_file
 
 #### Login
 - **Method**: `POST`
-- **Path**: `/login`
+- **Path**: `/auth/login`
 - **Description**: Authenticate a user and receive a JWT token
 - **Request Body**:
   ```json
@@ -283,13 +282,13 @@ CA_PASSWORD=password_for_ca_key_file
 - **Request Body**:
   ```json
   {
-    "pin": "string"
+    "password": "string"
   }
   ```
 - **Response** (200 OK): Binary PKCS#12 file
 - **Content-Type**: `application/x-pkcs12`
 - **Error Codes**: 
-  - `400 Bad Request`: Invalid PIN
+  - `400 Bad Request`: Invalid password
   - `403 Forbidden`: Access denied
   - `404 Not Found`: Certificate not found
 
@@ -319,7 +318,7 @@ CA_PASSWORD=password_for_ca_key_file
 ## Authentication & Authorization
 
 ### JWT Authentication
-- Tokens are issued via `POST /login`
+- Tokens are issued via `POST /auth/login`
 - Tokens expire after 1 hour
 - Include token in subsequent requests: `Authorization: Bearer <token>`
 
@@ -338,7 +337,7 @@ Administrator accounts must be created via direct database manipulation.
 - Username must be unique
 - Password is hashed with Argon2
 - Role must be 'ADMIN' or 'USER'
-- PIN minimum 8 characters during registration
+- Password minimum 8 characters during registration
 
 ### Certificate Validation
 - Serial number must be unique
@@ -348,7 +347,7 @@ Administrator accounts must be created via direct database manipulation.
 - Hash algorithm: SHA-256, SHA-384, or SHA-512
 
 ### Private Key Storage
-- Private keys are encrypted with the user's PIN
+- Private keys are encrypted with the user's password
 - Encrypted keys are stored securely in the database
 
 ## Testing

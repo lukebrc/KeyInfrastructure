@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Test script for /register and /login endpoints
+# Test script for /register and /auth/login endpoints
 # Usage: ./test_register_and_login.sh [BASE_URL]
 # Default BASE_URL: http://localhost:8080
 #
@@ -8,10 +8,10 @@
 
 BASE_URL="${1:-http://localhost:8080}"
 REGISTER_URL="${BASE_URL}/users"
-LOGIN_URL="${BASE_URL}/login"
+LOGIN_URL="${BASE_URL}/auth/login"
 
 echo "=========================================="
-echo "Testing /register and /login endpoints"
+echo "Testing /register and /auth/login endpoints"
 echo "=========================================="
 echo ""
 

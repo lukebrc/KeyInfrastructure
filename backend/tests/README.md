@@ -1,6 +1,6 @@
 # Authentication API Tests
 
-This directory contains curl-based integration tests for the authentication endpoints (`/login` and `/register`).
+This directory contains curl-based integration tests for the authentication endpoints (`/auth/login` and `/register`).
 
 ## Prerequisites
 
@@ -19,7 +19,7 @@ Tests the `/register` endpoint with the following scenarios:
 - Empty fields
 
 ### `test_login.sh`
-Tests the `/login` endpoint with the following scenarios:
+Tests the `/auth/login` endpoint with the following scenarios:
 - Successful login (200 OK)
 - Wrong password (401 Unauthorized)
 - Non-existent user (401 Unauthorized)
