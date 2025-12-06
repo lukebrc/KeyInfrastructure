@@ -19,6 +19,8 @@ use crate::{
     AppState,
 };
 
+const RSA_KEY_SIZE: u32 = 2048;
+
 #[derive(Deserialize, Debug)]
 pub struct ListCertificatesQuery {
     page: Option<i64>,
@@ -616,8 +618,8 @@ async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &
 
     let validity_days = pending_request.valid_days.max(1) as u32; // minimum 1 day
 
-    // Generate private key (RSA 2048)
-    let rsa = Rsa::generate(2048)
+    // Generate private key (RSA)
+    let rsa = Rsa::generate(RSA_KEY_SIZE)
         .map_err(|e| ApiError::Internal(format!("Keygen error: {}", e)))?;
     let private_key = PKey::from_rsa(rsa)
         .map_err(|e| ApiError::Internal(format!("PKey error: {}", e)))?;
@@ -769,9 +771,9 @@ mod tests {
 
     #[test]
     fn test_key_generation() {
-        let rsa = Rsa::generate(2048).unwrap();
+        let rsa = Rsa::generate(RSA_KEY_SIZE).unwrap();
         let pkey = PKey::from_rsa(rsa).unwrap();
-        assert_eq!(pkey.bits(), 2048);
+        assert_eq!(pkey.bits(), RSA_KEY_SIZE);
     }
 
     #[test]
@@ -786,7 +788,7 @@ mod tests {
         let ca_private_key = PKey::private_key_from_pem_passphrase(&ca_key_encrypted, b"ca_password").unwrap();
 
         // Generate user private key
-        let rsa = Rsa::generate(2048).unwrap();
+        let rsa = Rsa::generate(RSA_KEY_SIZE).unwrap();
         let private_key = PKey::from_rsa(rsa).unwrap();
 
         // Build certificate

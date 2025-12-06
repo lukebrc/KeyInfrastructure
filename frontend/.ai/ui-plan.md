@@ -19,242 +19,242 @@ The frontend communicates directly with the backend REST API (Rust/actix-web) vi
 
 ### 2.1. View: Welcome Page
 
-**Ścieżka:** `/`
+**Path:** `/`
 
-**Główny cel:** 
-Publiczna strona powitalna dla niezalogowanych użytkowników, prezentująca podstawowe informacje o systemie i umożliwiająca przejście do logowania lub rejestracji.
+**Main Goal:** 
+A public welcome page for unauthenticated users, presenting basic information about the system and allowing navigation to login or registration.
 
-**Kluczowe informacje do wyświetlenia:**
-- Nazwa systemu (KeyInfrastructure)
-- Krótki opis funkcjonalności systemu
-- Linki do logowania (`/login`) i rejestracji (`/register`)
+**Key Information to Display:**
+- System name (KeyInfrastructure)
+- Brief description of system functionality
+- Links to login (`/login`) and registration (`/register`)
 
-**Kluczowe komponenty widoku:**
-- `WelcomeHeader` — nagłówek z nazwą systemu
-- `WelcomeContent` — opis systemu
-- `NavigationLinks` — przyciski/linki do logowania i rejestracji
+**Key View Components:**
+- `WelcomeHeader` — header with system name
+- `WelcomeContent` — system description
+- `NavigationLinks` — buttons/links for login and registration
 
-**UX, dostępność i względy bezpieczeństwa:**
-- Responsywny układ z mobile-first approach
-- Minimalistyczny design zachęcający do akcji
-- Dla zalogowanych użytkowników: automatyczne przekierowanie na odpowiedni dashboard
-- Brak wrażliwych danych na stronie publicznej
-
----
-
-### 2.2. Widok: Rejestracja
-
-**Ścieżka:** `/register`
-
-**Główny cel:**
-Umożliwienie nowym użytkownikom samodzielnej rejestracji w systemie poprzez podanie nazwy użytkownika, hasła.
-
-**Kluczowe informacje do wyświetlenia:**
-- Formularz rejestracji z polami:
-  - Username (wymagane, unikalne)
-  - Password (wymagane, minimum 8 znaków)
-- Komunikaty walidacji po stronie klienta
-- Komunikaty błędów z API (409 — użytkownik już istnieje, 400 — nieprawidłowe dane)
-
-**Kluczowe komponenty widoku:**
-- `RegisterForm` — formularz rejestracji (komponent React)
-- `InputField` — pola tekstowe z walidacją
-- `PasswordField` — pole hasła z możliwością pokazania/ukrycia
-- `ErrorMessage` — wyświetlanie błędów walidacji i API
-- `SuccessMessage` — komunikat po udanej rejestracji
-
-**UX, dostępność i względy bezpieczeństwa:**
-- Walidacja po stronie klienta przed wysłaniem formularza
-- Wskazówki dotyczące wymagań (min. 8 znaków dla hasła)
-- Po udanej rejestracji: automatyczne logowanie (POST /auth/login) i przekierowanie na `/dashboard`
-- Formularz responsywny (kolumny na desktop, stack na mobile)
-- Touch target minimum 44x44px dla przycisków
+**UX, Accessibility, and Security Considerations:**
+- Responsive layout with mobile-first approach
+- Minimalist design encouraging action
+- For logged-in users: automatic redirection to the appropriate dashboard
+- No sensitive data on the public page
 
 ---
 
-### 2.3. Widok: Logowanie
+### 2.2. View: Registration
 
-**Ścieżka:** `/login`
+**Path:** `/register`
 
-**Główny cel:**
-Uwierzytelnienie użytkowników (zarówno USER jak i ADMIN) w systemie poprzez podanie nazwy użytkownika i hasła.
+**Main Goal:**
+Enable new users to self-register in the system by providing a username and password.
 
-**Kluczowe informacje do wyświetlenia:**
-- Formularz logowania z polami:
-  - Username (wymagane)
-  - Password (wymagane)
-- Link do rejestracji dla nowych użytkowników
-- Komunikaty błędów (401 — nieprawidłowe dane logowania)
+**Key Information to Display:**
+- Registration form with fields:
+  - Username (required, unique)
+  - Password (required, minimum 8 characters)
+- Client-side validation messages
+- API error messages (409 — user already exists, 400 — invalid data)
 
-**Kluczowe komponenty widoku:**
-- `LoginForm` — formularz logowania (komponent React)
-- `InputField` — pola tekstowe
-- `PasswordField` — pole hasła
-- `ErrorMessage` — wyświetlanie błędów uwierzytelniania
-- `RegisterLink` — link do strony rejestracji
+**Key View Components:**
+- `RegisterForm` — registration form (React component)
+- `InputField` — text fields with validation
+- `PasswordField` — password field with show/hide functionality
+- `ErrorMessage` — display validation and API errors
+- `SuccessMessage` — message after successful registration
 
-**UX, dostępność i względy bezpieczeństwa:**
-- Po udanym logowaniu: przekierowanie na `/dashboard` (USER) lub `/admin/dashboard` (ADMIN) na podstawie roli z tokenu JWT
-- Token JWT zapisywany w httpOnly cookie przez backend
-- Komunikaty błędów nie ujawniają, czy użytkownik istnieje (bezpieczeństwo)
-- Automatyczne przekierowanie zalogowanych użytkowników na odpowiedni dashboard
-- Responsywny układ formularza
-
----
-
-### 2.4. Widok: Dashboard użytkownika
-
-**Ścieżka:** `/dashboard`
-
-**Główny cel:**
-Centralny widok dla użytkowników, prezentujący listę ich certyfikatów, status wygasających certyfikatów oraz umożliwiający zarządzanie certyfikatami (pobieranie, odnawianie).
-
-**Kluczowe informacje do wyświetlenia:**
-- **Banner ostrzegawczy** (jeśli istnieją wygasające certyfikaty):
-  - Lista certyfikatów wygasających w ciągu 30 dni (z endpointu GET /certificates/expiring)
-  - Wyróżnienie kolorystyczne (czerwony/żółty gradient)
-  - Przycisk "Renew Now" dla każdego certyfikatu
-  - Aktualizacja co 5-10 minut w tle
-- **Tabela certyfikatów:**
-  - Kolumny: serial_number, DN (skrócony), status (ACTIVE/REVOKED z kolorem), expiration_date (z wyróżnieniem wygasających)
-  - Sortowanie domyślnie po expiration_date (rosnąco)
-  - Filtrowanie po statusie (ACTIVE/REVOKED)
-  - Paginacja (10-20 certyfikatów na stronę, domyślnie 10)
-  - Przyciski akcji: "Renew" (dla aktywnych bliskich wygaśnięciu), "Download" (dla wszystkich aktywnych)
-- Informacje o użytkowniku (opcjonalnie)
-- Przycisk wylogowania
-
-**Kluczowe komponenty widoku:**
-- `ExpiringBanner` — sticky banner z wygasającymi certyfikatami (komponent React)
-- `CertificateTable` — tabela certyfikatów z sortowaniem, filtrowaniem, paginacją (komponent React)
-- `CertificateRow` — pojedynczy wiersz certyfikatu
-- `StatusBadge` — badge statusu certyfikatu (ACTIVE/REVOKED)
-- `DateDisplay` — wyświetlanie daty wygaśnięcia z wyróżnieniem
-- `ActionButtons` — przyciski Renew i Download
-- `DownloadCertificateModal` — modal do pobierania certyfikatu
-- `UserHeader` — nagłówek z informacjami o użytkowniku
-- `LogoutButton` — przycisk wylogowania
-
-**UX, dostępność i względy bezpieczeństwa:**
-- Banner nie może być całkowicie zamknięty (można tylko zminimalizować) — ważne dla bezpieczeństwa
-- Banner aktualizowany w tle co 5-10 minut (polling GET /certificates/expiring)
-- Tabela responsywna — scrollowalna poziomo na mobile
-- Skeleton loading podczas pobierania danych
-- Toast notifications dla operacji (odnawianie, pobieranie)
-- Inline error messages dla błędów operacji
-- Automatyczne przekierowanie na `/login` przy wygaśnięciu sesji (401)
-- Wszystkie żądania API wymagają ważnego tokenu JWT
+**UX, Accessibility, and Security Considerations:**
+- Client-side validation before form submission
+- Hints regarding requirements (min. 8 characters for password)
+- After successful registration: automatic login (POST /auth/login) and redirection to `/dashboard`
+- Responsive form (columns on desktop, stack on mobile)
+- Touch target minimum 44x44px for buttons
 
 ---
 
-### 2.5. Widok: Dashboard administratora
+### 2.3. View: Login
 
-**Ścieżka:** `/admin/dashboard`
+**Path:** `/login`
 
-**Główny cel:**
-Centralny widok dla administratorów, prezentujący przegląd systemu i umożliwiający zarządzanie certyfikatami oraz użytkownikami.
+**Main Goal:**
+Authenticate users (both USER and ADMIN) in the system by providing a username and password.
 
-**Kluczowe informacje do wyświetlenia:**
-- Statystyki systemu (opcjonalnie):
-  - Liczba użytkowników
-  - Liczba certyfikatów (aktywnych, wygasłych, unieważnionych)
-  - Certyfikaty wygasające w ciągu 30 dni
-- Linki do głównych funkcji:
-  - Tworzenie certyfikatu (`/admin/certificates/create`)
-  - Zarządzanie certyfikatami (`/admin/certificates`)
-  - Zarządzanie użytkownikami (jeśli dostępne)
-- Przycisk wylogowania
+**Key Information to Display:**
+- Login form with fields:
+  - Username (required)
+  - Password (required)
+- Link to registration for new users
+- Error messages (401 — invalid login credentials)
 
-**Kluczowe komponenty widoku:**
-- `AdminHeader` — nagłówek z informacjami o administratorze
-- `StatsCards` — karty ze statystykami (opcjonalnie)
-- `AdminNavigation` — nawigacja do głównych funkcji
-- `LogoutButton` — przycisk wylogowania
+**Key View Components:**
+- `LoginForm` — login form (React component)
+- `InputField` — text fields
+- `PasswordField` — password field
+- `ErrorMessage` — display authentication errors
+- `RegisterLink` — link to registration page
 
-**UX, dostępność i względy bezpieczeństwa:**
-- Tylko użytkownicy z rolą ADMIN mają dostęp
-- Automatyczne przekierowanie na `/login` przy braku uprawnień (403)
-- Responsywny układ z kafelkami nawigacyjnymi
-- Skeleton loading podczas pobierania statystyk
+**UX, Accessibility, and Security Considerations:**
+- After successful login: redirection to `/dashboard` (USER) or `/admin/dashboard` (ADMIN) based on the role from the JWT token
+- JWT token saved in httpOnly cookie by the backend
+- Error messages do not reveal if a user exists (security)
+- Automatic redirection of logged-in users to the appropriate dashboard
+- Responsive form layout
 
 ---
 
-### 2.6. Widok: Tworzenie certyfikatu (Admin)
+### 2.4. View: User Dashboard
 
-**Ścieżka:** `/admin/certificates/create`
+**Path:** `/dashboard`
 
-**Główny cel:**
-Umożliwienie administratorowi utworzenia nowego certyfikatu dla wybranego użytkownika z pełną konfiguracją parametrów.
+**Main Goal:**
+Central view for users, presenting a list of their certificates, the status of expiring certificates, and enabling certificate management (downloading, renewing).
 
-**Kluczowe informacje do wyświetlenia:**
-- Formularz tworzenia certyfikatu:
-  - **Select użytkownika** (wymagane) — lista wszystkich użytkowników z systemu
-  - **Pole numeryczne:** `validity_period_days` (wymagane, 1-3650 dni, walidacja)
-  - **Dropdown:** `hash_algorithm` (wymagane, opcje: SHA-256, SHA-384, SHA-512)
-  - **Formularz DN (Distinguished Name):**
-    - CN (Common Name) — wymagane
-    - OU (Organizational Unit) — opcjonalne
-    - O (Organization) — opcjonalne
-    - L (Locality) — opcjonalne
-    - ST (State/Province) — opcjonalne
-    - C (Country) — opcjonalne
-  - **Podgląd DN** — wyświetlenie sformatowanego DN przed zatwierdzeniem
-- Komunikaty walidacji po stronie klienta
-- Komunikaty błędów z API (400 — nieprawidłowe dane, 403 — brak uprawnień)
-- Komunikat sukcesu z numerem seryjnym certyfikatu po utworzeniu
+**Key Information to Display:**
+- **Warning banner** (if expiring certificates exist):
+  - List of certificates expiring within 30 days (from GET /certificates/expiring endpoint)
+  - Color highlighting (red/yellow gradient)
+  - "Renew Now" button for each certificate
+  - Updates every 5-10 minutes in the background
+- **Certificate table:**
+  - Columns: serial_number, DN (abbreviated), status (ACTIVE/REVOKED with color), expiration_date (with highlight for expiring)
+  - Default sorting by expiration_date (ascending)
+  - Filtering by status (ACTIVE/REVOKED)
+  - Pagination (10-20 certificates per page, default 10)
+  - Action buttons: "Renew" (for active certificates near expiration), "Download" (for all active)
+- User information (optional)
+- Logout button
 
-**Kluczowe komponenty widoku:**
-- `CreateCertificateForm` — formularz tworzenia certyfikatu (komponent React)
-- `UserSelect` — dropdown z listą użytkowników
-- `NumberInput` — pole numeryczne z walidacją zakresu
-- `SelectDropdown` — dropdown dla algorytmu hashowego
-- `DNFormFields` — pola formularza DN
-- `DNPreview` — podgląd sformatowanego DN
-- `ErrorMessage` — wyświetlanie błędów walidacji i API
-- `SuccessMessage` — komunikat sukcesu z numerem seryjnym
-- `SubmitButton` — przycisk wysłania formularza
+**Key View Components:**
+- `ExpiringBanner` — sticky banner with expiring certificates (React component)
+- `CertificateTable` — certificate table with sorting, filtering, pagination (React component)
+- `CertificateRow` — single certificate row
+- `StatusBadge` — certificate status badge (ACTIVE/REVOKED)
+- `DateDisplay` — display of expiration date with highlighting
+- `ActionButtons` — Renew and Download buttons
+- `DownloadCertificateModal` — certificate download modal
+- `UserHeader` — header with user information
+- `LogoutButton` — logout button
 
-**UX, dostępność i względy bezpieczeństwa:**
-- Walidacja po stronie klienta przed wysłaniem (POST /users/{user_id}/certificates)
-- Wskazówki dotyczące wymagań i zakresów wartości
-- Podgląd DN przed zatwierdzeniem zapobiega błędom
-- Po udanym utworzeniu: opcja utworzenia kolejnego certyfikatu lub powrót do dashboardu
-- Formularz responsywny (kolumny na desktop, stack na mobile)
-- Toast notification po udanym utworzeniu
-- Tylko użytkownicy z rolą ADMIN mają dostęp
+**UX, Accessibility, and Security Considerations:**
+- Banner cannot be fully closed (can only be minimized) — important for security
+- Banner updated in the background every 5-10 minutes (polling GET /certificates/expiring)
+- Responsive table — horizontally scrollable on mobile
+- Skeleton loading during data retrieval
+- Toast notifications for operations (renewal, download)
+- Inline error messages for operation errors
+- Automatic redirection to `/login` upon session expiration (401)
+- All API requests require a valid JWT token
 
 ---
 
-### 2.7. Widok: Zarządzanie certyfikatami (Admin)
+### 2.5. View: Administrator Dashboard
 
-**Ścieżka:** `/admin/certificates`
+**Path:** `/admin/dashboard`
 
-**Główny cel:**
-Przegląd wszystkich certyfikatów w systemie z możliwością unieważnienia (revoke) przez administratora.
+**Main Goal:**
+Central view for administrators, presenting a system overview and enabling certificate and user management.
 
-**Kluczowe informacje do wyświetlenia:**
-- **Tabela wszystkich certyfikatów:**
-  - Kolumny: serial_number, użytkownik (username), DN (skrócony), status (ACTIVE/REVOKED), expiration_date, data utworzenia
-  - Sortowanie po expiration_date (domyślnie)
-  - Filtrowanie po statusie, użytkowniku
-  - Paginacja (10-20 certyfikatów na stronę)
-  - Przycisk akcji: "Revoke" (dla aktywnych certyfikatów)
-- Modal potwierdzenia revokacji z polem "reason" (opcjonalne)
+**Key Information to Display:**
+- System statistics (optional):
+  - Number of users
+  - Number of certificates (active, expired, revoked)
+  - Certificates expiring within 30 days
+- Links to main functions:
+  - Create certificate (`/admin/certificates/create`)
+  - Manage certificates (`/admin/certificates`)
+  - Manage users (if available)
+- Logout button
 
-**Kluczowe komponenty widoku:**
-- `AdminCertificateTable` — tabela certyfikatów z sortowaniem, filtrowaniem, paginacją (komponent React)
-- `CertificateRow` — pojedynczy wiersz certyfikatu
-- `RevokeButton` — przycisk unieważnienia
-- `RevokeModal` — modal potwierdzenia z polem reason
-- `StatusBadge` — badge statusu certyfikatu
-- `FilterControls` — kontrole filtrowania i sortowania
+**Key View Components:**
+- `AdminHeader` — header with administrator information
+- `StatsCards` — cards with statistics (optional)
+- `AdminNavigation` — navigation to main functions
+- `LogoutButton` — logout button
 
-**UX, dostępność i względy bezpieczeństwa:**
-- Modal potwierdzenia przed revokacją zapobiega przypadkowym akcjom
-- Toast notification po udanej revokacji
-- Tabela responsywna — scrollowalna poziomo na mobile
-- Tylko użytkownicy z rolą ADMIN mają dostęp
-- Skeleton loading podczas pobierania danych
+**UX, Accessibility, and Security Considerations:**
+- Only users with ADMIN role have access
+- Automatic redirection to `/login` if unauthorized (403)
+- Responsive layout with navigation tiles
+- Skeleton loading during statistics retrieval
+
+---
+
+### 2.6. View: Certificate Creation (Admin)
+
+**Path:** `/admin/certificates/create`
+
+**Main Goal:**
+Enable the administrator to create a new certificate for a selected user with full parameter configuration.
+
+**Key Information to Display:**
+- Certificate creation form:
+  - **User Select** (required) — list of all users in the system
+  - **Numeric field:** `validity_period_days` (required, 1-3650 days, validation)
+  - **Dropdown:** `hash_algorithm` (required, options: SHA-256, SHA-384, SHA-512)
+  - **DN (Distinguished Name) Form:**
+    - CN (Common Name) — required
+    - OU (Organizational Unit) — optional
+    - O (Organization) — optional
+    - L (Locality) — optional
+    - ST (State/Province) — optional
+    - C (Country) — optional
+  - **DN Preview** — display of formatted DN before submission
+- Client-side validation messages
+- API error messages (400 — invalid data, 403 — insufficient permissions)
+- Success message with certificate serial number after creation
+
+**Key View Components:**
+- `CreateCertificateForm` — certificate creation form (React component)
+- `UserSelect` — dropdown with user list
+- `NumberInput` — numeric field with range validation
+- `SelectDropdown` — dropdown for hash algorithm
+- `DNFormFields` — DN form fields
+- `DNPreview` — formatted DN preview
+- `ErrorMessage` — display validation and API errors
+- `SuccessMessage` — success message with serial number
+- `SubmitButton` — form submission button
+
+**UX, Accessibility, and Security Considerations:**
+- Client-side validation before submission (POST /users/{user_id}/certificates)
+- Hints regarding requirements and value ranges
+- DN preview before submission prevents errors
+- After successful creation: option to create another certificate or return to dashboard
+- Responsive form (columns on desktop, stack on mobile)
+- Toast notification after successful creation
+- Only users with ADMIN role have access
+
+---
+
+### 2.7. View: Certificate Management (Admin)
+
+**Path:** `/admin/certificates`
+
+**Main Goal:**
+Overview of all certificates in the system with the ability to revoke them by the administrator.
+
+**Key Information to Display:**
+- **Table of all certificates:**
+  - Columns: serial_number, user (username), DN (abbreviated), status (ACTIVE/REVOKED), expiration_date, creation date
+  - Default sorting by expiration_date
+  - Filtering by status, user
+  - Pagination (10-20 certificates per page)
+  - Action button: "Revoke" (for active certificates)
+- Revocation confirmation modal with an "reason" field (optional)
+
+**Key View Components:**
+- `AdminCertificateTable` — certificate table with sorting, filtering, pagination (React component)
+- `CertificateRow` — single certificate row
+- `RevokeButton` — revoke button
+- `RevokeModal` — confirmation modal with reason field
+- `StatusBadge` — certificate status badge
+- `FilterControls` — filtering and sorting controls
+
+**UX, Accessibility, and Security Considerations:**
+- Confirmation modal before revocation prevents accidental actions
+- Toast notification after successful revocation
+- Responsive table — horizontally scrollable on mobile
+- Only users with ADMIN role have access
+- Skeleton loading during data retrieval
 
 ---
 
@@ -262,161 +262,161 @@ Przegląd wszystkich certyfikatów w systemie z możliwością unieważnienia (r
 
 ### 3.1. Registration and First Login Flow (New User)
 
-1. **Użytkownik odwiedza stronę główną (`/`)**
-   - Widzi informacje o systemie
-   - Kliknie przycisk "Zarejestruj się"
+1.  **User visits the homepage (`/`)**
+    - Sees system information
+    - Clicks "Register" button
 
-2. **Przejście do rejestracji (`/register`)**
-   - Wypełnia formularz: username, password
-   - Walidacja po stronie klienta sprawdza wymagania
-   - Wysyła żądanie POST /users
+2.  **Navigates to registration (`/register`)**
+    - Fills out the form: username, password
+    - Client-side validation checks requirements
+    - Sends POST /users request
 
-3. **Po udanej rejestracji:**
-   - Automatyczne logowanie: POST /auth/login z username i password
-   - Token JWT zapisany w httpOnly cookie
-   - Przekierowanie na `/dashboard`
+3.  **After successful registration:**
+    - Automatic login: POST /auth/login with username and password
+    - JWT token saved in httpOnly cookie
+    - Redirected to `/dashboard`
 
-4. **Dashboard użytkownika (`/dashboard`)**
-   - Użytkownik widzi pustą listę certyfikatów (lub komunikat o braku certyfikatów)
-   - Oczekuje na utworzenie certyfikatu przez administratora
+4.  **User Dashboard (`/dashboard`)**
+    - User sees an empty list of certificates (or a message about no certificates)
+    - Waits for an administrator to create a certificate
 
-### 3.2. Przepływ logowania (Istniejący użytkownik)
+### 3.2. Login Flow (Existing User)
 
-1. **Użytkownik odwiedza stronę główną (`/`) lub `/login`**
-   - Wprowadza username i password
-   - Wysyła żądanie POST /auth/login
+1.  **User visits the homepage (`/`) or `/login`**
+    - Enters username and password
+    - Sends POST /auth/login request
 
-2. **Po udanym logowaniu:**
-   - Token JWT zapisany w httpOnly cookie
-   - Przekierowanie na `/dashboard` (USER) lub `/admin/dashboard` (ADMIN) na podstawie roli
+2.  **After successful login:**
+    - JWT token saved in httpOnly cookie
+    - Redirected to `/dashboard` (USER) or `/admin/dashboard` (ADMIN) based on role
 
-3. **Dashboard odpowiedni dla roli:**
-   - USER: widok z certyfikatami i bannerem (jeśli są wygasające)
-   - ADMIN: panel administracyjny z opcjami zarządzania
+3.  **Dashboard appropriate for the role:**
+    - USER: view with certificates and banner (if expiring)
+    - ADMIN: administrative panel with management options
 
-### 3.3. Przepływ zarządzania certyfikatami (Użytkownik)
+### 3.3. Certificate Management Flow (User)
 
-1. **Użytkownik widzi certyfikaty na dashboardzie (`/dashboard`)**
-   - Tabela certyfikatów z sortowaniem i filtrowaniem
-   - Banner z wygasającymi certyfikatami (jeśli istnieją)
+1.  **User sees certificates on the dashboard (`/dashboard`)**
+    - Certificate table with sorting and filtering
+    - Banner with expiring certificates (if any)
 
-2. **Pobieranie certyfikatu:**
-   - Użytkownik klika przycisk "Download" przy certyfikacie
-   - Otwiera się modal z polem wpisania hasła
-   - Użytkownik wprowadza hasło (min. 8 znaków)
-   - Wysyła żądanie POST /certificates/{id}/download z password w body
-   - Przeglądarka automatycznie pobiera plik `.p12` lub `.pfx`
-   - W przypadku błędu 400 (Invalid password): wyświetla się komunikat błędu
+2.  **Downloading a certificate:**
+    - User clicks the "Download" button next to a certificate
+    - A modal opens with a password input field
+    - User enters password (min. 8 characters)
+    - Sends POST /certificates/{id}/download request with password in body
+    - Browser automatically downloads the `.p12` or `.pfx` file
+    - In case of 400 error (Invalid password): an error message is displayed
 
-3. **Odnawianie certyfikatu:**
-   - Użytkownik widzi banner z wygasającym certyfikatem lub klika "Renew" w tabeli
-   - Potwierdza akcję (opcjonalny modal potwierdzenia)
-   - Wysyła żądanie PUT /certificates/{id}/renew
-   - Toast notification potwierdza sukces
-   - Tabela certyfikatów odświeża się automatycznie
+3.  **Renewing a certificate:**
+    - User sees a banner with an expiring certificate or clicks "Renew" in the table
+    - Confirms the action (optional confirmation modal)
+    - Sends PUT /certificates/{id}/renew request
+    - Toast notification confirms success
+    - Certificate table refreshes automatically
 
-### 3.4. Przepływ tworzenia certyfikatu (Administrator)
+### 3.4. Certificate Creation Flow (Administrator)
 
-1. **Administrator loguje się i widzi dashboard (`/admin/dashboard`)**
-   - Kliknie link/przycisk "Utwórz certyfikat"
+1.  **Administrator logs in and sees the dashboard (`/admin/dashboard`)**
+    - Clicks "Create Certificate" link/button
 
-2. **Przejście do formularza (`/admin/certificates/create`)**
-   - Wybiera użytkownika z listy (select)
-   - Ustawia `validity_period_days` (1-3650)
-   - Wybiera `hash_algorithm` (SHA-256, SHA-384, SHA-512)
-   - Wypełnia pola DN (CN wymagane, pozostałe opcjonalne)
-   - Widzi podgląd DN przed zatwierdzeniem
+2.  **Navigates to the form (`/admin/certificates/create`)**
+    - Selects a user from the list (select)
+    - Sets `validity_period_days` (1-3650)
+    - Selects `hash_algorithm` (SHA-256, SHA-384, SHA-512)
+    - Fills in DN fields (CN required, others optional)
+    - Sees a preview of the DN before submission
 
-3. **Wysłanie formularza:**
-   - Walidacja po stronie klienta sprawdza wszystkie wymagania
-   - Wysyła żądanie POST /users/{user_id}/certificates
-   - Wyświetla się komunikat sukcesu z numerem seryjnym
-   - Opcja utworzenia kolejnego certyfikatu lub powrót do dashboardu
+3.  **Form Submission:**
+    - Client-side validation checks all requirements
+    - Sends POST /users/{user_id}/certificates request
+    - Success message with serial number is displayed
+    - Option to create another certificate or return to dashboard
 
-### 3.5. Przepływ unieważniania certyfikatu (Administrator)
+### 3.5. Certificate Revocation Flow (Administrator)
 
-1. **Administrator przegląda certyfikaty (`/admin/certificates`)**
-   - Widzi tabelę wszystkich certyfikatów z możliwością filtrowania
+1.  **Administrator views certificates (`/admin/certificates`)**
+    - Sees a table of all certificates with filtering capability
 
-2. **Unieważnienie certyfikatu:**
-   - Kliknie przycisk "Revoke" przy aktywnym certyfikacie
-   - Otwiera się modal potwierdzenia z opcjonalnym polem "reason"
-   - Potwierdza akcję
-   - Wysyła żądanie PUT /certificates/{id}/revoke z reason w body
-   - Toast notification potwierdza sukces
-   - Status certyfikatu zmienia się na REVOKED w tabeli
+2.  **Revoking a certificate:**
+    - Clicks the "Revoke" button next to an active certificate
+    - A confirmation modal opens with an optional "reason" field
+    - Confirms the action
+    - Sends PUT /certificates/{id}/revoke request with reason in body
+    - Toast notification confirms success
+    - Certificate status changes to REVOKED in the table
 
-### 3.6. Przepływ obsługi wygaśnięcia sesji
+### 3.6. Session Expiration Handling Flow
 
-1. **Użytkownik wykonuje akcję wymagającą autoryzacji:**
-   - Token JWT wygasł (1 godzina)
-   - Backend zwraca 401 Unauthorized
+1.  **User performs an action requiring authorization:**
+    - JWT token expired (1 hour)
+    - Backend returns 401 Unauthorized
 
-2. **Automatyczne przekierowanie:**
-   - Middleware Astro lub handler błędów wykrywa 401
-   - Automatyczne przekierowanie na `/login`
-   - Wyświetla się komunikat: "Sesja wygasła. Zaloguj się ponownie."
+2.  **Automatic Redirection:**
+    - Astro middleware or error handler detects 401
+    - Automatic redirection to `/login`
+    - Message is displayed: "Session expired. Please log in again."
 
-3. **Użytkownik loguje się ponownie:**
-   - Wprowadza dane logowania
-   - Otrzymuje nowy token JWT
-   - Przekierowanie na poprzedni widok (jeśli możliwe) lub dashboard
+3.  **User logs in again:**
+    - Enters login credentials
+    - Receives a new JWT token
+    - Redirected to the previous view (if possible) or dashboard
 
 ## 4. Layout and Navigation Structure
 
-### 4.1. Struktura nawigacji głównej
+### 4.1. Main Navigation Structure
 
-**Publiczne strony (dostępne bez autoryzacji):**
+**Public Pages (accessible without authorization):**
 ```
-/                    → Strona główna (Welcome)
-/login               → Logowanie
-/register            → Rejestracja
-```
-
-**Sekcja użytkownika (wymagana autoryzacja, rola USER):**
-```
-/dashboard           → Dashboard użytkownika z certyfikatami
+/                    → Homepage (Welcome)
+/login               → Login
+/register            → Registration
 ```
 
-**Sekcja administratora (wymagana autoryzacja, rola ADMIN):**
+**User Section (authorization required, USER role):**
 ```
-/admin/dashboard              → Dashboard administratora
-/admin/certificates/create    → Tworzenie certyfikatu
-/admin/certificates           → Zarządzanie certyfikatami
+/dashboard           → User dashboard with certificates
 ```
 
-### 4.2. Mechanizm autoryzacji i przekierowań
+**Administrator Section (authorization required, ADMIN role):**
+```
+/admin/dashboard              → Administrator dashboard
+/admin/certificates/create    → Create certificate
+/admin/certificates           → Manage certificates
+```
 
-**Middleware Astro:**
-- Chroni wszystkie ścieżki oprócz `/`, `/login`, `/register`
-- Weryfikuje token JWT z httpOnly cookie
-- Przy braku tokenu lub wygasłym tokenie: przekierowanie na `/login`
-- Przy nieprawidłowej roli (np. USER próbuje wejść na `/admin/*`): błąd 403
+### 4.2. Authorization and Redirection Mechanism
 
-**Automatyczne przekierowania:**
-- Zalogowany użytkownik próbuje wejść na `/login` lub `/register`: przekierowanie na odpowiedni dashboard
-- Po udanym logowaniu: przekierowanie na `/dashboard` (USER) lub `/admin/dashboard` (ADMIN)
-- Po udanej rejestracji: automatyczne logowanie i przekierowanie na `/dashboard`
+**Astro Middleware:**
+- Protects all paths except `/`, `/login`, `/register`
+- Verifies JWT token from httpOnly cookie
+- If token is missing or expired: redirect to `/login`
+- If role is invalid (e.g., USER tries to access `/admin/*`): 403 error
 
-### 4.3. Nawigacja w interfejsie
+**Automatic Redirections:**
+- Logged-in user tries to access `/login` or `/register`: redirect to the appropriate dashboard
+- After successful login: redirect to `/dashboard` (USER) or `/admin/dashboard` (ADMIN)
+- After successful registration: automatic login and redirect to `/dashboard`
 
-**Dashboard użytkownika:**
-- Nagłówek z informacjami o użytkowniku
-- Przycisk wylogowania (góra prawy róg)
-- Główna zawartość: banner (jeśli istnieje) + tabela certyfikatów
+### 4.3. In-Interface Navigation
 
-**Panel administratora:**
-- Nagłówek z informacjami o administratorze
-- Przycisk wylogowania (góra prawy róg)
-- Sidebar lub nawigacja górna z linkami:
+**User Dashboard:**
+- Header with user information
+- Logout button (top right corner)
+- Main content: banner (if any) + certificate table
+
+**Administrator Panel:**
+- Header with administrator information
+- Logout button (top right corner)
+- Sidebar or top navigation with links:
   - Dashboard
-  - Utwórz certyfikat
-  - Zarządzaj certyfikatami
-- Główna zawartość zmienia się w zależności od wybranej sekcji
+  - Create Certificate
+  - Manage Certificates
+- Main content changes depending on the selected section
 
-### 4.4. Breadcrumbs (opcjonalnie dla MVP)
+### 4.4. Breadcrumbs (optional for MVP)
 
-Dla sekcji administratora można dodać breadcrumbs:
+For the administrator section, breadcrumbs can be added:
 ```
 Admin > Dashboard
 Admin > Certificates > Create
@@ -425,154 +425,155 @@ Admin > Certificates > List
 
 ## 5. Key Components
 
-### 5.1. Komponenty uwierzytelniania
+### 5.1. Authentication Components
 
 **`LoginForm` (React)**
-- Formularz logowania z polami username i password
-- Walidacja po stronie klienta
-- Obsługa błędów 401
-- Przekierowanie po udanym logowaniu
+- Login form with username and password fields
+- Client-side validation
+- Handles 401 errors
+- Redirects after successful login
 
 **`RegisterForm` (React)**
-- Formularz rejestracji z polami username, password
-- Walidacja wymagań (min. 8 znaków)
-- Obsługa błędów 400, 409
-- Automatyczne logowanie po rejestracji
+- Registration form with username and password fields
+- Validates requirements (min. 8 characters)
+- Handles 400, 409 errors
+- Automatic login after registration
 
 **`AuthMiddleware` (Astro Middleware)**
-- Weryfikacja tokenu JWT z httpOnly cookie
-- Chronienie chronionych ścieżek
-- Automatyczne przekierowanie na `/login` przy braku autoryzacji
+- Verifies JWT token from httpOnly cookie
+- Protects secured paths
+- Automatic redirection to `/login` if unauthorized
 
-### 5.2. Komponenty certyfikatów
+### 5.2. Certificate Components
 
 **`ExpiringBanner` (React)**
-- Sticky banner na górze dashboardu
-- Wyświetla certyfikaty wygasające (GET /certificates/expiring)
-- Aktualizacja co 5-10 minut (polling)
-- Nie można całkowicie zamknąć (tylko zminimalizować)
-- Przyciski "Renew Now" dla każdego certyfikatu
-- Wyróżnienie kolorystyczne (czerwony/żółty gradient)
+- Sticky banner at the top of the dashboard
+- Displays expiring certificates (GET /certificates/expiring)
+- Updates every 5-10 minutes (polling)
+- Cannot be fully closed (only minimized)
+- "Renew Now" buttons for each certificate
+- Color highlighting (red/yellow gradient)
 
 **`CertificateTable` (React)**
-- Tabela certyfikatów z sortowaniem, filtrowaniem, paginacją
-- Kolumny: serial_number, DN, status, expiration_date
-- Przyciski akcji: Renew, Download
-- Wyróżnienie wygasających certyfikatów
-- Responsywna (scrollowalna poziomo na mobile)
-- Integracja z GET /certificates (query params: page, limit, status, sort_by, order)
+- Certificate table with sorting, filtering, pagination
+- Columns: serial_number, DN, status, expiration_date
+- Action buttons: Renew, Download
+- Highlighting of expiring certificates
+- Responsive (horizontally scrollable on mobile)
+- Integration with GET /certificates (query params: page, limit, status, sort_by, order)
 
 **`DownloadCertificateModal` (React)**
-- Modal z polem password (min. 8 znaków)
-- Przycisk pobierania i zamknięcia
-- Obsługa POST /certificates/{id}/download
-- Automatyczne pobieranie pliku `.p12`/.pfx
-- Obsługa błędu 400 (Invalid password)
+- Modal with password field (min. 8 characters)
+- Download and close buttons
+- Handles POST /certificates/{id}/download
+- Automatic download of `.p12`/.pfx file
+- Handles 400 error (Invalid password)
 
 **`CertificateRow` (React)**
-- Pojedynczy wiersz certyfikatu w tabeli
-- Wyświetla serial_number, DN (skrócony), status, expiration_date
-- Przyciski akcji (Renew, Download)
-- Wyróżnienie kolorystyczne statusu i daty wygaśnięcia
+- Single certificate row in the table
+- Displays serial_number, DN (abbreviated), status, expiration_date
+- Action buttons (Renew, Download)
+- Color highlighting of status and expiration date
 
 **`StatusBadge` (React)**
-- Badge statusu certyfikatu (ACTIVE/REVOKED)
-- Różne kolory dla różnych statusów
-- Dostępność: odpowiedni kontrast i czytelność
+- Certificate status badge (ACTIVE/REVOKED)
+- Different colors for different statuses
+- Accessibility: appropriate contrast and readability
 
-### 5.3. Komponenty formularzy
+### 5.3. Form Components
 
 **`CreateCertificateForm` (React)**
-- Formularz tworzenia certyfikatu dla administratora
-- Pola: user select, validity_period_days, hash_algorithm, DN fields
-- Walidacja po stronie klienta
-- Podgląd DN przed zatwierdzeniem
-- Obsługa POST /users/{user_id}/certificates
-- Komunikaty błędów i sukcesu
+- Administrator certificate creation form
+- Fields: user select, validity_period_days, hash_algorithm, DN fields
+- Client-side validation
+- DN preview before submission
+- Handles POST /users/{user_id}/certificates
+- Error and success messages
 
 **`DNFormFields` (React)**
-- Pola formularza Distinguished Name
-- CN (wymagane), OU, O, L, ST, C (opcjonalne)
+- Distinguished Name form fields
+- CN (required), OU, O, L, ST, C (optional)
 - Walidacja i formatowanie
+- Validation and formatting
 
 **`DNPreview` (React)**
-- Podgląd sformatowanego DN przed zatwierdzeniem
+- Preview of formatted DN before submission
 - Format: "C=PL,CN=username,O=Organization,..."
 
 **`UserSelect` (React)**
-- Select dropdown z listą wszystkich użytkowników
-- Wymaga endpointu GET /users (dla administratora) lub alternatywnego rozwiązania
+- Select dropdown with a list of all users
+- Requires GET /users endpoint (for administrator) or an alternative solution
 
-### 5.4. Komponenty UI wspólne
+### 5.4. Common UI Components
 
 **`ToastNotifications` (Shadcn/ui)**
-- Toast notifications dla operacji (sukces, błąd)
-- Używane dla: odnawianie certyfikatu, pobieranie, tworzenie, revokacja
-- Automatyczne zamykanie po 5 sekundach (sukces) lub 10 sekundach (błąd)
+- Toast notifications for operations (success, error)
+- Used for: certificate renewal, download, creation, revocation
+- Automatic closing after 5 seconds (success) or 10 seconds (error)
 
 **`ErrorMessage` (React)**
-- Wyświetlanie błędów walidacji i API
-- Inline error messages w formularzach
-- Czytelne komunikaty dla użytkownika
+- Displays validation and API errors
+- Inline error messages in forms
+- Readable messages for the user
 
 **`SuccessMessage` (React)**
-- Komunikaty sukcesu (np. po utworzeniu certyfikatu)
-- Może być częścią toast notification
+- Success messages (e.g., after certificate creation)
+- Can be part of toast notification
 
 **`LoadingSkeleton` (React)**
-- Skeleton loading podczas pobierania danych
-- Używany w tabelach i listach
+- Skeleton loading during data retrieval
+- Used in tables and lists
 
 **`Button` (Shadcn/ui)**
-- Wspólny komponent przycisku
-- Warianty: primary, secondary, danger
+- Common button component
+- Variants: primary, secondary, danger
 - Touch target minimum 44x44px
 
 **`InputField` (React)**
-- Wspólne pole tekstowe z walidacją
-- Wsparcie dla błędów i podpowiedzi
+- Common text field with validation
+- Support for errors and hints
 
 **`PasswordField` (React)**
-- Pole hasła z możliwością pokazania/ukrycia
-- Wskazówki dotyczące wymagań
+- Password field with show/hide functionality
+- Hints regarding requirements
 
 **`SelectDropdown` (React)**
-- Dropdown select z opcjami
-- Wsparcie dla wyszukiwania (opcjonalnie)
+- Dropdown select with options
+- Support for searching (optional)
 
-### 5.5. Komponenty obsługi błędów
+### 5.5. Error Handling Components
 
 **`ErrorHandler` (Utility)**
-- Centralny system obsługi błędów
-- Mapowanie kodów HTTP na komunikaty:
-  - 400: Błędy walidacji (konkretne komunikaty)
-  - 401: Przekierowanie na /login z komunikatem
-  - 403: "Brak uprawnień"
-  - 404: "Nie znaleziono"
-  - 409: "Użytkownik już istnieje"
-- Obsługa błędów sieciowych (timeout, brak połączenia) z fallback UI
+- Central error handling system
+- Maps HTTP codes to messages:
+  - 400: Validation errors (specific messages)
+  - 401: Redirect to /login with message
+  - 403: "No permissions"
+  - 404: "Not found"
+  - 409: "User already exists"
+- Handles network errors (timeout, no connection) with fallback UI
 
 **`NetworkErrorFallback` (React)**
-- Fallback UI dla błędów sieciowych
-- Przycisk "Spróbuj ponownie"
-- Komunikat o problemie z połączeniem
+- Fallback UI for network errors
+- "Try Again" button
+- Message about connection problem
 
-### 5.6. Komponenty nawigacji
+### 5.6. Navigation Components
 
 **`NavigationHeader` (React/Astro)**
-- Nagłówek z informacjami o użytkowniku
-- Przycisk wylogowania
-- Różne wersje dla USER i ADMIN
+- Header with user information
+- Logout button
+- Different versions for USER and ADMIN
 
 **`AdminNavigation` (React)**
-- Nawigacja w panelu administratora
-- Sidebar lub nawigacja górna z linkami
-- Aktywne zaznaczenie bieżącej sekcji
+- Navigation in the administrator panel
+- Sidebar or top navigation with links
+- Active highlighting of the current section
 
 **`LogoutButton` (React)**
-- Przycisk wylogowania
-- Czyszczenie tokenu JWT
-- Przekierowanie na `/login`
+- Logout button
+- Clears JWT token
+- Redirects to `/login`
 
 ---
 
@@ -581,172 +582,172 @@ Admin > Certificates > List
 ### 6.1. User Management
 
 **PRD:** "The system must allow new users to self-register with a username, password, and an 8-character minimum password."
-- **Element UI:** `RegisterForm` na `/register` z walidacją password (min. 8 znaków)
+- **UI Element:** `RegisterForm` at `/register` with password validation (min. 8 characters)
 
 **PRD:** "The system must authenticate users based on their username and password."
-- **Element UI:** `LoginForm` na `/login` z polami username i password
+- **UI Element:** `LoginForm` at `/login` with username and password fields
 
 ### 6.2. Administrator Management
 
 **PRD:** "Administrators must have an interface to create new certificates for users."
-- **Element UI:** `CreateCertificateForm` na `/admin/certificates/create`
+- **UI Element:** `CreateCertificateForm` at `/admin/certificates/create`
 
 **PRD:** "This interface must allow the administrator to specify the certificate's validity period, hash algorithm (SHA-256, SHA-384, SHA-512), and all Distinguished Name (DN) fields."
-- **Element UI:** Pola formularza: `validity_period_days`, `hash_algorithm` dropdown, `DNFormFields`
+- **UI Element:** Form fields: `validity_period_days`, `hash_algorithm` dropdown, `DNFormFields`
 
 ### 6.3. User-Facing Functionality
 
 **PRD:** "The system must allow authenticated users to download their key/certificate pair in a PKCS#12 file protected by their password."
-- **Element UI:** `DownloadCertificateModal` z polem password, integracja z POST /certificates/{id}/download
+- **UI Element:** `DownloadCertificateModal` with password field, integration with POST /certificates/{id}/download
 
 **PRD:** "The system must display a prominent banner to users whose certificate is near or past its expiration date, prompting them to renew."
-- **Element UI:** `ExpiringBanner` na `/dashboard` z polling GET /certificates/expiring
+- **UI Element:** `ExpiringBanner` at `/dashboard` with polling GET /certificates/expiring
 
 **PRD:** "Users must be able to initiate the certificate renewal process."
-- **Element UI:** Przycisk "Renew" w `CertificateTable` i `ExpiringBanner`, integracja z PUT /certificates/{id}/renew
+- **UI Element:** "Renew" button in `CertificateTable` and `ExpiringBanner`, integration with PUT /certificates/{id}/renew
 
-### 6.4. Historia użytkownika
+### 6.4. User Story
 
 **"As a User, I want to register for an account..."**
-- **Element UI:** `/register` → `RegisterForm` → automatyczne logowanie → `/dashboard`
+- **UI Element:** `/register` → `RegisterForm` → automatic login → `/dashboard`
 
 **"As a User, I want to log in to the portal..."**
-- **Element UI:** `/login` → `LoginForm` → przekierowanie na `/dashboard`
+- **UI Element:** `/login` → `LoginForm` → redirect to `/dashboard`
 
 **"As a User, I want to be clearly notified when my certificate is about to expire..."**
-- **Element UI:** `ExpiringBanner` na `/dashboard` z wyróżnieniem kolorystycznym
+- **UI Element:** `ExpiringBanner` at `/dashboard` with color highlighting
 
 **"As a User, I want to download my certificate and private key securely..."**
-- **Element UI:** Przycisk "Download" → `DownloadCertificateModal` z password → pobranie `.p12`/.pfx
+- **UI Element:** "Download" button → `DownloadCertificateModal` with password → download of `.p12`/.pfx
 
 **"As an Administrator, I want to log in to the system..."**
-- **Element UI:** `/login` → `LoginForm` → przekierowanie na `/admin/dashboard`
+- **UI Element:** `/login` → `LoginForm` → redirect to `/admin/dashboard`
 
 **"As an Administrator, I want to create a new certificate for a user..."**
-- **Element UI:** `/admin/certificates/create` → `CreateCertificateForm` → komunikat sukcesu z numerem seryjnym
+- **UI Element:** `/admin/certificates/create` → `CreateCertificateForm` → success message with serial number
 
 ---
 
 ## 7. User Pain Points Solutions
 
-### 7.1. Problem: Użytkownik nie wie, że jego certyfikat wygasa
+### 7.1. Problem: User doesn't know their certificate is expiring
 
-**Rozwiązanie UI:**
-- `ExpiringBanner` na górze dashboardu z wyróżnieniem kolorystycznym
-- Banner nie może być całkowicie zamknięty — zawsze widoczny
-- Aktualizacja w tle co 5-10 minut
-- Wyróżnienie w tabeli certyfikatów (kolorystyczne oznaczenie daty wygaśnięcia)
+**UI Solution:**
+- `ExpiringBanner` at the top of the dashboard with color highlighting
+- Banner cannot be fully closed — always visible
+- Updates in the background every 5-10 minutes
+- Highlighting in the certificate table (color-coded expiration date)
 
-### 7.2. Problem: Użytkownik nie wie, jak pobrać certyfikat
+### 7.2. Problem: User doesn't know how to download a certificate
 
-**Rozwiązanie UI:**
-- Wyraźny przycisk "Download" przy każdym aktywnym certyfikacie
-- Modal z jasnymi instrukcjami dotyczącymi hasła
-- Automatyczne pobieranie pliku po wprowadzeniu poprawnego hasła
-- Czytelne komunikaty błędów przy nieprawidłowym haśle
+**UI Solution:**
+- Clear "Download" button next to each active certificate
+- Modal with clear instructions regarding the password
+- Automatic file download after entering the correct password
+- Readable error messages for incorrect passwords
 
-### 7.3. Problem: Administrator popełnia błędy przy tworzeniu certyfikatu (np. błędny DN)
+### 7.3. Problem: Administrator makes mistakes when creating a certificate (e.g., incorrect DN)
 
-**Rozwiązanie UI:**
-- Walidacja po stronie klienta przed wysłaniem formularza
-- Podgląd DN przed zatwierdzeniem (`DNPreview`)
-- Wskazówki dotyczące wymagań i zakresów wartości
-- Czytelne komunikaty błędów z API
+**UI Solution:**
+- Client-side validation before form submission
+- DN preview before submission (`DNPreview`)
+- Hints regarding requirements and value ranges
+- Readable API error messages
 
-### 7.4. Problem: Użytkownik ma wiele certyfikatów i trudno znaleźć właściwy
+### 7.4. Problem: User has many certificates and it's hard to find the right one
 
-**Rozwiązanie UI:**
-- Tabela z sortowaniem po expiration_date (domyślnie)
-- Filtrowanie po statusie (ACTIVE/REVOKED)
-- Paginacja dla łatwego przeglądania
-- Wyróżnienie kolorystyczne statusu i daty wygaśnięcia
+**UI Solution:**
+- Table with sorting by expiration_date (default)
+- Filtering by status (ACTIVE/REVOKED)
+- Pagination for easy browsing
+- Color highlighting of status and expiration date
 
-### 7.5. Problem: Sesja wygasa i użytkownik traci pracę
+### 7.5. Problem: Session expires and user loses work
 
-**Rozwiązanie UI:**
-- Automatyczne przekierowanie na `/login` z komunikatem o wygasłej sesji
-- Opcjonalny timer odliczający czas do wygaśnięcia sesji (dla przyszłych wersji)
-- Przycisk wylogowania dla kontroli użytkownika
+**UI Solution:**
+- Automatic redirection to `/login` with a message about expired session
+- Optional timer counting down to session expiration (for future versions)
+- Logout button for user control
 
-### 7.6. Problem: Użytkownik zapomina hasło przy pobieraniu certyfikatu
+### 7.6. Problem: User forgets password when downloading a certificate
 
-**Rozwiązanie UI:**
-- Czytelny komunikat błędu: "Nieprawidłowe hasło"
-- Możliwość ponowienia próby bez zamknięcia modala
-- Hasło ustawiane tylko podczas rejestracji — użytkownik musi go pamiętać (zgodnie z PRD, przypominanie hasła nie jest w zakresie MVP)
+**UI Solution:**
+- Clear error message: "Invalid password"
+- Ability to retry without closing the modal
+- Password set only during registration — user must remember it (according to PRD, password recovery is not in MVP scope)
 
 ---
 
 ## 8. Error States and Edge Cases
 
-### 8.1. Stany błędów API
+### 8.1. API Error States
 
 **400 Bad Request:**
-- Walidacja danych (formularze): inline error messages w polach formularza
-- Invalid password przy pobieraniu: komunikat w modalu "Nieprawidłowe hasło. Spróbuj ponownie."
+- Data validation (forms): inline error messages in form fields
+- Invalid password during download: "Invalid password. Please try again." message in the modal
 
 **401 Unauthorized:**
-- Brak tokenu lub wygasły token: automatyczne przekierowanie na `/login` z komunikatem "Sesja wygasła. Zaloguj się ponownie."
-- Nieprawidłowe dane logowania: komunikat "Nieprawidłowa nazwa użytkownika lub hasło" (bez ujawniania, czy użytkownik istnieje)
+- Missing or expired token: automatic redirection to `/login` with message "Session expired. Please log in again."
+- Invalid login credentials: message "Invalid username or password" (without revealing if user exists)
 
 **403 Forbidden:**
-- Brak uprawnień (np. USER próbuje wejść na `/admin/*`): komunikat "Brak uprawnień do wyświetlenia tej strony" + przekierowanie na `/dashboard`
+- Insufficient permissions (e.g., USER tries to access `/admin/*`): message "No permissions to view this page" + redirect to `/dashboard`
 
 **404 Not Found:**
-- Certyfikat nie znaleziony: komunikat "Certyfikat nie został znaleziony"
-- Użytkownik nie znaleziony: komunikat "Użytkownik nie został znaleziony"
+- Certificate not found: message "Certificate not found"
+- User not found: message "User not found"
 
 **409 Conflict:**
-- Użytkownik już istnieje przy rejestracji: komunikat "Nazwa użytkownika już istnieje. Wybierz inną."
+- User already exists during registration: message "Username already exists. Please choose another."
 
 **500 Internal Server Error:**
-- Błąd serwera: komunikat "Wystąpił błąd serwera. Spróbuj ponownie później." + opcja ponowienia
+- Server error: message "A server error occurred. Please try again later." + retry option
 
-### 8.2. Przypadki brzegowe
+### 8.2. Edge Cases
 
-**Brak certyfikatów:**
-- Dashboard użytkownika wyświetla komunikat: "Nie masz jeszcze żadnych certyfikatów. Administrator utworzy certyfikat dla Ciebie."
-- Tabela certyfikatów wyświetla pusty stan z komunikatem
+**No Certificates:**
+- User dashboard displays message: "You don't have any certificates yet. An administrator will create a certificate for you."
+- Certificate table displays empty state with a message
 
-**Brak wygasających certyfikatów:**
-- Banner nie jest wyświetlany
-- Tabela certyfikatów normalnie funkcjonuje
+**No Expiring Certificates:**
+- Banner is not displayed
+- Certificate table functions normally
 
-**Błąd sieciowy (timeout, brak połączenia):**
-- Fallback UI z komunikatem "Brak połączenia z serwerem. Sprawdź swoje połączenie internetowe."
-- Przycisk "Spróbuj ponownie" dla ponowienia żądania
+**Network Error (timeout, no connection):**
+- Fallback UI with message "No connection to the server. Please check your internet connection."
+- "Try Again" button to retry the request
 
-**Wielu certyfikatów wygasających:**
-- Banner wyświetla wszystkie certyfikaty wygasające (lub tylko najbliższy termin z linkiem "Zobacz wszystkie")
-- Tabela certyfikatów umożliwia sortowanie i filtrowanie
+**Many Expiring Certificates:**
+- Banner displays all expiring certificates (or only the nearest deadline with a "See all" link)
+- Certificate table allows sorting and filtering
 
-**Użytkownik próbuje odnowić już unieważniony certyfikat:**
-- Przycisk "Renew" nie jest dostępny dla certyfikatów REVOKED
-- Komunikat błędu 400: "Certyfikat nie może być odnowiony (status: REVOKED)"
+**User tries to renew an already revoked certificate:**
+- "Renew" button is not available for REVOKED certificates
+- 400 error message: "Certificate cannot be renewed (status: REVOKED)"
 
-**Administrator próbuje utworzyć certyfikat dla nieistniejącego użytkownika:**
-- Walidacja po stronie klienta (select z listą użytkowników zapobiega temu)
-- Komunikat błędu 404: "Użytkownik nie został znaleziony"
+**Administrator tries to create a certificate for a non-existent user:**
+- Client-side validation (user list select prevents this)
+- 404 error message: "User not found"
 
 ---
 
 ## 9. API Plan Compliance
 
-Wszystkie widoki i komponenty są w pełni zgodne z planem API:
+All views and components are fully compliant with the API plan:
 
 - **POST /users** → `RegisterForm`
 - **POST /auth/login** → `LoginForm`
-- **GET /users/{id}** → opcjonalnie w headerze dashboardu
+- **GET /users/{id}`** → optionally in dashboard header
 - **POST /users/{user_id}/certificates** → `CreateCertificateForm`
-- **GET /certificates** → `CertificateTable` (z query params: page, limit, status, sort_by, order)
-- **GET /certificates/expiring** → `ExpiringBanner` (z query param: days=30)
-- **PUT /certificates/{id}/renew** → przycisk "Renew" w `CertificateTable` i `ExpiringBanner`
-- **POST /certificates/{id}/download** → `DownloadCertificateModal` (z password w body)
-- **PUT /certificates/{id}/revoke** → przycisk "Revoke" w `AdminCertificateTable` (z reason w body)
+- **GET /certificates** → `CertificateTable` (with query params: page, limit, status, sort_by, order)
+- **GET /certificates/expiring** → `ExpiringBanner` (with query param: days=30)
+- **PUT /certificates/{id}/renew** → "Renew" button in `CertificateTable` and `ExpiringBanner`
+- **POST /certificates/{id}/download** → `DownloadCertificateModal` (with password in body)
+- **PUT /certificates/{id}/revoke** → "Revoke" button in `AdminCertificateTable` (with reason in body)
 
-**Uwaga:** Endpoint `GET /users` dla administratora (potrzebny w `UserSelect`) nie jest wymieniony w planie API. Należy to rozwiązać przez:
-1. Dodanie endpointu `GET /users` do planu API (tylko dla ADMIN)
-2. Lub alternatywne rozwiązanie (np. cache użytkowników podczas tworzenia certyfikatu)
+**Note:** The `GET /users` endpoint for the administrator (needed in `UserSelect`) is not listed in the API plan. This should be resolved by:
+1.  Adding the `GET /users` endpoint to the API plan (for ADMIN only)
+2.  Or an alternative solution (e.g., caching users during certificate creation)
 
 ---
 

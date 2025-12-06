@@ -4,23 +4,12 @@ use dotenv::dotenv;
 use key_infrastructure::http_app;
 use key_infrastructure::auth::{LoginRequest, RegisterRequest};
 use key_infrastructure::*;
-use key_infrastructure::certificate::{list_pending_certificates, generate_certificate};
 use serde_json::json;
 use sqlx::{Postgres, Pool};
 use sqlx::postgres::PgPoolOptions;
 use std::env;
-use openssl::pkey::PKey;
-use openssl::x509::{X509Req, X509Name};
-use openssl::rsa::Rsa;
 use log::LevelFilter;
 
-/// Generate a private key using openssl crate for testing
-/// Returns the PKey object containing the private key
-fn generate_private_key() -> PKey<openssl::pkey::Private> {
-    // Generate RSA private key
-    let rsa = Rsa::generate(2048).expect("Failed to generate RSA key");
-    PKey::from_rsa(rsa).expect("Failed to create PKey from RSA")
-}
 
 async fn setup_test_app() -> (impl actix_web::dev::Service<actix_http::Request, Response = actix_web::dev::ServiceResponse, Error = actix_web::Error>, Pool<Postgres>) {
     let _ = env_logger::builder().filter_level(LevelFilter::Debug).is_test(true).try_init();
