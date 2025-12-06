@@ -1,5 +1,5 @@
 [package]
-name = "login"
+name = "key_infrastructure"
 version = "0.1.0"
 edition = "2021"
 

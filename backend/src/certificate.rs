@@ -1,5 +1,5 @@
 use actix_web::{http::header, web, HttpMessage, HttpRequest, HttpResponse, Responder};
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::Utc;
 use futures_util::TryFutureExt;
 use openssl::pkcs12::Pkcs12;
 use openssl::pkey::{PKey, Private};
@@ -63,14 +63,6 @@ pub struct ListPendingCertificatesResponse {
 pub struct CertificateCreatedResponse {
     id: String,
     user_id: String,
-}
-
-#[derive(sqlx::FromRow)]
-struct CertificateDownloadInfo {
-    user_id: Uuid,
-    dn: String,
-    certificate_der: Vec<u8>,
-    encrypted_private_key: Vec<u8>,
 }
 
 pub async fn create_certificate_request(
@@ -505,8 +497,6 @@ async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &
     let cert_der = cert.to_der()
         .map_err(|e| ApiError::Internal(format!("cert.to_der: {}", e)))?;
 
-    // Convert Asn1Time to DateTime<Utc> for proper SQL timestamp binding
-    // Calculate expiration date directly from current time + validity days
     let expiration_date = Utc::now() + chrono::Duration::days(validity_days as i64);
 
     let cert_id: Uuid = sqlx::query_scalar(

@@ -67,6 +67,8 @@ cargo build
 cargo build --release
 ```
 
+Cargo build should produce single binary file `key_infractructure`
+
 ## Running
 
 ```bash
@@ -93,6 +95,7 @@ You can use a `.env` file in the backend directory (automatically loaded via `do
 DATABASE_URL=postgresql://user:password@localhost/keyinfrastructure
 CA_PRIVATE_KEY_PASSWORD=your_ca_password
 JWT_SECRET=your_jwt_secret_key
+CA_PASSWORD=password_for_ca_key_file
 ```
 
 ## API Documentation

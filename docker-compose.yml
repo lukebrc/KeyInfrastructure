@@ -27,7 +27,7 @@ services:
     volumes:
       - ./backend:/app
     working_dir: /app
-    command: [ "./target/debug/login" ]
+    command: [ "./target/debug/key_infrastructure" ]
 
   frontend:
     build:
