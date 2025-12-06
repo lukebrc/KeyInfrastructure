@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::{
     auth::Claims,
-    db_model::{CertificateInfo, CertificateStatus, User},
+    db_model::{CertificateInfo, CertificateListItem, CertificateStatus, User},
     errors::ApiError,
     AppState,
 };
@@ -26,6 +26,13 @@ pub struct ListCertificatesQuery {
     status: Option<String>,
     sort_by: Option<String>,
     order: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ListExpiringCertificatesQuery {
+    days: Option<i64>,
+    page: Option<i64>,
+    limit: Option<i64>,
 }
 
 #[derive(Deserialize)]
@@ -42,7 +49,7 @@ pub struct DownloadCertificateRequest {
 
 #[derive(Serialize)]
 pub struct ListCertificatesResponse {
-    certificates: Vec<CertificateInfo>,
+    certificates: Vec<CertificateListItem>,
     total: i64,
     page: i64,
 }
@@ -239,14 +246,14 @@ pub async fn list_active_certificates(
     };
 
     let select_query = format!(
-        "SELECT id, serial_number, dn, status, expiration_date, renewed_count FROM certificates WHERE user_id = $1 {} ORDER BY {} {} {}",
+        "SELECT c.id, c.serial_number, cr.dn, c.status, c.expiration_date, c.renewed_count FROM certificates c JOIN certificate_requests cr ON c.id = cr.id WHERE c.user_id = $1 {} ORDER BY {} {} {}",
         status_clause,
         sort_by,
         order_direction,
         limit_offset_params
     );
 
-    let mut query_builder = sqlx::query_as::<_, CertificateInfo>(&select_query).bind(user_id);
+    let mut query_builder = sqlx::query_as::<_, CertificateListItem>(&select_query).bind(user_id);
 
     if let Some(status) = status_filter {
         let cert_status: CertificateStatus = match status.to_uppercase().as_str() {
@@ -260,6 +267,75 @@ pub async fn list_active_certificates(
 
     let query_builder = query_builder.bind(limit).bind(offset);
     let certificates = query_builder.fetch_all(&state.pool).await?;
+
+    Ok(HttpResponse::Ok().json(ListCertificatesResponse {
+        certificates,
+        total,
+        page,
+    }))
+}
+
+pub async fn list_expiring_certificates(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    query: web::Query<ListExpiringCertificatesQuery>,
+) -> Result<impl Responder, ApiError> {
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .cloned()
+        .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
+
+    let days = query.days.unwrap_or(30);
+    let page = query.page.unwrap_or(1);
+    let limit = query.limit.unwrap_or(10);
+    let offset = (page - 1) * limit;
+
+    let now = Utc::now();
+    let expiration_threshold = now + chrono::Duration::days(days);
+
+    let (total, certificates): (i64, Vec<CertificateListItem>) = if claims.role == "ADMIN" {
+        // Admin sees all expiring certificates
+        let count_query = "SELECT COUNT(*) FROM certificates WHERE status = 'ACTIVE' AND expiration_date BETWEEN $1 AND $2";
+        let total: i64 = sqlx::query_scalar(count_query)
+            .bind(now)
+            .bind(expiration_threshold)
+            .fetch_one(&state.pool)
+            .await?;
+
+        let select_query = "SELECT c.id, c.serial_number, cr.dn, c.status, c.expiration_date, c.renewed_count FROM certificates c JOIN certificate_requests cr ON c.id = cr.id WHERE c.status = 'ACTIVE' AND c.expiration_date BETWEEN $1 AND $2 ORDER BY c.expiration_date ASC LIMIT $3 OFFSET $4";
+        let certificates = sqlx::query_as::<_, CertificateListItem>(select_query)
+            .bind(now)
+            .bind(expiration_threshold)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&state.pool)
+            .await?;
+        (total, certificates)
+    } else {
+        // Regular user sees only their own expiring certificates
+        let user_id = Uuid::parse_str(&claims.sub)
+            .map_err(|_| ApiError::Internal("Invalid UUID in claims".into()))?;
+
+        let count_query = "SELECT COUNT(*) FROM certificates WHERE user_id = $1 AND status = 'ACTIVE' AND expiration_date BETWEEN $2 AND $3";
+        let total: i64 = sqlx::query_scalar(count_query)
+            .bind(user_id)
+            .bind(now)
+            .bind(expiration_threshold)
+            .fetch_one(&state.pool)
+            .await?;
+
+        let select_query = "SELECT c.id, c.serial_number, cr.dn, c.status, c.expiration_date, c.renewed_count FROM certificates c JOIN certificate_requests cr ON c.id = cr.id WHERE c.user_id = $1 AND c.status = 'ACTIVE' AND c.expiration_date BETWEEN $2 AND $3 ORDER BY c.expiration_date ASC LIMIT $4 OFFSET $5";
+        let certificates = sqlx::query_as::<_, CertificateListItem>(select_query)
+            .bind(user_id)
+            .bind(now)
+            .bind(expiration_threshold)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&state.pool)
+            .await?;
+        (total, certificates)
+    };
 
     Ok(HttpResponse::Ok().json(ListCertificatesResponse {
         certificates,
@@ -529,8 +605,10 @@ async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &
         .execute(state_pool)
         .await?;
 
-    Ok(CertificateInfo { id: cert_id,
+    Ok(CertificateInfo {
+        id: cert_id,
         serial_number: serial_str,
+        dn: pending_request.dn,
         status: CertificateStatus::ACTIVE,
         expiration_date,
         renewed_count: 0,
@@ -541,8 +619,10 @@ async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &
 
 async fn get_user_certificate(cert_id: Uuid, user_id: Uuid, state_pool: &Pool<Postgres>) -> Result<CertificateInfo, ApiError> {
     sqlx::query_as::<_, CertificateInfo>(
-        "SELECT id, serial_number, status, expiration_date, renewed_count, certificate_der, renewal_date 
-        FROM certificates WHERE id = $1 AND user_id = $2"
+        "SELECT c.id, c.serial_number, cr.dn, c.status, c.expiration_date, c.renewed_count, c.certificate_der, c.renewal_date 
+        FROM certificates c 
+        JOIN certificate_requests cr ON c.id=cr.id
+        WHERE c.id = $1 AND c.user_id = $2"
     ).bind(cert_id)
         .bind(user_id)
         .fetch_optional(state_pool)

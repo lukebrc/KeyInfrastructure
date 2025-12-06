@@ -40,11 +40,23 @@ pub enum CertificateStatus {
 pub struct CertificateInfo {
     pub id: Uuid,
     pub serial_number: String,
+    pub dn: String,
     pub status: CertificateStatus,
     pub expiration_date: DateTime<Utc>,
     pub renewed_count: i32,
     pub certificate_der: Vec<u8>,
     pub renewal_date: Option<DateTime<Utc>>
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct CertificateListItem {
+    pub id: Uuid,
+    pub serial_number: String,
+    pub dn: String,
+    pub status: CertificateStatus,
+    pub expiration_date: DateTime<Utc>,
+    pub renewed_count: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]

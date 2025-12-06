@@ -72,10 +72,10 @@
 
 - **Method**: GET
 - **URL Path**: /certificates/expiring
-- **Description**: Get certificates expiring soon for the authenticated user.
+- **Description**: Get certificates expiring soon. For regular users, it returns their own expiring certificates. For admins, it returns all expiring certificates in the system.
 - **Query Parameters**: days=integer (default 30)
 - **Request JSON Structure**: None
-- **Response JSON Structure**: {"certificates": [{"id": "uuid", "expiration_date": "timestamp"}]}
+- **Response JSON Structure**: {"certificates": [{"id": "uuid", "serial_number": "string", "dn": "string", "status": "string", "expiration_date": "timestamp", "renewed_count": "integer"}], "total": "integer", "page": "integer"}
 - **Success Codes and Messages**: 200 OK - "Expiring certificates retrieved"
 - **Error Codes and Messages**: 401 Unauthorized - "Authentication required"
 

@@ -1,10 +1,10 @@
 use actix_http;
 use actix_web::{http, test, App, web};
 use dotenv::dotenv;
-use http_app;
-use login::auth::{LoginRequest, RegisterRequest};
-use login::*;
-use login::certificate::{list_pending_certificates, generate_certificate};
+use key_infrastructure::http_app;
+use key_infrastructure::auth::{LoginRequest, RegisterRequest};
+use key_infrastructure::*;
+use key_infrastructure::certificate::{list_pending_certificates, generate_certificate};
 use serde_json::json;
 use sqlx::{Postgres, Pool};
 use sqlx::postgres::PgPoolOptions;
@@ -296,4 +296,154 @@ async fn test_certificate_lifecycle() {
 
     let body_bytes = test::read_body(resp).await;
     assert!(!body_bytes.is_empty(), "CERT-05 Failed: Downloaded file is empty");
+}
+
+#[actix_web::test]
+async fn test_certificate_expiring_list() {
+    let (app, pool) = setup_test_app().await;
+    let mut tx = pool.begin().await.unwrap();
+
+    // 1. Create admin user
+    let admin_user = "expiring_admin";
+    let admin_password = "adminpassword";
+    let password_hash = bcrypt::hash(admin_password, 12).unwrap();
+    sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'ADMIN')")
+        .bind(admin_user)
+        .bind(password_hash)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+
+    // 2. Create two regular users
+    let regular_user_1 = "expiring_user_1";
+    let regular_password_1 = "userpassword1";
+    let user_id_1: uuid::Uuid = sqlx::query_scalar("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'USER') RETURNING id")
+        .bind(regular_user_1)
+        .bind(bcrypt::hash(regular_password_1, 12).unwrap())
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+
+    let regular_user_2 = "expiring_user_2";
+    let regular_password_2 = "userpassword2";
+    let user_id_2: uuid::Uuid = sqlx::query_scalar("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'USER') RETURNING id")
+        .bind(regular_user_2)
+        .bind(bcrypt::hash(regular_password_2, 12).unwrap())
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+
+    // 3. Create three certificates with different expiration dates for different users
+    let now = chrono::Utc::now();
+
+    // Cert 1 (User 1, expires in 15 days)
+    let cert_id_1 = uuid::Uuid::new_v4();
+    sqlx::query("INSERT INTO certificate_requests (id, user_id, dn, validity_period_days) VALUES ($1, $2, 'CN=user1_expiring15', 15)")
+        .bind(cert_id_1)
+        .bind(user_id_1)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO certificates (id, user_id, serial_number, status, expiration_date) VALUES ($1, $2, 'SN1', 'ACTIVE', $3)")
+        .bind(cert_id_1)
+        .bind(user_id_1)
+        .bind(now + chrono::Duration::days(15))
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+
+    // Cert 2 (User 2, expires in 20 days)
+    let cert_id_2 = uuid::Uuid::new_v4();
+    sqlx::query("INSERT INTO certificate_requests (id, user_id, dn, validity_period_days) VALUES ($1, $2, 'CN=user2_expiring20', 20)")
+        .bind(cert_id_2)
+        .bind(user_id_2)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO certificates (id, user_id, serial_number, status, expiration_date) VALUES ($1, $2, 'SN2', 'ACTIVE', $3)")
+        .bind(cert_id_2)
+        .bind(user_id_2)
+        .bind(now + chrono::Duration::days(20))
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+
+    // Cert 3 (User 1, expires in 45 days)
+    let cert_id_3 = uuid::Uuid::new_v4();
+    sqlx::query("INSERT INTO certificate_requests (id, user_id, dn, validity_period_days) VALUES ($1, $2, 'CN=user1_expiring45', 45)")
+        .bind(cert_id_3)
+        .bind(user_id_1)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO certificates (id, user_id, serial_number, status, expiration_date) VALUES ($1, $2, 'SN3', 'ACTIVE', $3)")
+        .bind(cert_id_3)
+        .bind(user_id_1)
+        .bind(now + chrono::Duration::days(45))
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+
+    tx.commit().await.unwrap();
+
+    // 4. Admin logs in
+    let login_req = LoginRequest {
+        username: admin_user.to_string(),
+        password: admin_password.to_string(),
+    };
+    let req = test::TestRequest::post().uri("/auth/login").set_json(&login_req).to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::OK, "Admin login failed");
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let admin_token = body["token"].as_str().unwrap();
+
+    // 5. Admin calls /certificates/expiring?days=30 and should see 2 certs
+    let req = test::TestRequest::get()
+        .uri("/certificates/expiring?days=30")
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-09 Admin Failed: Could not get expiring certificates");
+
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    assert_eq!(body["total"], 2, "CERT-09 Admin Failed: Should be two expiring certificate");
+    let certs = body["certificates"].as_array().unwrap();
+    assert_eq!(certs.len(), 2, "CERT-09 Admin Failed: Certificate list should have two items");
+    assert_eq!(certs[0]["serialNumber"], "SN1");
+    assert_eq!(certs[1]["serialNumber"], "SN2");
+
+
+    // 6. Admin calls with larger days value to get all 3
+     let req_large = test::TestRequest::get()
+        .uri("/certificates/expiring?days=50")
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .to_request();
+    let resp_large = test::call_service(&app, req_large).await;
+    assert_eq!(resp_large.status(), http::StatusCode::OK, "CERT-09 Admin Failed: Could not get expiring certificates with larger days value");
+    let body_large: serde_json::Value = test::read_body_json(resp_large).await;
+    assert_eq!(body_large["total"], 3, "CERT-09 Admin Failed: Should be three expiring certificates for 50 days");
+
+    // 7. Test as non-admin user (user 1)
+    let user_login_req = LoginRequest {
+        username: regular_user_1.to_string(),
+        password: regular_password_1.to_string(),
+    };
+    let req = test::TestRequest::post().uri("/auth/login").set_json(&user_login_req).to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::OK, "User 1 login failed for expiring cert test");
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let user_token = body["token"].as_str().unwrap();
+
+    // 8. User 1 calls /certificates/expiring?days=30, should see only their own cert (1 cert)
+    let req_user = test::TestRequest::get()
+        .uri("/certificates/expiring?days=30")
+        .insert_header(("Authorization", format!("Bearer {}", user_token)))
+        .to_request();
+    let resp_user = test::call_service(&app, req_user).await;
+    assert_eq!(resp_user.status(), http::StatusCode::OK, "CERT-09 User Failed: Could not get expiring certificates");
+    let user_body: serde_json::Value = test::read_body_json(resp_user).await;
+    assert_eq!(user_body["total"], 1, "CERT-09 User Failed: Should see only one of their own expiring certificates");
+    let user_certs = user_body["certificates"].as_array().unwrap();
+    assert_eq!(user_certs.len(), 1);
+    assert_eq!(user_certs[0]["serialNumber"], "SN1");
 }
