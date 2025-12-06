@@ -50,18 +50,18 @@ async fn setup_test_app() -> (impl actix_web::dev::Service<actix_http::Request, 
         sqlx::query("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"").execute(&mut *conn).await.ok();
 
         log::info!("Clearing test tables");
-        sqlx::query("DELETE FROM users CASCADE")
-            .execute(&mut *conn)
-            .await
-            .unwrap();
-        sqlx::query("DELETE FROM certificate_requests CASCADE")
+        sqlx::query("DELETE FROM private_keys CASCADE")
             .execute(&mut *conn)
             .await
             .unwrap();
         sqlx::query("DELETE FROM certificates CASCADE")
             .execute(&mut *conn)
             .await.unwrap();
-        sqlx::query("DELETE FROM private_keys CASCADE")
+        sqlx::query("DELETE FROM certificate_requests CASCADE")
+            .execute(&mut *conn)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users CASCADE")
             .execute(&mut *conn)
             .await
             .unwrap();
@@ -279,8 +279,8 @@ async fn test_certificate_lifecycle() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), http::StatusCode::OK, "CERT-04 Failed: Generate certificate");
 
-    // 7. CERT-05: User downloads their certificate with the correct PIN
-    let download_req = json!({ "pin": "87654321" });
+    // 7. CERT-05: User downloads their certificate with the correct password
+    let download_req = json!({ "password": test_password });
     let download_uri = format!("/certificates/{}/download", cert_id);
     let req = test::TestRequest::post()
         .uri(&download_uri)

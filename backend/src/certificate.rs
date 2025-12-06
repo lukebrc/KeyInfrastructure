@@ -1,6 +1,5 @@
 use actix_web::{http::header, web, HttpMessage, HttpRequest, HttpResponse, Responder};
-use base64::{engine::general_purpose, Engine as _};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeZone, Utc};
 use futures_util::TryFutureExt;
 use openssl::pkcs12::Pkcs12;
 use openssl::pkey::{PKey, Private};
@@ -70,8 +69,8 @@ pub struct CertificateCreatedResponse {
 struct CertificateDownloadInfo {
     user_id: Uuid,
     dn: String,
-    certificate_der: String,
-    encrypted_private_key: String,
+    certificate_der: Vec<u8>,
+    encrypted_private_key: Vec<u8>,
 }
 
 pub async fn create_certificate_request(
@@ -133,91 +132,41 @@ pub async fn create_certificate_request(
     Ok(HttpResponse::Created().json(response))
 }
 
-pub async fn download_certificate(
-    state: web::Data<AppState>,
-    req: HttpRequest,
-    path: web::Path<Uuid>,
-    body: web::Json<DownloadCertificateRequest>,
-) -> Result<impl Responder, ApiError> {
+pub async fn download_certificate(state: web::Data<AppState>,
+            req: HttpRequest,
+            path: web::Path<Uuid>,
+            body: web::Json<DownloadCertificateRequest>,
+        ) -> Result<impl Responder, ApiError> {
+
     let cert_id = path.into_inner();
     log::info!("Attempting to download certificate with id: {}", cert_id);
-    let claims = req
-        .extensions()
-        .get::<Claims>()
-        .cloned()
-        .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
 
-    // Fetch certificate data and user password hash from DB
-    let cert_row = sqlx::query_as::<_, CertificateDownloadInfo>(
-        "SELECT c.user_id, cr.dn, c.certificate_der, pk.encrypted_key
-        FROM certificates c
-        JOIN certificate_requests cr ON cr.id=c.id
-        JOIN users u ON c.user_id = u.id
-        JOIN private_keys pk on pk.id=c.id
-        WHERE c.id = $1",
-    )
-    .bind(cert_id)
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or_else(|| ApiError::NotFound("Certificate not found".to_string()))?;
-
-    // Authorization: User can only download their own certificate.
-    let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| ApiError::Internal("Invalid UUID in claims".to_string()))?;
-    if cert_row.user_id != user_id {
-        log::error!(
-            "User {} is not allowed to download certificate {}",
-            user_id,
-            cert_id
-        );
-        return Err(ApiError::Forbidden(
-            "You are not allowed to download this certificate".to_string(),
-        ));
-    }
-
-    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
-        .bind(user_id)
-        .fetch_optional(&state.pool)
-        .await?
-        .ok_or_else(|| ApiError::NotFound("User not found".to_string()))?;
+    let user = match get_authorized_user_data(req, &state.pool).await {
+        Ok(u) => u,
+        Err(err) => {
+            log::error!("Cannot get user data: {}", err);
+            return Err(err);
+        }
+    };
 
     // Verify password against the user's stored hash
     if !bcrypt::verify(&body.password, &user.password_hash)
         .map_err(|_| ApiError::Internal("password verification failed".to_string()))?
     {
-        return Err(ApiError::BadRequest("Incorrect PIN".to_string()));
+        log::error!("Incorrect password for user {}", user.id);
+        return Err(ApiError::BadRequest("Incorrect password".to_string()));
     }
 
-    // Decrypt the private key
-    let cipher = Cipher::aes_256_cbc();
-    let key = &user.password_hash.as_bytes()[..32];
-    let iv = &user.password_hash.as_bytes()[32..48];
-    let encrypted_private_key = general_purpose::STANDARD
-        .decode(&cert_row.encrypted_private_key)
-        .map_err(|_| ApiError::Internal("Failed to decode private key".to_string()))?;
-    let private_key_pem = decrypt(cipher, key, Some(iv), &encrypted_private_key).map_err(|_| {
-        ApiError::Internal(
-            "Private key decryption failed. The key may be corrupt or the PIN hash changed."
-                .to_string(),
-        )
-    })?;
+    let pkcs_result = generate_user_pkcs12(cert_id, user, body.password.clone(), &state.pool).await;
+    let pkcs12 = match pkcs_result {
+        Ok(c) => c,
+        Err(err) => {
+            log::error!("Cannot get certificate with id={}: error: {}", cert_id, err);
+            return Err(err);
+        }
+    };
 
-    // Create PKCS#12 archive
-    let x509 = X509::from_der(cert_row.certificate_der.as_bytes())
-        .map_err(|_| ApiError::Internal("Failed to parse certificate PEM".to_string()))?;
-    let pkey = PKey::private_key_from_pem(&private_key_pem)
-        .map_err(|_| ApiError::Internal("Failed to parse private key PEM".to_string()))?;
-
-    let pkcs12_builder = Pkcs12::builder()
-        .cert(&x509)
-        .pkey(&pkey)
-        .build2(&body.password)
-        .map_err(|e| ApiError::Internal(format!("Failed to build PKCS#12 archive: {}", e)))?;
-    let pkcs12 = pkcs12_builder
-        .to_der()
-        .map_err(|e| ApiError::Internal(format!("Failed to serialize PKCS#12 archive: {}", e)))?;
-
-    let filename = format!("attachment; filename=\"{}.p12\"", &cert_row.dn);
+    let filename = format!("attachment; filename=\"{}.p12\"", cert_id);
     Ok(HttpResponse::Ok()
         .insert_header((header::CONTENT_DISPOSITION, filename))
         .insert_header((header::CONTENT_TYPE, "application/octet-stream"))
@@ -543,28 +492,31 @@ async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &
     let key_pem = private_key.private_key_to_pem_pkcs8()
         .map_err(|e| ApiError::Internal(format!("private_key_to_pem_pkcs8: {}", e)))?;
     let cipher = Cipher::aes_256_cbc();
-    let key = &user.password_hash.as_bytes()[..32];
-    let iv = &user.password_hash.as_bytes()[32..48];
+    let password_hash_bytes = user.password_hash.as_bytes();
+    if password_hash_bytes.len() < 48 {
+        return Err(ApiError::Internal("Password hash is too short for key derivation".to_string()));
+    }
+    let key = &password_hash_bytes[..32];
+    let iv = &password_hash_bytes[32..48];
     let encrypted_key = openssl::symm::encrypt(cipher, key, Some(iv), &key_pem)
         .map_err(|e| ApiError::Internal(format!("Encrypt key: {}", e)))?;
-    let encrypted_key_b64 = general_purpose::STANDARD.encode(&encrypted_key);
 
     // Save certificate DER and encrypted private key to DB
-    let _cert_der = cert.to_der()
+    let cert_der = cert.to_der()
         .map_err(|e| ApiError::Internal(format!("cert.to_der: {}", e)))?;
 
     // Convert Asn1Time to DateTime<Utc> for proper SQL timestamp binding
-    let expiration_date = chrono::NaiveDateTime::parse_from_str(&not_after.to_string(), "%Y%m%d%H%M%SZ")
-        .map_err(|_| ApiError::Internal("Failed to parse expiration time".to_string()))?
-        .and_utc();
+    // Calculate expiration date directly from current time + validity days
+    let expiration_date = Utc::now() + chrono::Duration::days(validity_days as i64);
 
     let cert_id: Uuid = sqlx::query_scalar(
-        "INSERT INTO certificates (id, user_id, serial_number, status, expiration_date) VALUES ($1, $2, $3, $4, $5) RETURNING id")
+        "INSERT INTO certificates (id, user_id, serial_number, status, expiration_date, certificate_der) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id")
         .bind(cert_req_id)
         .bind(user.id)
         .bind(&serial_str)
         .bind(CertificateStatus::ACTIVE)
         .bind(expiration_date)
+        .bind(&cert_der)
         .fetch_one(state_pool)
         .await
         .map_err(|e| {
@@ -573,25 +525,97 @@ async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &
         })?;
 
     sqlx::query(
-        "INSERT INTO private_keys (id, encrypted_key) VALUES ($1, $2)"
+        "INSERT INTO private_keys (id, certificate_id, encrypted_key, salt) VALUES ($1, $2, $3, $4)"
     )
         .bind(cert_id)
-        .bind(encrypted_key_b64)
+        .bind(cert_id)
+        .bind(&encrypted_key)
+        .bind(&[] as &[u8]) // Empty salt since we're using password hash directly
         .execute(state_pool)
         .await?;
-
-    sqlx::query("UPDATE certificate_requests SET accepted_at = CURRENT_TIMESTAMP() WHERE id = $1")
+    
+    sqlx::query("UPDATE certificate_requests SET accepted_at = CURRENT_TIMESTAMP WHERE id = $1")
         .bind(cert_req_id)
         .execute(state_pool)
         .await?;
 
     Ok(CertificateInfo { id: cert_id,
         serial_number: serial_str,
-        dn: pending_request.dn,
         status: CertificateStatus::ACTIVE,
         expiration_date,
-        renewed_count: 0
+        renewed_count: 0,
+        certificate_der: Vec::new(),
+        renewal_date: Option::None,
     })
+}
+
+async fn get_user_certificate(cert_id: Uuid, user_id: Uuid, state_pool: &Pool<Postgres>) -> Result<CertificateInfo, ApiError> {
+    sqlx::query_as::<_, CertificateInfo>(
+        "SELECT id, serial_number, status, expiration_date, renewed_count, certificate_der, renewal_date 
+        FROM certificates WHERE id = $1 AND user_id = $2"
+    ).bind(cert_id)
+        .bind(user_id)
+        .fetch_optional(state_pool)
+        .await?
+        .ok_or_else(|| ApiError::NotFound("Certificate not found or not owned by user".to_string()))
+}
+
+async fn generate_user_pkcs12(cert_id: Uuid,
+                              user: User,
+                              password: String,
+                              state_pool: &Pool<Postgres>) -> Result<Vec<u8>, ApiError> {
+    let certificate = match get_user_certificate(cert_id, user.id, state_pool).await {
+        Ok(c) => c,
+        Err(err) => { return Err(err); }
+    };
+
+    let enc_key_result = sqlx::query_scalar::<_, Vec<u8>>(
+        "SELECT encrypted_key FROM private_keys WHERE certificate_id = $1"
+        )
+        .bind(certificate.id)
+        .fetch_one(state_pool)
+        .await;
+    let encrypted_key = match enc_key_result {
+        Ok(ek) => ek,
+        Err(msg) => {
+            log::error!("Error getting private key for {}: {}", certificate.id, msg);
+            return Err(ApiError::NotFound("Private key not found".to_string()));
+        }
+    };
+
+    // Decrypt the private key
+    let cipher = Cipher::aes_256_cbc();
+    let password_hash_bytes = user.password_hash.as_bytes();
+    if password_hash_bytes.len() < 48 {
+        return Err(ApiError::Internal("Password hash is too short for key derivation".to_string()));
+    }
+    let key = &password_hash_bytes[..32];
+    let iv = &password_hash_bytes[32..48];
+    let private_key_pem = decrypt(cipher, key, Some(iv), &encrypted_key)
+        .map_err(|e| {
+            log::error!("decrypt failed {}", e);
+            ApiError::Internal(
+                "Private key decryption failed. The key may be corrupt or the PIN hash changed."
+                    .to_string(),
+            )
+        })?;
+
+    // Create PKCS#12 archive
+    let x509 = X509::from_der(&certificate.certificate_der)
+        .map_err(|_| ApiError::Internal("Failed to parse certificate DER".to_string()))?;
+    let pkey = PKey::private_key_from_pem(&private_key_pem)
+        .map_err(|_| ApiError::Internal("Failed to parse private key PEM".to_string()))?;
+
+    let pkcs12_builder = Pkcs12::builder()
+        .cert(&x509)
+        .pkey(&pkey)
+        .build2(&password)
+        .map_err(|e| ApiError::Internal(format!("Failed to build PKCS#12 archive: {}", e)))?;
+    let pkcs12 = pkcs12_builder
+        .to_der()
+        .map_err(|e| ApiError::Internal(format!("Failed to serialize PKCS#12 archive: {}", e)))?;
+
+    Ok(pkcs12)
 }
 
 #[cfg(test)]
