@@ -47,6 +47,18 @@ pub struct DownloadCertificateRequest {
     password: String,
 }
 
+#[derive(Deserialize)]
+pub struct RevokeCertificateRequest {
+    reason: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct RevokeCertificateResponse {
+    id: String,
+    status: String,
+    revocation_date: chrono::DateTime<chrono::Utc>,
+}
+
 #[derive(Serialize)]
 pub struct ListCertificatesResponse {
     certificates: Vec<CertificateListItem>,
@@ -170,6 +182,65 @@ pub async fn download_certificate(state: web::Data<AppState>,
         .insert_header((header::CONTENT_DISPOSITION, filename))
         .insert_header((header::CONTENT_TYPE, "application/octet-stream"))
         .body(pkcs12))
+}
+
+pub async fn revoke_certificate(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<Uuid>,
+    body: web::Json<RevokeCertificateRequest>,
+) -> Result<impl Responder, ApiError> {
+    let cert_id = path.into_inner();
+    log::info!("Attempting to revoke certificate with id: {}", cert_id);
+
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .cloned()
+        .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
+
+    // Authorization: Only admins can revoke certificates
+    if claims.role != "ADMIN" {
+        log::error!("User {} is not Admin, cannot revoke certificate", claims.sub);
+        return Err(ApiError::Forbidden("Admin access required".to_string()));
+    }
+
+    // Check if certificate exists
+    let cert_exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM certificates WHERE id = $1)")
+        .bind(cert_id)
+        .fetch_one(&state.pool)
+        .await?;
+
+    if !cert_exists {
+        log::error!("Certificate with id {} not found", cert_id);
+        return Err(ApiError::NotFound("Certificate not found".to_string()));
+    }
+
+    // Update certificate status to REVOKED
+    sqlx::query("UPDATE certificates SET status = $1 WHERE id = $2")
+        .bind(CertificateStatus::REVOKED)
+        .bind(cert_id)
+        .execute(&state.pool)
+        .await?;
+
+    // Insert into revoked_certificates table
+    let revocation_date = Utc::now();
+    sqlx::query("INSERT INTO revoked_certificates (certificate_id, revocation_date, reason) VALUES ($1, $2, $3) ON CONFLICT (certificate_id) DO UPDATE SET revocation_date = $2, reason = $3")
+        .bind(cert_id)
+        .bind(revocation_date)
+        .bind(body.reason.as_deref())
+        .execute(&state.pool)
+        .await?;
+
+    log::info!("Successfully revoked certificate with id: {}", cert_id);
+
+    let response = RevokeCertificateResponse {
+        id: cert_id.to_string(),
+        status: "REVOKED".to_string(),
+        revocation_date,
+    };
+
+    Ok(HttpResponse::Ok().json(response))
 }
 
 pub async fn list_active_certificates(

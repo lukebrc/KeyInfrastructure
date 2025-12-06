@@ -50,18 +50,25 @@ async fn setup_test_app() -> (impl actix_web::dev::Service<actix_http::Request, 
         sqlx::query("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"").execute(&mut *conn).await.ok();
 
         log::info!("Clearing test tables");
-        sqlx::query("DELETE FROM private_keys CASCADE")
+        // Delete in reverse dependency order to avoid foreign key constraint issues
+        sqlx::query("DELETE FROM revoked_certificates")
             .execute(&mut *conn)
             .await
             .unwrap();
-        sqlx::query("DELETE FROM certificates CASCADE")
+        sqlx::query("DELETE FROM private_keys")
+            .execute(&mut *conn)
+            .await
+            .unwrap();
+        // certificates must be deleted before certificate_requests because
+        // certificates.id references certificate_requests(id) without ON DELETE CASCADE
+        sqlx::query("DELETE FROM certificates")
             .execute(&mut *conn)
             .await.unwrap();
-        sqlx::query("DELETE FROM certificate_requests CASCADE")
+        sqlx::query("DELETE FROM certificate_requests")
             .execute(&mut *conn)
             .await
             .unwrap();
-        sqlx::query("DELETE FROM users CASCADE")
+        sqlx::query("DELETE FROM users")
             .execute(&mut *conn)
             .await
             .unwrap();
@@ -446,4 +453,254 @@ async fn test_certificate_expiring_list() {
     let user_certs = user_body["certificates"].as_array().unwrap();
     assert_eq!(user_certs.len(), 1);
     assert_eq!(user_certs[0]["serialNumber"], "SN1");
+}
+
+#[actix_web::test]
+async fn test_certificate_revoke_admin() {
+    // CERT-10: Administrator revokes a certificate using PUT /certificates/{id}/revoke with a reason
+    let (app, pool) = setup_test_app().await;
+    let mut tx = pool.begin().await.unwrap();
+
+    // 1. Create admin user
+    let admin_user = "revoke_admin";
+    let admin_password = "adminpassword";
+    let password_hash = bcrypt::hash(admin_password, 12).unwrap();
+    sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'ADMIN')")
+        .bind(admin_user)
+        .bind(password_hash)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+
+    // 2. Create a regular user
+    let regular_user = "revoke_user";
+    let regular_password = "userpassword";
+    let user_id: uuid::Uuid = sqlx::query_scalar("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'USER') RETURNING id")
+        .bind(regular_user)
+        .bind(bcrypt::hash(regular_password, 12).unwrap())
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+
+    // 3. Create a certificate request and certificate
+    let cert_id = uuid::Uuid::new_v4();
+    sqlx::query("INSERT INTO certificate_requests (id, user_id, dn, validity_period_days) VALUES ($1, $2, 'CN=revoke_test', 365)")
+        .bind(cert_id)
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    
+    let now = chrono::Utc::now();
+    sqlx::query("INSERT INTO certificates (id, user_id, serial_number, status, expiration_date) VALUES ($1, $2, 'SN_REVOKE_TEST', 'ACTIVE', $3)")
+        .bind(cert_id)
+        .bind(user_id)
+        .bind(now + chrono::Duration::days(365))
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+
+    tx.commit().await.unwrap();
+
+    // 4. Admin logs in
+    let login_req = LoginRequest {
+        username: admin_user.to_string(),
+        password: admin_password.to_string(),
+    };
+    let req = test::TestRequest::post().uri("/auth/login").set_json(&login_req).to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-10 Failed: Admin login failed");
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let admin_token = body["token"].as_str().unwrap();
+
+    // 5. Admin revokes the certificate
+    let revoke_req = json!({
+        "reason": "Security breach"
+    });
+    let revoke_uri = format!("/certificates/{}/revoke", cert_id);
+    let req = test::TestRequest::put()
+        .uri(&revoke_uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .set_json(&revoke_req)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-10 Failed: Certificate revocation failed");
+
+    let revoke_body: serde_json::Value = test::read_body_json(resp).await;
+    assert_eq!(revoke_body["id"].as_str().unwrap(), cert_id.to_string(), "CERT-10 Failed: Certificate ID mismatch");
+    assert_eq!(revoke_body["status"].as_str().unwrap(), "REVOKED", "CERT-10 Failed: Certificate status should be REVOKED");
+    assert!(revoke_body["revocation_date"].as_str().is_some(), "CERT-10 Failed: revocation_date should be set");
+
+    // 6. Verify certificate status in database
+    let cert_status: String = sqlx::query_scalar("SELECT status::text FROM certificates WHERE id = $1")
+        .bind(cert_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(cert_status, "REVOKED", "CERT-10 Failed: Certificate status in database should be REVOKED");
+
+    // 7. Verify certificate is recorded in revoked_certificates table
+    let revoked_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM revoked_certificates WHERE certificate_id = $1")
+        .bind(cert_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(revoked_count, 1, "CERT-10 Failed: Certificate should be recorded in revoked_certificates table");
+
+    // 8. Verify revocation reason is stored
+    let revocation_reason: Option<String> = sqlx::query_scalar("SELECT reason FROM revoked_certificates WHERE certificate_id = $1")
+        .bind(cert_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(revocation_reason, Some("Security breach".to_string()), "CERT-10 Failed: Revocation reason should be stored");
+}
+
+#[actix_web::test]
+async fn test_certificate_revoke_regular_user() {
+    // CERT-11: A regular user attempts to revoke a certificate
+    let (app, pool) = setup_test_app().await;
+    let mut tx = pool.begin().await.unwrap();
+
+    // 1. Create admin user
+    let admin_user = "revoke_admin2";
+    let admin_password = "adminpassword";
+    let password_hash = bcrypt::hash(admin_password, 12).unwrap();
+    sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'ADMIN')")
+        .bind(admin_user)
+        .bind(password_hash)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+
+    // 2. Create a regular user
+    let regular_user = "revoke_user2";
+    let regular_password = "userpassword";
+    let user_id: uuid::Uuid = sqlx::query_scalar("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'USER') RETURNING id")
+        .bind(regular_user)
+        .bind(bcrypt::hash(regular_password, 12).unwrap())
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+
+    // 3. Create a certificate request and certificate
+    let cert_id = uuid::Uuid::new_v4();
+    sqlx::query("INSERT INTO certificate_requests (id, user_id, dn, validity_period_days) VALUES ($1, $2, 'CN=revoke_test2', 365)")
+        .bind(cert_id)
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    
+    let now = chrono::Utc::now();
+    sqlx::query("INSERT INTO certificates (id, user_id, serial_number, status, expiration_date) VALUES ($1, $2, 'SN_REVOKE_TEST2', 'ACTIVE', $3)")
+        .bind(cert_id)
+        .bind(user_id)
+        .bind(now + chrono::Duration::days(365))
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+
+    tx.commit().await.unwrap();
+
+    // 4. Regular user logs in
+    let login_req = LoginRequest {
+        username: regular_user.to_string(),
+        password: regular_password.to_string(),
+    };
+    let req = test::TestRequest::post().uri("/auth/login").set_json(&login_req).to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-11 Failed: User login failed");
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let user_token = body["token"].as_str().unwrap();
+
+    // 5. Regular user attempts to revoke the certificate
+    let revoke_req = json!({
+        "reason": "Test revocation"
+    });
+    let revoke_uri = format!("/certificates/{}/revoke", cert_id);
+    let req = test::TestRequest::put()
+        .uri(&revoke_uri)
+        .insert_header(("Authorization", format!("Bearer {}", user_token)))
+        .set_json(&revoke_req)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::FORBIDDEN, "CERT-11 Failed: Regular user should not be able to revoke certificate");
+
+    let error_body: serde_json::Value = test::read_body_json(resp).await;
+    // The error response is a JSON string, not an object with a "message" field
+    // Handle both string responses and object responses
+    let error_message = match &error_body {
+        serde_json::Value::String(s) => s.as_str(),
+        _ => error_body["message"].as_str()
+            .or_else(|| error_body["error"].as_str())
+            .unwrap_or(""),
+    };
+    assert!(error_message.contains("Admin access required") || error_message.contains("Forbidden"),
+            "CERT-11 Failed: Error message should indicate admin access required. Got: {:?}", error_body);
+
+    // 6. Verify certificate status is still ACTIVE in database
+    let cert_status: String = sqlx::query_scalar("SELECT status::text FROM certificates WHERE id = $1")
+        .bind(cert_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(cert_status, "ACTIVE", "CERT-11 Failed: Certificate status should remain ACTIVE");
+}
+
+#[actix_web::test]
+async fn test_certificate_revoke_not_found() {
+    // CERT-12: Attempt to revoke a non-existent certificate
+    let (app, pool) = setup_test_app().await;
+    let mut tx = pool.begin().await.unwrap();
+
+    // 1. Create admin user
+    let admin_user = "revoke_admin3";
+    let admin_password = "adminpassword";
+    let password_hash = bcrypt::hash(admin_password, 12).unwrap();
+    sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'ADMIN')")
+        .bind(admin_user)
+        .bind(password_hash)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+
+    tx.commit().await.unwrap();
+
+    // 2. Admin logs in
+    let login_req = LoginRequest {
+        username: admin_user.to_string(),
+        password: admin_password.to_string(),
+    };
+    let req = test::TestRequest::post().uri("/auth/login").set_json(&login_req).to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-12 Failed: Admin login failed");
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let admin_token = body["token"].as_str().unwrap();
+
+    // 3. Admin attempts to revoke a non-existent certificate
+    let non_existent_cert_id = uuid::Uuid::new_v4();
+    let revoke_req = json!({
+        "reason": "Test revocation"
+    });
+    let revoke_uri = format!("/certificates/{}/revoke", non_existent_cert_id);
+    let req = test::TestRequest::put()
+        .uri(&revoke_uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .set_json(&revoke_req)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::NOT_FOUND, "CERT-12 Failed: Should return 404 for non-existent certificate");
+
+    let error_body: serde_json::Value = test::read_body_json(resp).await;
+    // The error response is a JSON string, not an object with a "message" field
+    // Handle both string responses and object responses
+    let error_message = match &error_body {
+        serde_json::Value::String(s) => s.as_str(),
+        _ => error_body["message"].as_str()
+            .or_else(|| error_body["error"].as_str())
+            .unwrap_or(""),
+    };
+    assert!(error_message.contains("Certificate not found") || error_message.contains("not found"),
+            "CERT-12 Failed: Error message should indicate certificate not found. Got: {:?}", error_body);
 }
