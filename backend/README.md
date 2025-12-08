@@ -177,7 +177,7 @@ CA_PASSWORD=password_for_ca_key_file
 
 #### Create Certificate
 - **Method**: `POST`
-- **Path**: `/users/{user_id}/certificates`
+- **Path**: `/users/{user_id}/certificates/request`
 - **Description**: Create a new certificate for a user (admin only)
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
@@ -205,7 +205,7 @@ CA_PASSWORD=password_for_ca_key_file
 
 #### List Certificates
 - **Method**: `GET`
-- **Path**: `/certificates`
+- **Path**: `/users/{user_id}/certificates/list`
 - **Description**: List certificates for the authenticated user with pagination, filtering, and sorting
 - **Headers**: `Authorization: Bearer <token>`
 - **Query Parameters**: 

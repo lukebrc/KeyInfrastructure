@@ -45,7 +45,7 @@
 
 ### Certificates Resource
 - **Method**: POST
-- **URL Path**: /users/{user_id}/certificates
+- **URL Path**: /users/{user_id}/certificates/request
 - **Description**: Order new certificate generation for a user (admin only).
 - **Query Parameters**: None
 - **Request JSON Structure**: {"validity_period_days": "integer", "hash_algorithm": "string (SHA-256|SHA-384|SHA-512)", "dn": "string"}
@@ -54,8 +54,8 @@
 - **Error Codes and Messages**: 403 Forbidden - "Admin access required", 400 Bad Request - "Invalid DN or parameters"
 
 - **Method**: GET
-- **URL Path**: /certificates/active
-- **Description**: List active (not-expired and not-revoked) certificates for the authenticated user, with pagination, filtering, and sorting.
+- **URL Path**: /users/{user_id}/certificates/list
+- **Description**: List certificates for the authenticated user, with pagination, filtering, and sorting.
 - **Query Parameters**: page=integer, limit=integer, status=string, sort_by=string (e.g., expiration_date), order=asc|desc
 - **Request JSON Structure**: None
 - **Response JSON Structure**: {"certificates": [{"id": "uuid", "serial_number": "string", "dn": "string", "status": "string", "expiration_date": "timestamp", "renewed_count": "integer"}], "total": "integer", "page": "integer"}

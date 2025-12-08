@@ -38,7 +38,8 @@ export const POST: APIRoute = async ({ request, params }) => {
 
     // Get request body
     const body = await request.json();
-    const { userId, ...certificateData } = body;
+    console.debug('Request body:', body);
+    const { user_id: userId, ...certificateData } = body;
 
     if (!userId) {
       return new Response(
@@ -55,7 +56,7 @@ export const POST: APIRoute = async ({ request, params }) => {
     }
 
     // Forward the request to the backend
-    const response = await fetch(`${backendUrl}/users/${userId}/certificates`, {
+    const response = await fetch(`${backendUrl}/users/${userId}/certificates/request`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -73,6 +74,7 @@ export const POST: APIRoute = async ({ request, params }) => {
       } catch {
         errorMessage = response.statusText || errorMessage;
       }
+      console.error("Error sending certificates request", errorMessage);
 
       return new Response(
         JSON.stringify({
@@ -110,4 +112,3 @@ export const POST: APIRoute = async ({ request, params }) => {
     );
   }
 };
-

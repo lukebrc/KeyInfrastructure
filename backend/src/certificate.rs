@@ -39,7 +39,6 @@ pub struct ListExpiringCertificatesQuery {
 
 #[derive(Deserialize)]
 pub struct CreateCertificateRequest {
-    user_id: Uuid,
     dn: String,
     days_valid: i64,
 }
@@ -89,11 +88,14 @@ pub struct CertificateCreatedResponse {
 pub async fn create_certificate_request(
     state: web::Data<AppState>,
     req: HttpRequest,
+    path: web::Path<Uuid>,
     body: web::Json<CreateCertificateRequest>,
 ) -> Result<impl Responder, ApiError> {
+
+    let user_id = path.into_inner();
     log::info!(
         "Attempting to create certificate for user_id: {}",
-        body.user_id
+        user_id
     );
     let claims = req
         .extensions()
@@ -103,7 +105,7 @@ pub async fn create_certificate_request(
 
     // Authorization: Only admins can create certificates.
     if claims.role != "ADMIN" {
-        log::error!("user_id: {} is not Admin", body.user_id);
+        log::error!("user_id: {} is not Admin", user_id);
         return Err(ApiError::Forbidden(
             "Only admins can create certificates".to_string(),
         ));
@@ -111,7 +113,7 @@ pub async fn create_certificate_request(
 
     // Fetch the user to get their hashed password for encryption
     let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
-        .bind(body.user_id)
+        .bind(user_id)
         .fetch_optional(&state.pool)
         .await?
         .ok_or_else(|| ApiError::NotFound("User not found".to_string()))?;
@@ -119,7 +121,7 @@ pub async fn create_certificate_request(
     let days_valid = body.days_valid;
     log::info!(
         "Adding certificate request for user {} dn: {}, days_valid: {}",
-        body.user_id,
+        user_id,
         body.dn,
         days_valid
     );
@@ -562,7 +564,6 @@ pub async fn generate_certificate(
     };
 
     match generate_and_save_cert(path, user, &state.pool).await {
-        //Ok(ci) => Ok(HttpResponse::Ok().json(serde_json::json!(ci))),
         Ok(ci) => Ok(HttpResponse::Ok().json(ci)),
         Err(err) => {
             log::error!("Cannot generate user certificate: {}", err);
