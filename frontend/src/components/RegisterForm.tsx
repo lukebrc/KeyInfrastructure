@@ -9,7 +9,6 @@ import type { RegisterRequest, ApiError } from "@/types";
 const RegisterForm: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -33,18 +32,13 @@ const RegisterForm: React.FC = () => {
   }, []);
 
   const validateForm = (): boolean => {
-    if (!username || !password || !pin) {
-      setError("All fields are required");
+    if (!username || !password) {
+      setError("Username and password are required");
       return false;
     }
 
     if (password.length < 8) {
       setError("Password must be at least 8 characters long");
-      return false;
-    }
-
-    if (pin.length < 8) {
-      setError("PIN must be at least 8 characters long");
       return false;
     }
 
@@ -64,7 +58,7 @@ const RegisterForm: React.FC = () => {
     }
 
     try {
-      const request: RegisterRequest = { username, password, pin };
+      const request: RegisterRequest = { username, password };
       await api.register(request);
 
       // After successful registration, automatically log in
@@ -154,26 +148,7 @@ const RegisterForm: React.FC = () => {
                 Password must be at least 8 characters long
               </p>
             </div>
-            <div className="space-y-2">
-              <label htmlFor="pin" className="text-sm font-medium">
-                PIN
-              </label>
-              <Input
-                type="password"
-                id="pin"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                placeholder="Enter your PIN"
-                required
-                disabled={loading}
-                aria-invalid={error ? "true" : "false"}
-                aria-describedby="pin-hint"
-                minLength={8}
-              />
-              <p id="pin-hint" className="text-xs text-muted-foreground">
-                PIN must be at least 8 characters long. Your PIN will be used to protect your certificate file.
-              </p>
-            </div>
+
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? "Registering..." : "Register"}
             </Button>
@@ -193,4 +168,3 @@ const RegisterForm: React.FC = () => {
 };
 
 export default RegisterForm;
-

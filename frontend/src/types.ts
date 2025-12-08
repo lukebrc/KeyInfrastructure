@@ -12,7 +12,6 @@ export interface User {
 export interface RegisterRequest {
   username: string;
   password: string;
-  pin: string; // Minimum 8 characters
 }
 
 export interface LoginRequest {
@@ -67,7 +66,7 @@ export interface RevokeCertificateRequest {
 }
 
 export interface DownloadCertificateRequest {
-  pin: string; // Minimum 8 characters
+  password: string;
 }
 
 // API Error Response
@@ -92,4 +91,3 @@ export interface PaginatedResponse<T> {
   limit: number;
   total_pages: number;
 }
-

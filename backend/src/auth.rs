@@ -45,7 +45,6 @@ pub struct VerifyResponse {
 pub struct RegisterRequest {
     pub username: String,
     pub password: String, //user login password
-    pub pin: String, //user PIN for key encryption
 }
 
 pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> impl Responder {
@@ -168,16 +167,9 @@ pub async fn verify_token(state: web::Data<AppState>, req: HttpRequest) -> impl 
 pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest>) -> impl Responder {
     let username = req.username.clone();
     let password = req.password.clone();
-    let pin = req.pin.clone();
 
     // Log registration attempt (do NOT log the password!)
     log::info!("Registration attempt for user: {}", username);
-
-    // Validate PIN length
-    if pin.len() < 8 {
-        log::warn!("Registration failed for user '{}': PIN is too short", username);
-        return HttpResponse::BadRequest().body("PIN must be at least 8 characters long");
-    }
 
     // Check if user already exists
     let exists = match sqlx::query("SELECT 1 FROM users WHERE username = $1 LIMIT 1")
@@ -212,7 +204,7 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
 
     // Insert new user
     log::debug!("Insert new user: {}", username);
-    // The `pin` is not stored directly. It's used to encrypt private keys when created.
+    // Password will be used to encrypt private keys when certificates are created.
     // We will set a default role of 'USER' and return the newly created user.
     match sqlx::query_as::<_, User>("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING id, username, password_hash, role")
         .bind(&username)

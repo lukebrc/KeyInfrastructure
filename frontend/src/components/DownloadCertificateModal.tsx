@@ -26,7 +26,7 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
   open,
   onOpenChange,
 }) => {
-  const [pin, setPin] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,15 +36,15 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
     setLoading(true);
     setError(null);
 
-    // Validate PIN
-    if (pin.length < 8) {
-      setError("PIN must be at least 8 characters long");
+    // Validate password
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long");
       setLoading(false);
       return;
     }
 
     try {
-      const blob = await api.downloadCertificate(certificate.id, { pin });
+      const blob = await api.downloadCertificate(certificate.id, { password });
 
       // Create download link
       const url = window.URL.createObjectURL(blob);
@@ -58,11 +58,11 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
 
       ErrorHandler.showSuccess("Certificate downloaded successfully");
       onOpenChange(false);
-      setPin("");
+      setPassword("");
     } catch (err) {
       const apiError = err as { message?: string };
-      if (apiError.message?.includes("PIN") || apiError.message?.includes("400")) {
-        setError("Invalid PIN. Please try again.");
+      if (apiError.message?.includes("password") || apiError.message?.includes("400")) {
+        setError("Invalid password. Please try again.");
       } else {
         ErrorHandler.handleError(err, "Failed to download certificate");
       }
@@ -72,7 +72,7 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
   };
 
   const handleClose = () => {
-    setPin("");
+    setPassword("");
     setError(null);
     onOpenChange(false);
   };
@@ -83,7 +83,7 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
         <DialogHeader>
           <DialogTitle>Download Certificate</DialogTitle>
           <DialogDescription>
-            Enter your PIN to download the certificate file (PKCS#12 format). The PIN must be at least 8 characters long.
+            Enter your password to download the certificate file (PKCS#12 format). The password must be at least 8 characters long.
           </DialogDescription>
         </DialogHeader>
         {certificate && (
@@ -98,24 +98,24 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
               </Alert>
             )}
             <div className="space-y-2">
-              <label htmlFor="pin" className="text-sm font-medium">
-                PIN
+              <label htmlFor="password" className="text-sm font-medium">
+                Password
               </label>
               <Input
                 type="password"
-                id="pin"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                placeholder="Enter your PIN"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
                 disabled={loading}
                 minLength={8}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !loading && pin.length >= 8) {
+                  if (e.key === "Enter" && !loading && password.length >= 8) {
                     handleDownload();
                   }
                 }}
               />
-              <p className="text-xs text-muted-foreground">PIN must be at least 8 characters long</p>
+              <p className="text-xs text-muted-foreground">Password must be at least 8 characters long</p>
             </div>
           </div>
         )}
@@ -123,7 +123,7 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
           <Button variant="outline" onClick={handleClose} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleDownload} disabled={loading || pin.length < 8}>
+          <Button onClick={handleDownload} disabled={loading || password.length < 8}>
             {loading ? (
               <>
                 <Loader2 className="size-4 mr-2 animate-spin" />
@@ -141,4 +141,3 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
     </Dialog>
   );
 };
-
