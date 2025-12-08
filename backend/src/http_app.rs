@@ -21,11 +21,7 @@ pub fn config_app(app_state: web::Data<AppState>) -> Box<dyn Fn(&mut ServiceConf
                     .route("/certificates/pending", web::get().to(list_pending_certificates))
                     .route("/certificates/{cert_id}/generate", web::post().to(generate_certificate))
                     .route("/certificates/{cert_id}/download", web::post().to(download_certificate))
-                    .route("/certificates/{cert_id}/revoke", web::put().to(revoke_certificate)),
-            )
-            .service(
-                web::scope("/users")
-                    .wrap(JwtMiddlewareFactory)
+                    .route("/certificates/{cert_id}/revoke", web::put().to(revoke_certificate))
                     .route("/users", web::get().to(list_users))
             );
     })

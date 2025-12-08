@@ -41,3 +41,37 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ message: "An internal server error occurred." }), { status: 500 });
   }
 };
+
+export const POST: APIRoute = async ({ request }) => {
+  // 1. Get the backend URL from environment variables
+  const backendApiUrl = import.meta.env.BACKEND_API_URL;
+  if (!backendApiUrl) {
+    console.error("BACKEND_API_URL is not set in environment variables.");
+    return new Response(JSON.stringify({ message: "Server configuration error." }), { status: 500 });
+  }
+
+  try {
+    // 2. Read the request body
+    const body = await request.json();
+
+    // 3. Forward the POST request to the backend service (registration is public)
+    const backendResponse = await fetch(`${backendApiUrl}/users`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    // 4. Return the response from the backend to the client
+    // This streams the body and forwards status and headers.
+    return new Response(backendResponse.body, {
+      status: backendResponse.status,
+      statusText: backendResponse.statusText,
+      headers: backendResponse.headers,
+    });
+  } catch (error) {
+    console.error("Error proxying /api/users POST request:", error);
+    return new Response(JSON.stringify({ message: "An internal server error occurred." }), { status: 500 });
+  }
+};
