@@ -87,7 +87,6 @@ async fn test_register_and_login() {
     let register_req = RegisterRequest {
         username: "testuser".to_string(),
         password: "password123".to_string(),
-        pin: "12345678".to_string(),
     };
     let req = test::TestRequest::post().uri("/users").set_json(&register_req).to_request();
     let resp = test::call_service(&app, req).await;
@@ -97,16 +96,6 @@ async fn test_register_and_login() {
     let req = test::TestRequest::post().uri("/users").set_json(&register_req).to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), http::StatusCode::CONFLICT, "AUTH-02 Failed: Duplicate username registration");
-
-    // AUTH-03: Attempt to register with a PIN shorter than 8 characters
-    let short_pin_req = json!({
-        "username": "anotheruser",
-        "password": "password123",
-        "pin": "123"
-    });
-    let req = test::TestRequest::post().uri("/users").set_json(&short_pin_req).to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), http::StatusCode::BAD_REQUEST, "AUTH-03 Failed: Short PIN registration");
 
     // AUTH-04: Log in with correct credentials
     let login_req = LoginRequest {
@@ -144,7 +133,6 @@ async fn test_admin_register_and_login() {
     let register_req = RegisterRequest {
         username: admin_name.to_string(),
         password: admin_password.to_string(),
-        pin: "12345678".to_string(),
     };
     let req = test::TestRequest::post().uri("/users").set_json(&register_req).to_request();
     let resp = test::call_service(&app, req).await;
@@ -197,7 +185,6 @@ async fn test_certificate_lifecycle() {
     let register_req = RegisterRequest {
         username: test_user.to_string(),
         password: test_password.to_string(),
-        pin: "87654321".to_string(),
     };
     let req = test::TestRequest::post().uri("/users").set_json(&register_req).to_request();
     let resp = test::call_service(&app, req).await;
@@ -219,12 +206,12 @@ async fn test_certificate_lifecycle() {
 
     // 3. CERT-01: Admin creates a certificate request for the user
     let create_cert_req = json!({
-        "user_id": user_id,
         "dn": "CN=certuser/O=org/C=PL",
         "days_valid": 365,
     });
+    let create_uri = format!("/users/{}/certificates/request", user_id);
     let req = test::TestRequest::post()
-        .uri("/certificates")
+        .uri(&create_uri)
         .insert_header(("Authorization", format!("Bearer {}", admin_token)))
         .set_json(&create_cert_req)
         .to_request();
@@ -285,7 +272,7 @@ async fn test_certificate_lifecycle() {
         .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-05 Failed: Certificate download with correct PIN");
+    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-05 Failed: Certificate download with correct password");
 
     let content_type = resp.headers().get(http::header::CONTENT_TYPE).unwrap();
     assert_eq!(content_type, "application/octet-stream", "CERT-05 Failed: Incorrect content type for download");
