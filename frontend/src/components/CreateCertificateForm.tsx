@@ -15,7 +15,15 @@ import { ErrorHandler } from "@/lib/error-handler";
 import type { User, CreateCertificateRequest, DistinguishedName, ApiError } from "@/types";
 import { Loader2, CheckCircle2 } from "lucide-react";
 
-export const CreateCertificateForm: React.FC = () => {
+interface CreateCertificateFormProps {
+  onSuccess?: () => void;
+  preselectedUserId?: string;
+}
+
+export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
+  onSuccess,
+  preselectedUserId
+}) => {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [validityPeriodDays, setValidityPeriodDays] = useState<string>("365");
@@ -49,6 +57,12 @@ export const CreateCertificateForm: React.FC = () => {
     fetchUsers();
   }, []);
 
+  useEffect(() => {
+    if (preselectedUserId) {
+      setSelectedUserId(preselectedUserId);
+    }
+  }, [preselectedUserId]);
+
   const formatDN = (dn: DistinguishedName): string => {
     const parts: string[] = [];
     if (dn.c) parts.push(`C=${dn.c}`);
@@ -79,6 +93,8 @@ export const CreateCertificateForm: React.FC = () => {
 
     return true;
   };
+
+  const selectedUser = users.find(user => user.id === selectedUserId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,9 +127,14 @@ export const CreateCertificateForm: React.FC = () => {
       setSuccess(true);
       ErrorHandler.showSuccess(`Certificate created successfully! Serial: ${certificate.serial_number}`);
 
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
+
       // Reset form
       setTimeout(() => {
-        setSelectedUserId("");
+        setSelectedUserId(preselectedUserId || "");
         setValidityPeriodDays("365");
         setHashAlgorithm("SHA-256");
         setDn({
@@ -146,7 +167,12 @@ export const CreateCertificateForm: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Create Certificate</CardTitle>
-          <CardDescription>Create a new certificate for a user</CardDescription>
+          <CardDescription>
+            {selectedUser
+              ? `Create a new certificate for user: ${selectedUser.username}`
+              : "Create a new certificate for a user"
+            }
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -164,27 +190,29 @@ export const CreateCertificateForm: React.FC = () => {
               </Alert>
             )}
 
-            <div className="space-y-2">
-              <label htmlFor="user" className="text-sm font-medium">
-                User <span className="text-destructive">*</span>
-              </label>
-              <Select
-                value={selectedUserId}
-                onValueChange={setSelectedUserId}
-                disabled={loading || loadingUsers}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={loadingUsers ? "Loading users..." : "Select a user"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.username} ({user.role})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!preselectedUserId && (
+              <div className="space-y-2">
+                <label htmlFor="user" className="text-sm font-medium">
+                  User <span className="text-destructive">*</span>
+                </label>
+                <Select
+                  value={selectedUserId}
+                  onValueChange={setSelectedUserId}
+                  disabled={loading || loadingUsers}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingUsers ? "Loading users..." : "Select a user"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.username} ({user.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label htmlFor="validityPeriodDays" className="text-sm font-medium">

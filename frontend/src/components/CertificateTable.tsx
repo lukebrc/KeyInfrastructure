@@ -26,16 +26,18 @@ import { Download, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, XCircle } from "l
 import { cn } from "@/lib/utils";
 
 interface CertificateTableProps {
+  certificates?: Certificate[];
   showUserColumn?: boolean;
   onRevoke?: (certificate: Certificate) => void;
 }
 
 export const CertificateTable: React.FC<CertificateTableProps> = ({
+  certificates: externalCertificates,
   showUserColumn = false,
   onRevoke,
 }) => {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!externalCertificates);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [total, setTotal] = useState(0);
@@ -67,10 +69,25 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
     }
   };
 
+  // Use external certificates if provided, otherwise fetch our own
+  const displayedCertificates = externalCertificates || certificates;
+  const displayedLoading = externalCertificates ? false : loading;
+  const displayedTotal = externalCertificates ? externalCertificates.length : total;
+
   useEffect(() => {
-    fetchCertificates();
+    if (!externalCertificates) {
+      fetchCertificates();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, statusFilter, sortBy, sortOrder]);
+  }, [page, statusFilter, sortBy, sortOrder, externalCertificates]);
+
+  // Update internal state when external certificates change
+  useEffect(() => {
+    if (externalCertificates) {
+      setCertificates(externalCertificates);
+      setLoading(false);
+    }
+  }, [externalCertificates]);
 
   const handleSort = (field: "expiration_date" | "serial_number") => {
     if (sortBy === field) {
@@ -194,7 +211,7 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {displayedLoading ? (
               Array.from({ length: limit }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell>
@@ -219,14 +236,14 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                   </TableCell>
                 </TableRow>
               ))
-            ) : certificates.length === 0 ? (
+            ) : displayedCertificates.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={showUserColumn ? 6 : 5} className="text-center py-8 text-muted-foreground">
                   No certificates found
                 </TableCell>
               </TableRow>
             ) : (
-              certificates.map((cert) => {
+              displayedCertificates.map((cert) => {
                 const days = getDaysUntilExpiry(cert.expiration_date);
                 const expiringSoon = isExpiringSoon(cert.expiration_date);
                 return (
@@ -356,4 +373,3 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
     </div>
   );
 };
-

@@ -1,0 +1,275 @@
+import { useState, useEffect } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { api } from "@/lib/api";
+import { ErrorHandler } from "@/lib/error-handler";
+import type { User, Certificate } from "@/types";
+import { Users, Settings, RefreshCw, UserPlus } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { CertificateTable } from "./CertificateTable";
+import { CreateCertificateForm } from "./CreateCertificateForm";
+
+export const UserList: React.FC = () => {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [manageModalOpen, setManageModalOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [userCertificates, setUserCertificates] = useState<Certificate[]>([]);
+  const [certificatesLoading, setCertificatesLoading] = useState(false);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getUsers();
+      setUsers(response);
+      setTotal(response.length);
+    } catch (error) {
+      ErrorHandler.handleError(error, "Failed to load users");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserCertificates = async (userId: string) => {
+    try {
+      setCertificatesLoading(true);
+      // For now, we'll filter certificates by user_id
+      // In a real implementation, there might be a dedicated endpoint for user certificates
+      const response = await api.getCertificates({
+        page: 1,
+        limit: 100, // Get all certificates for the user
+      });
+      // Filter certificates for this user
+      const userCerts = response.data.filter(cert => cert.user_id === userId);
+      setUserCertificates(userCerts);
+    } catch (error) {
+      ErrorHandler.handleError(error, "Failed to load user certificates");
+    } finally {
+      setCertificatesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const handleManageCertificates = async (user: User) => {
+    setSelectedUser(user);
+    await fetchUserCertificates(user.id);
+    setManageModalOpen(true);
+  };
+
+  const handleCreateCertificate = (user: User) => {
+    setSelectedUser(user);
+    setCreateModalOpen(true);
+  };
+
+  const handleCertificateCreated = async () => {
+    setCreateModalOpen(false);
+    if (selectedUser) {
+      await fetchUserCertificates(selectedUser.id);
+      setManageModalOpen(true);
+    }
+    ErrorHandler.showSuccess("Certificate created successfully");
+  };
+
+  const handleCertificateRevoked = async () => {
+    if (selectedUser) {
+      await fetchUserCertificates(selectedUser.id);
+    }
+  };
+
+  const totalPages = Math.ceil(total / limit);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="size-5" />
+          <h3 className="text-lg font-semibold">User Management</h3>
+        </div>
+        <Button variant="outline" onClick={fetchUsers} disabled={loading}>
+          <RefreshCw className={cn("size-4 mr-2", loading && "animate-spin")} />
+          Refresh
+        </Button>
+      </div>
+
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Username</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Created At</TableHead>
+              <TableHead>Certificates</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: limit }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-16" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-12" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Skeleton className="h-8 w-32 ml-auto" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  No users found
+                </TableCell>
+              </TableRow>
+            ) : (
+              users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.username}</TableCell>
+                  <TableCell>
+                    <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>
+                      {user.role}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(user.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-muted-foreground">
+                      {/* For now, show placeholder - in real implementation we'd count certificates */}
+                      -
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleManageCertificates(user)}
+                      >
+                        <Settings className="size-4 mr-1" />
+                        Manage Certificates
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleCreateCertificate(user)}
+                      >
+                        <UserPlus className="size-4 mr-1" />
+                        Create Certificate
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} users
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1 || loading}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages || loading}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Certificates Modal */}
+      <Dialog open={manageModalOpen} onOpenChange={setManageModalOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Certificates for {selectedUser?.username}</DialogTitle>
+            <DialogDescription>
+              View and manage certificates for this user. You can renew or revoke active certificates.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            {certificatesLoading ? (
+              <div className="space-y-4">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : (
+              <CertificateTable
+                certificates={userCertificates}
+                showUserColumn={false}
+                onRevoke={handleCertificateRevoked}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Certificate Modal */}
+      <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create Certificate</DialogTitle>
+            <DialogDescription>
+              Create a new certificate. Select the user and fill in the required information below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <CreateCertificateForm
+              onSuccess={handleCertificateCreated}
+              preselectedUserId={selectedUser?.id}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};

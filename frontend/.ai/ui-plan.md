@@ -152,30 +152,39 @@ Central view for users, presenting a list of their certificates, the status of e
 **Path:** `/admin/dashboard`
 
 **Main Goal:**
-Central view for administrators, presenting a system overview and enabling certificate and user management.
+Central view for administrators, presenting a system overview, user management, and enabling certificate and user management.
 
 **Key Information to Display:**
 - System statistics (optional):
   - Number of users
   - Number of certificates (active, expired, revoked)
   - Certificates expiring within 30 days
+- **User List:**
+  - Table of all users with columns: username, role, created_at, number of certificates
+  - For each user: option to manage certificates (view existing, create new)
+  - Pagination (10-20 users per page, default 10)
+  - Filtering by role (USER/ADMIN)
 - Links to main functions:
   - Create certificate (`/admin/certificates/create`)
   - Manage certificates (`/admin/certificates`)
-  - Manage users (if available)
 - Logout button
 
 **Key View Components:**
 - `AdminHeader` — header with administrator information
 - `StatsCards` — cards with statistics (optional)
+- `UserList` — table of users with certificate management actions (React component)
+- `UserRow` — single user row with actions
+- `ManageCertificatesModal` — modal for viewing and managing user certificates
 - `AdminNavigation` — navigation to main functions
 - `LogoutButton` — logout button
 
 **UX, Accessibility, and Security Considerations:**
 - Only users with ADMIN role have access
 - Automatic redirection to `/login` if unauthorized (403)
-- Responsive layout with navigation tiles
-- Skeleton loading during statistics retrieval
+- Responsive layout with user table
+- Skeleton loading during data retrieval
+- Certificate management actions clearly labeled and accessible
+- Modal or expandable view for user certificate details
 
 ---
 
@@ -329,7 +338,7 @@ Overview of all certificates in the system with the ability to revoke them by th
 
 3.  **Form Submission:**
     - Client-side validation checks all requirements
-    - Sends POST /users/{user_id}/certificates request
+    - Sends POST `/users/{user_id}/certificates` request
     - Success message with serial number is displayed
     - Option to create another certificate or return to dashboard
 
@@ -342,7 +351,7 @@ Overview of all certificates in the system with the ability to revoke them by th
     - Clicks the "Revoke" button next to an active certificate
     - A confirmation modal opens with an optional "reason" field
     - Confirms the action
-    - Sends PUT /certificates/{id}/revoke request with reason in body
+    - Sends PUT `/certificates/{id}/revoke` request with reason in body
     - Toast notification confirms success
     - Certificate status changes to REVOKED in the table
 
