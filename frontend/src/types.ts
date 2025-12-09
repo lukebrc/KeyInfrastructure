@@ -26,7 +26,7 @@ export interface LoginResponse {
 }
 
 // Certificate DTOs
-export type CertificateStatus = "ACTIVE" | "REVOKED";
+export type CertificateStatus = "ACTIVE" | "REVOKED" | "PENDING";
 
 export interface Certificate {
   id: string;

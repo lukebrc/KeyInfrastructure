@@ -189,6 +189,19 @@ export const api = {
     return handleResponse<Certificate[]>(response);
   },
 
+  async getPendingCertificates(): Promise<Certificate[]> {
+    // Use proxy API route
+    const response = await fetch("/api/certificates/pending", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    return handleResponse<Certificate[]>(response);
+  },
+
   async createCertificate(userId: string, request: CreateCertificateRequest): Promise<Certificate> {
     // Use proxy API route
     const response = await fetch(`/api/users/${userId}/certificates`, {
