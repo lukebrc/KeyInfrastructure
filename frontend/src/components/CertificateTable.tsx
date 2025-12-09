@@ -29,12 +29,14 @@ interface CertificateTableProps {
   certificates?: Certificate[];
   showUserColumn?: boolean;
   onRevoke?: (certificate: Certificate) => void;
+  onRefresh?: () => void;
 }
 
 export const CertificateTable: React.FC<CertificateTableProps> = ({
   certificates: externalCertificates,
   showUserColumn = false,
   onRevoke,
+  onRefresh,
 }) => {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(!externalCertificates);
@@ -103,7 +105,11 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
       setRenewing((prev) => ({ ...prev, [certificateId]: true }));
       await api.renewCertificate(certificateId);
       ErrorHandler.showSuccess("Certificate renewed successfully");
-      await fetchCertificates();
+      if (onRefresh) {
+        await onRefresh();
+      } else {
+        await fetchCertificates();
+      }
     } catch (error) {
       ErrorHandler.handleError(error, "Failed to renew certificate");
     } finally {
@@ -129,7 +135,11 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
   const handleRevoked = async () => {
     setRevokeModalOpen(false);
     setCertificateToRevoke(null);
-    await fetchCertificates();
+    if (onRefresh) {
+      await onRefresh();
+    } else {
+      await fetchCertificates();
+    }
   };
 
   const getDaysUntilExpiry = (expirationDate: string): number => {
@@ -172,8 +182,8 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
             </SelectContent>
           </Select>
         </div>
-        <Button variant="outline" onClick={fetchCertificates} disabled={loading}>
-          <RefreshCw className={cn("size-4 mr-2", loading && "animate-spin")} />
+        <Button variant="outline" onClick={onRefresh || fetchCertificates} disabled={displayedLoading}>
+          <RefreshCw className={cn("size-4 mr-2", displayedLoading && "animate-spin")} />
           Refresh
         </Button>
       </div>

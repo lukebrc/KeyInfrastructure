@@ -54,17 +54,14 @@ export const UserList: React.FC = () => {
   const fetchUserCertificates = async (userId: string) => {
     try {
       setCertificatesLoading(true);
-      // For now, we'll filter certificates by user_id
-      // In a real implementation, there might be a dedicated endpoint for user certificates
-      const response = await api.getCertificates({
+      const response = await api.getUserCertificates(userId, {
         page: 1,
         limit: 100, // Get all certificates for the user
       });
-      // Filter certificates for this user
-      const userCerts = response.data.filter(cert => cert.user_id === userId);
-      setUserCertificates(userCerts);
+      setUserCertificates(response.data || []);
     } catch (error) {
       ErrorHandler.handleError(error, "Failed to load user certificates");
+      setUserCertificates([]); // Ensure it's always an array
     } finally {
       setCertificatesLoading(false);
     }
@@ -247,6 +244,7 @@ export const UserList: React.FC = () => {
                 certificates={userCertificates}
                 showUserColumn={false}
                 onRevoke={handleCertificateRevoked}
+                onRefresh={() => selectedUser && fetchUserCertificates(selectedUser.id)}
               />
             )}
           </div>
