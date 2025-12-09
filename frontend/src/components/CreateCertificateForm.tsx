@@ -57,7 +57,7 @@ export const CreateCertificateForm: React.FC = () => {
     if (dn.o) parts.push(`O=${dn.o}`);
     if (dn.ou) parts.push(`OU=${dn.ou}`);
     if (dn.cn) parts.push(`CN=${dn.cn}`);
-    return parts.join(", ");
+    return parts.join("/");
   };
 
   const validateForm = (): boolean => {
@@ -346,4 +346,3 @@ export const CreateCertificateForm: React.FC = () => {
     </div>
   );
 };
-

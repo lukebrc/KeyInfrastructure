@@ -39,7 +39,7 @@ export const POST: APIRoute = async ({ request, params }) => {
     // Get request body
     const body = await request.json();
     console.debug('Request body:', body);
-    const { user_id: userId, ...certificateData } = body;
+    const { user_id: userId, validity_period_days, distinguished_name } = body;
 
     if (!userId) {
       return new Response(
@@ -55,6 +55,38 @@ export const POST: APIRoute = async ({ request, params }) => {
       );
     }
 
+    if (!validity_period_days || !distinguished_name?.cn) {
+      return new Response(
+        JSON.stringify({
+          message: "Validity period and distinguished name with CN are required",
+        }),
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    // Transform the request to match backend expectations
+    // Backend expects: { dn: "CN=.../O=.../C=...", days_valid: number }
+    const dnParts: string[] = [];
+    if (distinguished_name.c) dnParts.push(`C=${distinguished_name.c}`);
+    if (distinguished_name.st) dnParts.push(`ST=${distinguished_name.st}`);
+    if (distinguished_name.l) dnParts.push(`L=${distinguished_name.l}`);
+    if (distinguished_name.o) dnParts.push(`O=${distinguished_name.o}`);
+    if (distinguished_name.ou) dnParts.push(`OU=${distinguished_name.ou}`);
+    if (distinguished_name.cn) dnParts.push(`CN=${distinguished_name.cn}`);
+
+    const dn = dnParts.join('/');
+    const backendRequest = {
+      dn,
+      days_valid: validity_period_days,
+    };
+
+    console.debug('Transformed request for backend:', backendRequest);
+
     // Forward the request to the backend
     const response = await fetch(`${backendUrl}/users/${userId}/certificates/request`, {
       method: "POST",
@@ -63,7 +95,7 @@ export const POST: APIRoute = async ({ request, params }) => {
         "Content-Type": "application/json",
       },
       credentials: "include",
-      body: JSON.stringify(certificateData),
+      body: JSON.stringify(backendRequest),
     });
 
     if (!response.ok) {
