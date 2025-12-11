@@ -3,3 +3,4 @@ target
 .nvmrc
 .vscode
 .kiro
+frontend/dist

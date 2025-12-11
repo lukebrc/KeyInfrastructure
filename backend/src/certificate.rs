@@ -438,13 +438,13 @@ pub async fn list_pending_certificates(
             FROM certificate_requests cr
             WHERE cr.user_id = $1 AND accepted_at IS NULL",
     )
-    .bind(user_id)
-    .fetch_all(&state.pool)
-    .await;
+        .bind(user_id)
+        .fetch_all(&state.pool)
+        .await;
 
     match rows {
         Ok(certificates) => {
-            log::debug!("Returning {} pending certificates", certificates.len());
+            log::info!("Returning {} pending certificates", certificates.len());
             Ok(HttpResponse::Ok().json(ListPendingCertificatesResponse { certificates }))
         }
         Err(err) => {

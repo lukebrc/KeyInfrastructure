@@ -63,7 +63,7 @@
 - **Error Codes and Messages**: 401 Unauthorized - "Authentication required"
 
 - **Method**: GET
-- **URL Path**: /certificates/pending
+- **URL Path**: /users/{user_id}/certificates/pending
 - **Description**: Get pending certificate requests for the authenticated user.
 - **Request JSON Structure**: None
 - **Response JSON Structure**: {"certificates": [{"id": "uuid", "valid_days": "integer"}]}

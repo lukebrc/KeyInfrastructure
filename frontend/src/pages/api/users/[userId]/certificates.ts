@@ -25,43 +25,108 @@ export const GET: APIRoute = async ({ request, params }) => {
 
     // Get query params from request URL
     const url = new URL(request.url);
-    const queryString = url.search;
+    const status = url.searchParams.get('status') || 'ALL';
+    console.info(`Getting certificates for user ${userId}: with status ${status}`);
 
-    console.info(`Getting certificates for user ${userId}: ${backendUrl}/users/${userId}/certificates/list${queryString}`);
+    //todo: add page and total parameters
+    const fetchPendingCertificates = async (): Promise<any[]> => {
+      console.debug(`Getting pending certificates for user ${userId}: ${backendUrl}/users/${userId}/certificates/pending`);
 
-    // Forward the request to the backend
-    const response = await fetch(`${backendUrl}/users/${userId}/certificates/list${queryString}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-    });
+      const response = await fetch(`${backendUrl}/users/${userId}/certificates/pending`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
 
-    if (!response.ok) {
-      let errorMessage = "Failed to get certificates";
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-      } catch {
-        errorMessage = response.statusText || errorMessage;
+      if (!response.ok) {
+        let errorMessage = "Failed to get pending certificates";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = response.statusText || errorMessage;
+        }
+
+        throw new Error(errorMessage);
       }
 
-      return new Response(
-        JSON.stringify({
-          message: errorMessage,
-        }),
-        {
-          status: response.status,
-          headers: {
-            "Content-Type": "application/json",
-          },
+      const pendingData = await response.json();
+      console.info(`${pendingData.certificates.length} pending certificates for user ${userId}`);
+
+      // Transform pending certificates to match list format
+      return pendingData.certificates.map((cert: any) => ({
+        id: cert.id,
+        serial_number: null,
+        dn: null,
+        status: 'PENDING',
+        expiration_date: null,
+        renewed_count: 0,
+        valid_days: cert.valid_days
+      }));
+    };
+
+    let data;
+
+    if (status === 'PENDING') {
+      data = {
+        certificates: [],
+        total: 0,
+        page: 1
+      };
+    } else {
+      // Prepare query string - for 'ALL', remove status to get all statuses
+      const fetchUrl = new URL(url);
+      if (status === 'ALL') {
+        fetchUrl.searchParams.delete('status');
+      }
+      const queryString = fetchUrl.search;
+
+      console.info(`Getting certificates for user ${userId}: ${backendUrl}/users/${userId}/certificates/list${queryString}`);
+
+      const response = await fetch(`${backendUrl}/users/${userId}/certificates/list${queryString}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Failed to get certificates";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = response.statusText || errorMessage;
         }
-      );
+
+        return new Response(
+          JSON.stringify({
+            message: errorMessage,
+          }),
+          {
+            status: response.status,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
+
+      data = await response.json();
     }
 
-    const data = await response.json();
+    // Add pending certificates if status requires it
+    if (status === 'PENDING' || status === 'ALL') {
+      const pendingCertificates = await fetchPendingCertificates();
+      console.info(`Got ${data.certificates.length} normal and ${pendingCertificates.length} pending certificates`);
+      data.certificates = [...data.certificates, ...pendingCertificates];
+      data.total += pendingCertificates.length;
+    }
 
     return new Response(JSON.stringify(data), {
       status: 200,
@@ -73,7 +138,7 @@ export const GET: APIRoute = async ({ request, params }) => {
     console.error("Get user certificates API error:", error);
     return new Response(
       JSON.stringify({
-        message: "An error occurred. Please try again.",
+        message: error instanceof Error ? error.message : "An error occurred. Please try again.",
       }),
       {
         status: 500,

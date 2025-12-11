@@ -179,6 +179,7 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
               <SelectItem value="ALL">All Statuses</SelectItem>
               <SelectItem value="ACTIVE">Active</SelectItem>
               <SelectItem value="REVOKED">Revoked</SelectItem>
+              <SelectItem value="PENDING">Pending</SelectItem>
             </SelectContent>
           </Select>
         </div>
