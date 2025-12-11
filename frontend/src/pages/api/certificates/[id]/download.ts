@@ -1,40 +1,10 @@
 import type { APIRoute } from "astro";
+import { validateBackendUrl, validateAuthToken, handleApiError, createErrorResponse } from "@/lib/api-utils";
 
 export const POST: APIRoute = async ({ request, params }) => {
   try {
-    const backendUrl = import.meta.env.BACKEND_URL;
-
-    if (!backendUrl) {
-      return new Response(
-        JSON.stringify({
-          message: "Backend URL not configured",
-        }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // Get auth token from cookie
-    const cookieHeader = request.headers.get("cookie");
-    const token = cookieHeader?.split("; ").find((c) => c.startsWith("auth_token="))?.split("=")[1];
-
-    if (!token) {
-      return new Response(
-        JSON.stringify({
-          message: "Not authenticated",
-        }),
-        {
-          status: 401,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
+    const backendUrl = validateBackendUrl();
+    const token = validateAuthToken(request);
 
     const certificateId = params.id;
 
@@ -115,4 +85,3 @@ export const POST: APIRoute = async ({ request, params }) => {
     );
   }
 };
-
