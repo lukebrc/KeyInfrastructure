@@ -123,10 +123,13 @@ export const GET: APIRoute = async ({ request, params }) => {
     // Add pending certificates if status requires it
     if (status === 'PENDING' || status === 'ALL') {
       const pendingCertificates = await fetchPendingCertificates();
-      console.info(`Got ${data.certificates.length} normal and ${pendingCertificates.length} pending certificates`);
+      console.debug(`Got ${data.certificates.length} normal and ${pendingCertificates.length} pending certificates`);
       data.certificates = [...data.certificates, ...pendingCertificates];
       data.total += pendingCertificates.length;
     }
+
+    data.data = data.certificates;
+    delete data.certificates;
 
     return new Response(JSON.stringify(data), {
       status: 200,
