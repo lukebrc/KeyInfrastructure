@@ -236,8 +236,9 @@ async fn test_certificate_lifecycle() {
     assert_eq!(user_login_body["user"]["role"].as_str().unwrap(), "USER", "User should be logged in as a USER");
 
     // 5. CERT-03: User get list of available certificate requests
+    let pending_uri = format!("/users/{}/certificates/pending", user_id);
     let req = test::TestRequest::get()
-        .uri("/certificates/pending")
+        .uri(&pending_uri)
         .insert_header(("Authorization", format!("Bearer {}", user_token)))
         .to_request();
     let resp = test::call_service(&app, req).await;

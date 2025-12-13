@@ -250,6 +250,7 @@ pub async fn revoke_certificate(
 pub async fn list_active_certificates(
     state: web::Data<AppState>,
     req: HttpRequest,
+    path: web::Path<Uuid>,
     query: web::Query<ListCertificatesQuery>,
 ) -> Result<impl Responder, ApiError> {
     let claims = req
@@ -258,8 +259,16 @@ pub async fn list_active_certificates(
         .cloned()
         .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
 
-    let user_id = Uuid::parse_str(&claims.sub)
+    let path_user_id = path.into_inner();
+    let claims_user_id = Uuid::parse_str(&claims.sub)
         .map_err(|_| ApiError::Internal("Invalid UUID in claims".into()))?;
+
+    // Authorization: Admin can view any user's certificates, regular users can only view their own
+    if claims.role != "ADMIN" && path_user_id != claims_user_id {
+        return Err(ApiError::Forbidden(
+            "You can only view your own certificates".to_string(),
+        ));
+    }
 
     let page = query.page.unwrap_or(1);
     let limit = query.limit.unwrap_or(10);
@@ -269,7 +278,7 @@ pub async fn list_active_certificates(
     let order = query.order.as_deref().unwrap_or("asc");
     log::info!(
         "Listing certificates for user {}, page {}, offset {}",
-        user_id,
+        path_user_id,
         page,
         offset
     );
@@ -301,7 +310,7 @@ pub async fn list_active_certificates(
             ""
         };
 
-    let mut count_query_builder = sqlx::query_scalar(&count_query).bind(user_id);
+    let mut count_query_builder = sqlx::query_scalar(&count_query).bind(path_user_id);
     if let Some(status) = status_filter {
         count_query_builder = count_query_builder.bind(status);
     }
@@ -328,7 +337,7 @@ pub async fn list_active_certificates(
         limit_offset_params
     );
 
-    let mut query_builder = sqlx::query_as::<_, CertificateListItem>(&select_query).bind(user_id);
+    let mut query_builder = sqlx::query_as::<_, CertificateListItem>(&select_query).bind(path_user_id);
 
     if let Some(status) = status_filter {
         let cert_status: CertificateStatus = match status.to_uppercase().as_str() {
@@ -422,6 +431,7 @@ pub async fn list_expiring_certificates(
 pub async fn list_pending_certificates(
     state: web::Data<AppState>,
     req: HttpRequest,
+    path: web::Path<Uuid>,
 ) -> Result<impl Responder, ApiError> {
     let claims = req
         .extensions()
@@ -429,16 +439,25 @@ pub async fn list_pending_certificates(
         .cloned()
         .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
 
-    let user_id = Uuid::parse_str(&claims.sub)
+    let path_user_id = path.into_inner();
+    let claims_user_id = Uuid::parse_str(&claims.sub)
         .map_err(|_| ApiError::Internal("Invalid UUID in claims".into()))?;
-    log::info!("Listing pending certificates for user {}", user_id);
+
+    // Authorization: Admin can view any user's certificates, regular users can only view their own
+    if claims.role != "ADMIN" && path_user_id != claims_user_id {
+        return Err(ApiError::Forbidden(
+            "You can only view your own certificates".to_string(),
+        ));
+    }
+
+    log::info!("Listing pending certificates for user {}", path_user_id);
 
     let rows = sqlx::query_as::<_, PendingCertificateInfo>(
         "SELECT cr.id, cr.validity_period_days as valid_days, cr.dn
             FROM certificate_requests cr
             WHERE cr.user_id = $1 AND accepted_at IS NULL",
     )
-        .bind(user_id)
+        .bind(path_user_id)
         .fetch_all(&state.pool)
         .await;
 

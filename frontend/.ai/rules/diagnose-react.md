@@ -1,11 +1,11 @@
-You are an experienced React developer tasked with refactoring components using React Hook Form.
+You are an experienced React developer tasked with analyzing components using React Hook Form.
 Your goal is to find cause of described problem and show places in code, which should be corrected.
 
 Components: {{COMPONENTS}}
 
 Tech Stack: {{TECH_STACK}}
 
-Please analyze these components and provide a detailed refactoring plan using React Hook Form. Follow these steps:
+Please analyze these components and provide a detailed plan using React Hook Form. Follow these steps:
 
 1. Analyze the current components:
    - List all components and their main functionalities
@@ -13,7 +13,7 @@ Please analyze these components and provide a detailed refactoring plan using Re
    - Locate areas of high complexity
    - Pinpoint where API calls are being made
 
-2. Implement React Hook Form:
+2. Describe React Hook Form:
    - Explain how to integrate React Hook Form into each component
    - Describe any necessary changes to the component structure
 
