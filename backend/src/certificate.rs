@@ -203,21 +203,26 @@ pub async fn revoke_certificate(
         .cloned()
         .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
 
-    // Authorization: Only admins can revoke certificates
-    if claims.role != "ADMIN" {
-        log::error!("User {} is not Admin, cannot revoke certificate", claims.sub);
-        return Err(ApiError::Forbidden("Admin access required".to_string()));
-    }
-
-    // Check if certificate exists
-    let cert_exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM certificates WHERE id = $1)")
+    // Fetch the certificate owner's ID to check for existence and for authorization.
+    let cert_owner_id: Uuid = match sqlx::query_scalar("SELECT user_id FROM certificates WHERE id = $1")
         .bind(cert_id)
-        .fetch_one(&state.pool)
-        .await?;
+        .fetch_optional(&state.pool)
+        .await?
+    {
+        Some(id) => id,
+        None => {
+            log::warn!("Revocation attempt failed: certificate with id {} not found", cert_id);
+            return Err(ApiError::NotFound("Certificate not found".to_string()));
+        }
+    };
 
-    if !cert_exists {
-        log::error!("Certificate with id {} not found", cert_id);
-        return Err(ApiError::NotFound("Certificate not found".to_string()));
+    let claims_user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| ApiError::Internal("Invalid UUID in claims".to_string()))?;
+
+    // Authorization: Admins can revoke any certificate, and users can revoke their own.
+    if claims.role != "ADMIN" && cert_owner_id != claims_user_id {
+        log::warn!("User {} (role: {}) attempted to revoke certificate {} owned by {}", claims.sub, claims.role, cert_id, cert_owner_id);
+        return Err(ApiError::Forbidden("Insufficient permissions to revoke this certificate".to_string()));
     }
 
     // Update certificate status to REVOKED

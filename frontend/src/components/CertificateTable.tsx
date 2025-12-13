@@ -344,16 +344,14 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                                 )}
                               </Button>
                             )}
-                            {(onRevoke || showUserColumn) && (
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleRevokeClick(cert)}
-                              >
-                                <XCircle className="size-4 mr-1" />
-                                Revoke
-                              </Button>
-                            )}
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleRevokeClick(cert)}
+                            >
+                              <XCircle className="size-4 mr-1" />
+                              Revoke
+                            </Button>
                           </>
                         )}
                         {cert.status === "PENDING" && (
@@ -376,7 +374,7 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                             )}
                           </Button>
                         )}
-                        {cert.status === "REVOKED" && (onRevoke || showUserColumn) && (
+                        {cert.status === "REVOKED" && (
                           <span className="text-sm text-muted-foreground">Revoked</span>
                         )}
                       </div>
