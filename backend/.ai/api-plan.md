@@ -71,8 +71,8 @@
 - **Error Codes and Messages**: 401 Unauthorized - "Authentication required"
 
 - **Method**: GET
-- **URL Path**: /certificates/expiring
-- **Description**: Get certificates expiring soon. For regular users, it returns their own expiring certificates. For admins, it returns all expiring certificates in the system.
+- **URL Path**: /users/{user_id}/certificates/expiring
+- **Description**: Get certificates expiring soon for the authenticated user. For regular users, it returns their own expiring certificates. For admins, it returns expiring certificates for the specified user.
 - **Query Parameters**: days=integer (default 30)
 - **Request JSON Structure**: None
 - **Response JSON Structure**: {"certificates": [{"id": "uuid", "serial_number": "string", "dn": "string", "status": "string", "expiration_date": "timestamp", "renewed_count": "integer"}], "total": "integer", "page": "integer"}
@@ -80,7 +80,7 @@
 - **Error Codes and Messages**: 401 Unauthorized - "Authentication required"
 
 - **Method**: PUT
-- **URL Path**: /certificates/{id}/renew
+- **URL Path**: /users/{user_id}/certificates/{id}/renew
 - **Description**: Renew a certificate (user only for own certificates).
 - **Query Parameters**: None
 - **Request JSON Structure**: None
@@ -89,8 +89,8 @@
 - **Error Codes and Messages**: 403 Forbidden - "Access denied", 404 Not Found - "Certificate not found", 400 Bad Request - "Certificate not renewable"
 
 - **Method**: POST
-- **URL Path**: /certificates/{id}/download
-- **Description**: Download PKCS#12 file for the certificate (user cano only download his own keys/certificates).
+- **URL Path**: /users/{user_id}/certificates/{id}/download
+- **Description**: Download PKCS#12 file for the certificate (user can only download his own keys/certificates).
 - **Query Parameters**: None
 - **Request JSON Structure**: {"password": "string"}
 - **Response JSON Structure**: Binary PKCS#12 file
@@ -98,16 +98,16 @@
 - **Error Codes and Messages**: 403 Forbidden - "Access denied", 400 Bad Request - "Invalid password", 404 Not Found - "Certificate not found"
 
 - **Method**: POST
-- **URL Path**: /certificates/{id}/generate
-- **Description**: generate new certificate for user
-- **Query Parameters**: id: String
+- **URL Path**: /users/{user_id}/certificates/{id}/generate
+- **Description**: Generate new certificate for user
+- **Query Parameters**: None
 - **Request JSON Structure**: {"password": "string"}
 - **Response JSON Structure**: Binary PKCS#12 file
 - **Success Codes and Messages**: 200 OK - "File downloaded"
 - **Error Codes and Messages**: 403 Forbidden - "Access denied", 400 Bad Request - "Invalid password", 404 Not Found - "Certificate not found"
 
 - **Method**: PUT
-- **URL Path**: /certificates/{id}/revoke
+- **URL Path**: /users/{user_id}/certificates/{id}/revoke
 - **Description**: Revoke a certificate (admin only).
 - **Query Parameters**: None
 - **Request JSON Structure**: {"reason": "string"}

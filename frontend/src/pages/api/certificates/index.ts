@@ -1,19 +1,37 @@
 import type { APIRoute } from "astro";
-import { validateBackendUrl, validateAuthToken, handleApiError } from "@/lib/api-utils";
+import { validateBackendUrl, validateAuthToken, handleApiError, getCurrentUserId } from "@/lib/api-utils";
 
 export const GET: APIRoute = async ({ request }) => {
   try {
     const backendUrl = validateBackendUrl();
     const token = validateAuthToken(request);
+    
+    let userId: string;
+    try {
+      userId = await getCurrentUserId(request);
+    } catch (error) {
+      console.error("Failed to get user ID:", error);
+      return new Response(
+        JSON.stringify({
+          message: error instanceof Error ? error.message : "Failed to get user ID",
+        }),
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
 
     // Get query params from request URL
     const url = new URL(request.url);
     const queryString = url.search;
 
-    console.info(`Getting certificates: ${backendUrl}/certificates${queryString}`);
+    console.info(`Getting certificates: ${backendUrl}/users/${userId}/certificates/list${queryString}`);
 
     // Forward the request to the backend
-    const response = await fetch(`${backendUrl}/certificates${queryString}`, {
+    const response = await fetch(`${backendUrl}/users/${userId}/certificates/list${queryString}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -44,9 +62,90 @@ export const GET: APIRoute = async ({ request }) => {
       );
     }
 
-    const data = await response.json();
+    const statusFilter = url.searchParams.get("status");
+    const limit = parseInt(url.searchParams.get("limit") || "10", 10);
 
-    return new Response(JSON.stringify(data), {
+    // Fetch pending certificates
+    const fetchPendingCertificates = async (): Promise<any[]> => {
+      try {
+        const pendingResponse = await fetch(`${backendUrl}/users/${userId}/certificates/pending`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        });
+
+        if (!pendingResponse.ok) {
+          return [];
+        }
+
+        const pendingData = await pendingResponse.json();
+        // Transform pending certificates to match frontend Certificate type
+        return (pendingData.certificates || []).map((cert: any) => ({
+          id: cert.id || String(cert.id),
+          serial_number: "PENDING",
+          user_id: userId,
+          dn: cert.dn || cert.Dn || "",
+          status: "PENDING" as const,
+          expiration_date: cert.valid_days || cert.validDays
+            ? new Date(Date.now() + (cert.valid_days || cert.validDays) * 24 * 60 * 60 * 1000).toISOString()
+            : new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          renewed_count: 0,
+          valid_days: cert.valid_days || cert.validDays,
+        }));
+      } catch (error) {
+        console.error("Failed to fetch pending certificates:", error);
+        return [];
+      }
+    };
+
+    let backendData: any;
+    let transformedCertificates: any[] = [];
+
+    // If status is PENDING, only fetch pending certificates
+    if (statusFilter === "PENDING") {
+      const pendingCertificates = await fetchPendingCertificates();
+      transformedCertificates = pendingCertificates;
+      backendData = { total: pendingCertificates.length, page: 1 };
+    } else {
+      // Fetch active certificates
+      backendData = await response.json();
+
+      // Transform certificates to match frontend Certificate type
+      // Backend uses camelCase serialization (from serde rename_all = "camelCase")
+      transformedCertificates = (backendData.certificates || []).map((cert: any) => ({
+        id: cert.id || String(cert.id),
+        serial_number: cert.serialNumber || cert.serial_number || "",
+        user_id: userId, // Add user_id from path
+        dn: cert.dn || "",
+        status: cert.status || "ACTIVE",
+        expiration_date: cert.expirationDate || cert.expiration_date || new Date().toISOString(),
+        created_at: cert.createdAt || cert.created_at || cert.expirationDate || cert.expiration_date || new Date().toISOString(),
+        renewed_count: cert.renewedCount || cert.renewed_count || 0,
+      }));
+
+      // If status is 'ALL' or not specified, also include pending certificates
+      if (!statusFilter || statusFilter === "ALL") {
+        const pendingCertificates = await fetchPendingCertificates();
+        transformedCertificates = [...transformedCertificates, ...pendingCertificates];
+        backendData.total = (backendData.total || 0) + pendingCertificates.length;
+      }
+    }
+
+    const totalPages = Math.ceil((backendData.total || 0) / limit);
+
+    const transformedData = {
+      data: transformedCertificates,
+      total: backendData.total || 0,
+      page: backendData.page || 1,
+      limit: limit,
+      total_pages: totalPages,
+    };
+
+    return new Response(JSON.stringify(transformedData), {
       status: 200,
       headers: {
         "Content-Type": "application/json",

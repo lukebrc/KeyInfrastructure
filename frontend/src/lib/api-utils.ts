@@ -56,6 +56,39 @@ export function createErrorResponse(message: string, status: number = 500): Resp
 }
 
 /**
+ * Gets the current user ID from the JWT token by calling the backend verify endpoint
+ * @param request - The incoming request
+ * @returns The user ID
+ * @throws Error with message when token is invalid or user ID cannot be obtained
+ */
+export async function getCurrentUserId(request: Request): Promise<string> {
+  const backendUrl = validateBackendUrl();
+  const token = validateAuthToken(request);
+
+  // Call backend verify endpoint to get user ID from token
+  const response = await fetch(`${backendUrl}/auth/verify`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to verify token");
+  }
+
+  const data = await response.json();
+  
+  if (!data.valid || !data.userId) {
+    throw new Error("Invalid token or user ID not found");
+  }
+
+  return data.userId;
+}
+
+/**
  * Handles API route errors and returns appropriate responses
  * @param error - The caught error
  * @param context - Optional context for logging

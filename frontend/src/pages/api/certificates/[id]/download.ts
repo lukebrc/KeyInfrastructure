@@ -1,10 +1,28 @@
 import type { APIRoute } from "astro";
-import { validateBackendUrl, validateAuthToken, handleApiError, createErrorResponse } from "@/lib/api-utils";
+import { validateBackendUrl, validateAuthToken, handleApiError, createErrorResponse, getCurrentUserId } from "@/lib/api-utils";
 
 export const POST: APIRoute = async ({ request, params }) => {
   try {
     const backendUrl = validateBackendUrl();
     const token = validateAuthToken(request);
+    
+    let userId: string;
+    try {
+      userId = await getCurrentUserId(request);
+    } catch (error) {
+      console.error("Failed to get user ID:", error);
+      return new Response(
+        JSON.stringify({
+          message: error instanceof Error ? error.message : "Failed to get user ID",
+        }),
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
 
     const certificateId = params.id;
 
@@ -26,7 +44,7 @@ export const POST: APIRoute = async ({ request, params }) => {
     const body = await request.json();
 
     // Forward the request to the backend
-    const response = await fetch(`${backendUrl}/certificates/${certificateId}/download`, {
+    const response = await fetch(`${backendUrl}/users/${userId}/certificates/${certificateId}/download`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,

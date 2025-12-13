@@ -149,11 +149,11 @@ pub async fn create_certificate_request(
 
 pub async fn download_certificate(state: web::Data<AppState>,
             req: HttpRequest,
-            path: web::Path<Uuid>,
+            path: web::Path<(Uuid, Uuid)>,
             body: web::Json<DownloadCertificateRequest>,
         ) -> Result<impl Responder, ApiError> {
 
-    let cert_id = path.into_inner();
+    let (_user_id, cert_id) = path.into_inner();
     log::info!("Attempting to download certificate with id: {}", cert_id);
 
     let user = match get_authorized_user_data(req, &state.pool).await {
@@ -191,10 +191,10 @@ pub async fn download_certificate(state: web::Data<AppState>,
 pub async fn revoke_certificate(
     state: web::Data<AppState>,
     req: HttpRequest,
-    path: web::Path<Uuid>,
+    path: web::Path<(Uuid, Uuid)>,
     body: web::Json<RevokeCertificateRequest>,
 ) -> Result<impl Responder, ApiError> {
-    let cert_id = path.into_inner();
+    let (_user_id, cert_id) = path.into_inner();
     log::info!("Attempting to revoke certificate with id: {}", cert_id);
 
     let claims = req
@@ -362,6 +362,7 @@ pub async fn list_active_certificates(
 pub async fn list_expiring_certificates(
     state: web::Data<AppState>,
     req: HttpRequest,
+    path: web::Path<Uuid>,
     query: web::Query<ListExpiringCertificatesQuery>,
 ) -> Result<impl Responder, ApiError> {
     let claims = req
@@ -369,6 +370,15 @@ pub async fn list_expiring_certificates(
         .get::<Claims>()
         .cloned()
         .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
+
+    let path_user_id = path.into_inner();
+    let claims_user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| ApiError::Internal("Invalid UUID in claims".into()))?;
+
+    // Regular users can only see their own certificates
+    if claims.role != "ADMIN" && claims_user_id != path_user_id {
+        return Err(ApiError::Forbidden("Access denied".to_string()));
+    }
 
     let days = query.days.unwrap_or(30);
     let page = query.page.unwrap_or(1);
@@ -378,48 +388,26 @@ pub async fn list_expiring_certificates(
     let now = Utc::now();
     let expiration_threshold = now + chrono::Duration::days(days);
 
-    let (total, certificates): (i64, Vec<CertificateListItem>) = if claims.role == "ADMIN" {
-        // Admin sees all expiring certificates
-        let count_query = "SELECT COUNT(*) FROM certificates WHERE status = 'ACTIVE' AND expiration_date BETWEEN $1 AND $2";
-        let total: i64 = sqlx::query_scalar(count_query)
-            .bind(now)
-            .bind(expiration_threshold)
-            .fetch_one(&state.pool)
-            .await?;
+    // Use path_user_id for both admin and regular users
+    let count_query = "SELECT COUNT(*) FROM certificates WHERE user_id = $1 AND status = 'ACTIVE' AND expiration_date BETWEEN $2 AND $3";
+    let total: i64 = sqlx::query_scalar(count_query)
+        .bind(path_user_id)
+        .bind(now)
+        .bind(expiration_threshold)
+        .fetch_one(&state.pool)
+        .await?;
 
-        let select_query = "SELECT c.id, c.serial_number, cr.dn, c.status, c.expiration_date, c.renewed_count FROM certificates c JOIN certificate_requests cr ON c.id = cr.id WHERE c.status = 'ACTIVE' AND c.expiration_date BETWEEN $1 AND $2 ORDER BY c.expiration_date ASC LIMIT $3 OFFSET $4";
-        let certificates = sqlx::query_as::<_, CertificateListItem>(select_query)
-            .bind(now)
-            .bind(expiration_threshold)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(&state.pool)
-            .await?;
-        (total, certificates)
-    } else {
-        // Regular user sees only their own expiring certificates
-        let user_id = Uuid::parse_str(&claims.sub)
-            .map_err(|_| ApiError::Internal("Invalid UUID in claims".into()))?;
+    let select_query = "SELECT c.id, c.serial_number, cr.dn, c.status, c.expiration_date, c.renewed_count FROM certificates c JOIN certificate_requests cr ON c.id = cr.id WHERE c.user_id = $1 AND c.status = 'ACTIVE' AND c.expiration_date BETWEEN $2 AND $3 ORDER BY c.expiration_date ASC LIMIT $4 OFFSET $5";
+    let certificates = sqlx::query_as::<_, CertificateListItem>(select_query)
+        .bind(path_user_id)
+        .bind(now)
+        .bind(expiration_threshold)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.pool)
+        .await?;
 
-        let count_query = "SELECT COUNT(*) FROM certificates WHERE user_id = $1 AND status = 'ACTIVE' AND expiration_date BETWEEN $2 AND $3";
-        let total: i64 = sqlx::query_scalar(count_query)
-            .bind(user_id)
-            .bind(now)
-            .bind(expiration_threshold)
-            .fetch_one(&state.pool)
-            .await?;
-
-        let select_query = "SELECT c.id, c.serial_number, cr.dn, c.status, c.expiration_date, c.renewed_count FROM certificates c JOIN certificate_requests cr ON c.id = cr.id WHERE c.user_id = $1 AND c.status = 'ACTIVE' AND c.expiration_date BETWEEN $2 AND $3 ORDER BY c.expiration_date ASC LIMIT $4 OFFSET $5";
-        let certificates = sqlx::query_as::<_, CertificateListItem>(select_query)
-            .bind(user_id)
-            .bind(now)
-            .bind(expiration_threshold)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(&state.pool)
-            .await?;
-        (total, certificates)
-    };
+    let (total, certificates) = (total, certificates);
 
     Ok(HttpResponse::Ok().json(ListCertificatesResponse {
         certificates,
@@ -571,8 +559,9 @@ fn build_certificate(
 pub async fn generate_certificate(
     state: web::Data<AppState>,
     req: HttpRequest,
-    path: web::Path<Uuid>,
+    path: web::Path<(Uuid, Uuid)>,
 ) -> Result<impl Responder, ApiError> {
+    let (_user_id, cert_req_id) = path.into_inner();
 
     let user = match get_authorized_user_data(req, &state.pool).await {
         Ok(u) => u,
@@ -582,7 +571,7 @@ pub async fn generate_certificate(
         }
     };
 
-    match generate_and_save_cert(path, user, &state.pool).await {
+    match generate_and_save_cert(web::Path::from(cert_req_id), user, &state.pool).await {
         Ok(ci) => Ok(HttpResponse::Ok().json(ci)),
         Err(err) => {
             log::error!("Cannot generate user certificate: {}", err);
@@ -799,7 +788,9 @@ mod tests {
     #[test]
     fn test_certificate_building_and_signing() {
         // Set CA_PASSWORD for test
-        std::env::set_var("CA_PASSWORD", "ca_password");
+        unsafe {
+            std::env::set_var("CA_PASSWORD", "ca_password");
+        }
 
         // Load CA certificate and private key
         let ca_cert_pem = fs::read("ca/ca.crt").unwrap();
