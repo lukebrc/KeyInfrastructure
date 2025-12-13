@@ -30,6 +30,7 @@ interface CertificateTableProps {
   showUserColumn?: boolean;
   onRevoke?: (certificate: Certificate) => void;
   onRefresh?: () => void;
+  showStatusFilter?: boolean;
 }
 
 export const CertificateTable: React.FC<CertificateTableProps> = ({
@@ -37,6 +38,7 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
   showUserColumn = false,
   onRevoke,
   onRefresh,
+  showStatusFilter = true,
 }) => {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(!externalCertificates);
@@ -188,22 +190,24 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Select value={statusFilter} onValueChange={(value) => {
-            setPage(1);
-            setStatusFilter(value as CertificateStatus | "ALL")}
-          }>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Statuses</SelectItem>
-              <SelectItem value="ACTIVE">Active</SelectItem>
-              <SelectItem value="REVOKED">Revoked</SelectItem>
-              <SelectItem value="PENDING">Pending</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {showStatusFilter && (
+          <div className="flex items-center gap-2">
+            <Select value={statusFilter} onValueChange={(value) => {
+              setPage(1);
+              setStatusFilter(value as CertificateStatus | "ALL")}
+            }>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="REVOKED">Revoked</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <Button variant="outline" onClick={onRefresh || fetchCertificates} disabled={displayedLoading}>
           <RefreshCw className={cn("size-4 mr-2", displayedLoading && "animate-spin")} />
           Refresh

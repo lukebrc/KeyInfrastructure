@@ -25,6 +25,13 @@ import { Users, Settings, RefreshCw, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CertificateTable } from "./CertificateTable";
 import { CreateCertificateForm } from "./CreateCertificateForm";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const UserList: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -37,6 +44,7 @@ export const UserList: React.FC = () => {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [userCertificates, setUserCertificates] = useState<Certificate[]>([]);
   const [certificatesLoading, setCertificatesLoading] = useState(false);
+  const [certificateStatusFilter, setCertificateStatusFilter] = useState<'ALL' | Certificate['status']>('ALL');
 
   const fetchUsers = async () => {
     try {
@@ -240,12 +248,35 @@ export const UserList: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <CertificateTable
-                certificates={userCertificates}
-                showUserColumn={false}
-                onRevoke={handleCertificateRevoked}
-                onRefresh={() => selectedUser && fetchUserCertificates(selectedUser.id)}
-              />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Select value={certificateStatusFilter} onValueChange={(val) => setCertificateStatusFilter(val as any)}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">All Statuses</SelectItem>
+                        <SelectItem value="ACTIVE">Active</SelectItem>
+                        <SelectItem value="REVOKED">Revoked</SelectItem>
+                        <SelectItem value="PENDING">Pending</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button variant="outline" onClick={() => selectedUser && fetchUserCertificates(selectedUser.id)} disabled={certificatesLoading}>
+                    <RefreshCw className={cn("size-4 mr-2", certificatesLoading && "animate-spin")} />
+                    Refresh Certificates
+                  </Button>
+                </div>
+
+                <CertificateTable
+                  certificates={userCertificates.filter((c) => certificateStatusFilter === 'ALL' ? true : c.status === certificateStatusFilter)}
+                  showUserColumn={false}
+                  showStatusFilter={false}
+                  onRevoke={handleCertificateRevoked}
+                  onRefresh={() => selectedUser && fetchUserCertificates(selectedUser.id)}
+                />
+              </div>
             )}
           </div>
         </DialogContent>
