@@ -31,6 +31,7 @@ pub struct UserInfo {
     id: String,
     username: String,
     role: String,
+    created_at: String,
 }
 
 #[derive(Serialize)]
@@ -53,7 +54,7 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
 
     log::info!("Login attempt for user: {}", username);
 
-    let user = match sqlx::query_as::<_, User>("SELECT id, username, password_hash, role FROM users WHERE username = $1")
+    let user = match sqlx::query_as::<_, User>("SELECT id, username, password_hash, role, created_at FROM users WHERE username = $1")
         .bind(&username)
         .fetch_optional(&state.pool)
         .await
@@ -87,6 +88,7 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
                 id: user.id.to_string(),
                 username: user.username,
                 role: user.role.to_string(),
+                created_at: user.created_at.to_rfc3339(),
             };
             log::info!("Returning token: {}", token);
 
@@ -206,7 +208,7 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
     log::debug!("Insert new user: {}", username);
     // Password will be used to encrypt private keys when certificates are created.
     // We will set a default role of 'USER' and return the newly created user.
-    match sqlx::query_as::<_, User>("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING id, username, password_hash, role")
+    match sqlx::query_as::<_, User>("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING id, username, password_hash, role, created_at")
         .bind(&username)
         .bind(&password_hash)
         .bind(UserRole::USER) // Set default role
@@ -223,6 +225,7 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
                 username: new_user.username,
                 id: new_user.id.to_string(),
                 role: new_user.role.to_string(),
+                created_at: new_user.created_at.to_rfc3339(),
             };
             HttpResponse::Created().json(ui)
         },
@@ -253,7 +256,7 @@ pub async fn list_users(state: web::Data<AppState>, req: HttpRequest) -> impl Re
     log::info!("Admin user '{}' is listing all users.", claims.sub);
 
     // 3. Fetch all users from the database.
-    match sqlx::query_as::<_, User>("SELECT id, username, password_hash, role FROM users")
+    match sqlx::query_as::<_, User>("SELECT id, username, password_hash, role, created_at FROM users")
         .fetch_all(&state.pool)
         .await
     {
@@ -263,6 +266,7 @@ pub async fn list_users(state: web::Data<AppState>, req: HttpRequest) -> impl Re
                 id: user.id.to_string(),
                 username: user.username,
                 role: user.role.to_string(),
+                created_at: user.created_at.to_rfc3339(),
             }).collect();
             HttpResponse::Ok().json(user_infos)
         },

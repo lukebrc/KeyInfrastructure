@@ -25,6 +25,7 @@ pub struct User {
     pub username: String,
     pub password_hash: String,
     pub role: UserRole,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone, Copy, PartialEq, Eq)]
