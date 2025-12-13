@@ -60,7 +60,7 @@ export const GET: APIRoute = async ({ request, params }) => {
       return pendingData.certificates.map((cert: any) => ({
         id: cert.id,
         serial_number: null,
-        dn: null,
+        dn: cert.dn || "",
         status: 'PENDING',
         expiration_date: null,
         renewed_count: 0,
