@@ -255,8 +255,8 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
               </TableRow>
             ) : (
               displayedCertificates.map((cert) => {
-                const days = getDaysUntilExpiry(cert.expiration_date);
-                const expiringSoon = isExpiringSoon(cert.expiration_date);
+                const days = cert.status !== "PENDING" ? getDaysUntilExpiry(cert.expiration_date) : 0;
+                const expiringSoon = cert.status !== "PENDING" ? isExpiringSoon(cert.expiration_date) : false;
                 return (
                   <TableRow key={cert.id}>
                     <TableCell className="font-mono text-sm">{cert.serial_number}</TableCell>
@@ -266,13 +266,19 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className={cn(expiringSoon && "font-semibold text-orange-600 dark:text-orange-400")}>
-                          {new Date(cert.expiration_date).toLocaleDateString()}
-                        </span>
-                        {expiringSoon && (
-                          <span className="text-xs text-muted-foreground">
-                            {days} {days === 1 ? "day" : "days"} left
-                          </span>
+                        {cert.status === "PENDING" ? (
+                          <span className="text-muted-foreground"></span>
+                        ) : (
+                          <>
+                            <span className={cn(expiringSoon && "font-semibold text-orange-600 dark:text-orange-400")}>
+                              {new Date(cert.expiration_date).toLocaleDateString()}
+                            </span>
+                            {expiringSoon && (
+                              <span className="text-xs text-muted-foreground">
+                                {days} {days === 1 ? "day" : "days"} left
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                     </TableCell>
