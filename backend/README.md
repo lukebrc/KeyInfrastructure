@@ -86,16 +86,15 @@ The server will start on `0.0.0.0:8080` by default.
 The backend requires the following environment variables:
 
 - `DATABASE_URL`: PostgreSQL connection string (e.g., `postgresql://user:password@localhost/keyinfrastructure`)
-- `CA_PRIVATE_KEY_PASSWORD`: Password for the root CA private key (required for certificate operations)
+- `CA_PASSWORD`: Password for the root CA private key (required for certificate operations)
 - `JWT_SECRET`: Secret key for JWT token signing (required for authentication)
 
 You can use a `.env` file in the backend directory (automatically loaded via `dotenvy`):
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost/keyinfrastructure
-CA_PRIVATE_KEY_PASSWORD=your_ca_password
 JWT_SECRET=your_jwt_secret_key
-CA_PASSWORD=password_for_ca_key_file
+CA_PASSWORD=ca_password
 ```
 
 ## API Documentation

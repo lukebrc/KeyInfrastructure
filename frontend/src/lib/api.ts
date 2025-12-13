@@ -244,6 +244,19 @@ export const api = {
     return handleResponse<Certificate>(response);
   },
 
+  async generateCertificate(certificateId: string): Promise<Certificate> {
+    // Use proxy API route
+    const response = await fetch(`/api/certificates/${certificateId}/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    return handleResponse<Certificate>(response);
+  },
+
   async downloadCertificate(certificateId: string, request: DownloadCertificateRequest): Promise<Blob> {
     // Use proxy API route
     const response = await fetch(`/api/certificates/${certificateId}/download`, {

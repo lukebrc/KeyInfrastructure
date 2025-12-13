@@ -116,11 +116,11 @@ Central view for users, presenting a list of their certificates, the status of e
   - "Renew Now" button for each certificate
   - Updates every 5-10 minutes in the background
 - **Certificate table:**
-  - Columns: serial_number, DN (abbreviated), status (ACTIVE/REVOKED with color), expiration_date (with highlight for expiring)
+  - Columns: serial_number, DN (abbreviated), status (ACTIVE/REVOKED/PENDING with color), expiration_date (with highlight for expiring)
   - Default sorting by expiration_date (ascending)
-  - Filtering by status (ACTIVE/REVOKED)
+  - Filtering by status (ACTIVE/REVOKED/PENDING)
   - Pagination (10-20 certificates per page, default 10)
-  - Action buttons: "Renew" (for active certificates near expiration), "Download" (for all active)
+  - Action buttons: "Generate" (for PENDING certificates), "Renew" (for active certificates near expiration), "Download" (for all active)
 - User information (optional)
 - Logout button
 
@@ -130,7 +130,7 @@ Central view for users, presenting a list of their certificates, the status of e
 - `CertificateRow` — single certificate row
 - `StatusBadge` — certificate status badge (ACTIVE/REVOKED)
 - `DateDisplay` — display of expiration date with highlighting
-- `ActionButtons` — Renew and Download buttons
+- `ActionButtons` — Generate, Renew and Download buttons
 - `DownloadCertificateModal` — certificate download modal
 - `UserHeader` — header with user information
 - `LogoutButton` — logout button
@@ -317,7 +317,16 @@ Overview of all certificates in the system with the ability to revoke them by th
     - Browser automatically downloads the `.p12` or `.pfx` file
     - In case of 400 error (Invalid password): an error message is displayed
 
-3.  **Renewing a certificate:**
+3.  **Generating a certificate:**
+    - User sees a PENDING certificate in the table (created by administrator)
+    - Clicks "Generate" button next to the PENDING certificate
+    - Confirms the action (optional confirmation modal)
+    - Sends POST /certificates/{id}/generate request
+    - Toast notification confirms success
+    - Certificate status changes from PENDING to ACTIVE
+    - Certificate table refreshes automatically
+
+4.  **Renewing a certificate:**
     - User sees a banner with an expiring certificate or clicks "Renew" in the table
     - Confirms the action (optional confirmation modal)
     - Sends PUT /certificates/{id}/renew request
@@ -466,7 +475,7 @@ Admin > Certificates > List
 **`CertificateTable` (React)**
 - Certificate table with sorting, filtering, pagination
 - Columns: serial_number, DN, status, expiration_date
-- Action buttons: Renew, Download
+- Action buttons: Generate (for PENDING), Renew, Download
 - Highlighting of expiring certificates
 - Responsive (horizontally scrollable on mobile)
 - Integration with GET /certificates (query params: page, limit, status, sort_by, order)
@@ -481,11 +490,11 @@ Admin > Certificates > List
 **`CertificateRow` (React)**
 - Single certificate row in the table
 - Displays serial_number, DN (abbreviated), status, expiration_date
-- Action buttons (Renew, Download)
+- Action buttons (Generate for PENDING, Renew, Download)
 - Color highlighting of status and expiration date
 
 **`StatusBadge` (React)**
-- Certificate status badge (ACTIVE/REVOKED)
+- Certificate status badge (ACTIVE/REVOKED/PENDING)
 - Different colors for different statuses
 - Accessibility: appropriate contrast and readability
 
@@ -517,7 +526,7 @@ Admin > Certificates > List
 
 **`ToastNotifications` (Shadcn/ui)**
 - Toast notifications for operations (success, error)
-- Used for: certificate renewal, download, creation, revocation
+- Used for: certificate generation, renewal, download, creation, revocation
 - Automatic closing after 5 seconds (success) or 10 seconds (error)
 
 **`ErrorMessage` (React)**
@@ -752,6 +761,7 @@ All views and components are fully compliant with the API plan:
 - **GET /certificates/expiring** → `ExpiringBanner` (with query param: days=30)
 - **PUT /certificates/{id}/renew** → "Renew" button in `CertificateTable` and `ExpiringBanner`
 - **POST /certificates/{id}/download** → `DownloadCertificateModal` (with password in body)
+- **POST /certificates/{id}/generate** → "Generate" button in `CertificateTable` for PENDING certificates
 - **PUT /certificates/{id}/revoke** → "Revoke" button in `AdminCertificateTable` (with reason in body)
 
 **Note:** The `GET /users` endpoint for the administrator (needed in `UserSelect`) is not listed in the API plan. This should be resolved by:

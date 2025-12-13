@@ -22,7 +22,7 @@ import { ErrorHandler } from "@/lib/error-handler";
 import { DownloadCertificateModal } from "./DownloadCertificateModal";
 import { RevokeModal } from "./RevokeModal";
 import type { Certificate, CertificateStatus } from "@/types";
-import { Download, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, XCircle } from "lucide-react";
+import { Download, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, XCircle, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CertificateTableProps {
@@ -49,6 +49,7 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
   const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [renewing, setRenewing] = useState<Record<string, boolean>>({});
+  const [generating, setGenerating] = useState<Record<string, boolean>>({});
   const [revokeModalOpen, setRevokeModalOpen] = useState(false);
   const [certificateToRevoke, setCertificateToRevoke] = useState<Certificate | null>(null);
 
@@ -114,6 +115,23 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
       ErrorHandler.handleError(error, "Failed to renew certificate");
     } finally {
       setRenewing((prev) => ({ ...prev, [certificateId]: false }));
+    }
+  };
+
+  const handleGenerate = async (certificateId: string) => {
+    try {
+      setGenerating((prev) => ({ ...prev, [certificateId]: true }));
+      await api.generateCertificate(certificateId);
+      ErrorHandler.showSuccess("Certificate generated successfully");
+      if (onRefresh) {
+        await onRefresh();
+      } else {
+        await fetchCertificates();
+      }
+    } catch (error) {
+      ErrorHandler.handleError(error, "Failed to generate certificate");
+    } finally {
+      setGenerating((prev) => ({ ...prev, [certificateId]: false }));
     }
   };
 
@@ -283,7 +301,11 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={cert.status === "ACTIVE" ? "default" : "destructive"}>
+                      <Badge variant={
+                        cert.status === "ACTIVE" ? "default" :
+                        cert.status === "PENDING" ? "secondary" :
+                        "destructive"
+                      }>
                         {cert.status}
                       </Badge>
                     </TableCell>
@@ -330,6 +352,26 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                               </Button>
                             )}
                           </>
+                        )}
+                        {cert.status === "PENDING" && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleGenerate(cert.id)}
+                            disabled={generating[cert.id]}
+                          >
+                            {generating[cert.id] ? (
+                              <>
+                                <RefreshCw className="size-4 mr-1 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Play className="size-4 mr-1" />
+                                Generate
+                              </>
+                            )}
+                          </Button>
                         )}
                         {cert.status === "REVOKED" && (onRevoke || showUserColumn) && (
                           <span className="text-sm text-muted-foreground">Revoked</span>

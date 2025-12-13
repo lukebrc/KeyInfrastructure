@@ -99,12 +99,13 @@
 
 - **Method**: POST
 - **URL Path**: /users/{user_id}/certificates/{id}/generate
-- **Description**: Generate new certificate for user
+- **Description**: Generate certificate from a PENDING certificate request (user can only generate their own certificates).
 - **Query Parameters**: None
+- **Request JSON Structure**: None
+- **Response JSON Structure**: {"id": "uuid", "status": "ACTIVE", "serial_number": "string", "pfx": String}
+- **Error Codes and Messages**: 403 Forbidden - "Access denied", 404 Not Found - "Certificate not found", 400 Bad Request - "Certificate not in PENDING status"
 - **Request JSON Structure**: {"password": "string"}
-- **Response JSON Structure**: Binary PKCS#12 file
-- **Success Codes and Messages**: 200 OK - "File downloaded"
-- **Error Codes and Messages**: 403 Forbidden - "Access denied", 400 Bad Request - "Invalid password", 404 Not Found - "Certificate not found"
+- **Error Codes and Messages**: 200 OK - "Certificate generated successfully, 403 Forbidden - "Access denied", 400 Bad Request - "Invalid password", 404 Not Found - "Certificate not found"
 
 - **Method**: PUT
 - **URL Path**: /users/{user_id}/certificates/{id}/revoke
@@ -122,7 +123,7 @@
 ## 4. Validation and Business Logic
 - **Validation Conditions**:
   - Users: Username must be unique, password hashed, role must be 'ADMIN' or 'USER', password min 8 chars during registration.
-  - Certificates: Serial number unique, status 'ACTIVE' or 'REVOKED', DN required, validity period 1 day to 10 years, hash algorithm one of SHA-256/384/512.
+  - Certificates: Serial number unique, status 'PENDING', 'ACTIVE' or 'REVOKED', DN required, validity period 1 day to 10 years, hash algorithm one of SHA-256/384/512.
   - Private Keys: Encrypted with user's password, stored securely.
   - Revoked Certificates: One per certificate, reason optional.
-- **Business Logic Implementation**: Registration validates password length and username uniqueness. Certificate creation generates keys via internal CA, signs with root CA key (password from ENV). Renewal updates expiration and count. Download decrypts key with password and packages PKCS#12. Notifications via expiring endpoint for frontend banner. Revocation updates status and logs reason. All operations enforce RLS-like access via JWT claims.
+- **Business Logic Implementation**: Registration validates password length and username uniqueness. Certificate creation by admin creates PENDING certificates. Users can generate certificates from PENDING requests, which creates keys via internal CA, signs with root CA key (password from ENV), and changes status to ACTIVE. Renewal updates expiration and count. Download decrypts key with password and packages PKCS#12. Notifications via expiring endpoint for frontend banner. Revocation updates status and logs reason. All operations enforce RLS-like access via JWT claims.

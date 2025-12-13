@@ -261,7 +261,7 @@ pub async fn list_active_certificates(
 
     let path_user_id = path.into_inner();
     let claims_user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| ApiError::Internal("Invalid UUID in claims".into()))?;
+        .map_err(|_| ApiError::Internal("Invalid UUID in claims".to_string()))?;
 
     // Authorization: Admin can view any user's certificates, regular users can only view their own
     if claims.role != "ADMIN" && path_user_id != claims_user_id {
@@ -338,6 +338,118 @@ pub async fn list_active_certificates(
     );
 
     let mut query_builder = sqlx::query_as::<_, CertificateListItem>(&select_query).bind(path_user_id);
+
+    if let Some(status) = status_filter {
+        let cert_status: CertificateStatus = match status.to_uppercase().as_str() {
+            "ACTIVE" => CertificateStatus::ACTIVE,
+            "EXPIRED" => CertificateStatus::EXPIRED,
+            "REVOKED" => CertificateStatus::REVOKED,
+            _ => return Err(ApiError::BadRequest("Invalid status filter".into())),
+        };
+        query_builder = query_builder.bind(cert_status);
+    }
+
+    let query_builder = query_builder.bind(limit).bind(offset);
+    let certificates = query_builder.fetch_all(&state.pool).await?;
+
+    Ok(HttpResponse::Ok().json(ListCertificatesResponse {
+        certificates,
+        total,
+        page,
+    }))
+}
+
+pub async fn list_all_certificates(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    query: web::Query<ListCertificatesQuery>,
+) -> Result<impl Responder, ApiError> {
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .cloned()
+        .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
+
+    // Authorization: Only admins can list all certificates
+    if claims.role != "ADMIN" {
+        return Err(ApiError::Forbidden(
+            "Only admins can list all certificates".to_string(),
+        ));
+    }
+
+    let page = query.page.unwrap_or(1);
+    let limit = query.limit.unwrap_or(10);
+    let offset = (page - 1) * limit;
+
+    let sort_by = query.sort_by.as_deref().unwrap_or("expiration_date");
+    let order = query.order.as_deref().unwrap_or("asc");
+    log::info!(
+        "Listing all certificates, page {}, offset {}",
+        page,
+        offset
+    );
+
+    // Basic validation to prevent SQL injection
+    let allowed_sort_columns = [
+        "serial_number",
+        "dn",
+        "status",
+        "expiration_date",
+        "renewed_count",
+    ];
+    if !allowed_sort_columns.contains(&sort_by) {
+        return Err(ApiError::BadRequest("Invalid sort_by parameter".into()));
+    }
+    let order_direction = if order.eq_ignore_ascii_case("desc") {
+        "DESC"
+    } else {
+        "ASC"
+    };
+
+    let status_filter = query.status.as_deref();
+
+    // Build query for total count - no user_id filter for admins
+    let count_query = "SELECT COUNT(*) FROM certificates".to_string()
+        + if status_filter.is_some() {
+            " WHERE status = $1"
+        } else {
+            ""
+        };
+
+    let mut count_query_builder = sqlx::query_scalar(&count_query);
+    if let Some(status) = status_filter {
+        let cert_status: CertificateStatus = match status.to_uppercase().as_str() {
+            "ACTIVE" => CertificateStatus::ACTIVE,
+            "EXPIRED" => CertificateStatus::EXPIRED,
+            "REVOKED" => CertificateStatus::REVOKED,
+            _ => return Err(ApiError::BadRequest("Invalid status filter".into())),
+        };
+        count_query_builder = count_query_builder.bind(cert_status);
+    }
+
+    let total: i64 = count_query_builder.fetch_one(&state.pool).await?;
+
+    // Build query for fetching certificates with user information
+    let status_clause = if status_filter.is_some() {
+        "WHERE c.status = $1"
+    } else {
+        ""
+    };
+    let limit_offset_params = if status_filter.is_some() {
+        "LIMIT $2 OFFSET $3"
+    } else {
+        "LIMIT $1 OFFSET $2"
+    };
+
+    let select_query = format!(
+        "SELECT c.id, c.serial_number, cr.dn, c.status, c.expiration_date, c.renewed_count FROM certificates c JOIN certificate_requests cr ON c.id = cr.id {} ORDER BY {} {} {}",
+        status_clause,
+        sort_by,
+        order_direction,
+        limit_offset_params
+    );
+
+    let mut query_builder = sqlx::query_as::<_, CertificateListItem>(&select_query);
 
     if let Some(status) = status_filter {
         let cert_status: CertificateStatus = match status.to_uppercase().as_str() {
@@ -605,14 +717,15 @@ async fn get_authorized_user_data(req: HttpRequest, state_pool: &Pool<Postgres>)
 }
 
 async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &Pool<Postgres>) -> Result<CertificateInfo, ApiError> {
-    // Find the pending certificate request by UUID
+    // Find the pending certificate request by UUID and ensure it belongs to the user
     let cert_req_id = path.into_inner();
     let pending_request = sqlx::query_as::<_, PendingCertificateInfo>(
         "SELECT id, validity_period_days as valid_days, dn
         FROM certificate_requests
-        WHERE id = $1"
+        WHERE id = $1 AND user_id = $2"
     )
         .bind(cert_req_id)
+        .bind(user.id)
         .fetch_optional(state_pool)
         .await
         .map_err(|e| {
