@@ -1,6 +1,6 @@
 use actix_web::{web::{self, ServiceConfig}};
 use crate::auth::{list_users, login, register, verify_token};
-use crate::certificate::{create_certificate_request, download_certificate, generate_certificate, list_active_certificates, list_expiring_certificates, list_pending_certificates, revoke_certificate};
+use crate::certificate::{create_certificate_request, download_certificate, generate_certificate, list_user_certificates, list_expiring_certificates, list_pending_certificates, revoke_certificate};
 use crate::db_model::AppState;
 use crate::middleware::JwtMiddlewareFactory;
 
@@ -15,7 +15,7 @@ pub fn config_app(app_state: web::Data<AppState>) -> Box<dyn Fn(&mut ServiceConf
             .service(
                 web::scope("")
                     .wrap(JwtMiddlewareFactory)
-                    .route("/users/{user_id}/certificates/list", web::get().to(list_active_certificates))
+                    .route("/users/{user_id}/certificates/list", web::get().to(list_user_certificates))
                     .route("/users/{user_id}/certificates/pending", web::get().to(list_pending_certificates))
                     .route("/users/{user_id}/certificates/request", web::post().to(create_certificate_request))
                     .route("/users/{user_id}/certificates/expiring", web::get().to(list_expiring_certificates))

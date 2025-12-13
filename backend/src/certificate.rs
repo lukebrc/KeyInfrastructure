@@ -247,7 +247,7 @@ pub async fn revoke_certificate(
     Ok(HttpResponse::Ok().json(response))
 }
 
-pub async fn list_active_certificates(
+pub async fn list_user_certificates(
     state: web::Data<AppState>,
     req: HttpRequest,
     path: web::Path<Uuid>,
@@ -301,56 +301,18 @@ pub async fn list_active_certificates(
     };
 
     let status_filter = query.status.as_deref();
-
-    // Build query for total count
-    let count_query = "SELECT COUNT(*) FROM certificates WHERE user_id = $1".to_string()
-        + if status_filter.is_some() {
-            " AND status = $2"
-        } else {
-            ""
-        };
-
-    let mut count_query_builder = sqlx::query_scalar(&count_query).bind(path_user_id);
-    if let Some(status) = status_filter {
-        count_query_builder = count_query_builder.bind(status);
-    }
-
-    let total: i64 = count_query_builder.fetch_one(&state.pool).await?;
-
-    // Build query for fetching certificates with correct parameter indexing
-    let status_clause = if status_filter.is_some() {
-        "AND status = $2"
-    } else {
-        ""
-    };
-    let limit_offset_params = if status_filter.is_some() {
-        "LIMIT $3 OFFSET $4"
-    } else {
-        "LIMIT $2 OFFSET $3"
-    };
-
-    let select_query = format!(
-        "SELECT c.id, c.serial_number, cr.dn, c.status, c.expiration_date, c.renewed_count FROM certificates c JOIN certificate_requests cr ON c.id = cr.id WHERE c.user_id = $1 {} ORDER BY {} {} {}",
-        status_clause,
+    // Fetch total and certificates using helper functions that encapsulate DB logic
+    let total = get_total_certificates_for_user(&state.pool, path_user_id, status_filter).await?;
+    let certificates = get_certificates_for_user(
+        &state.pool,
+        path_user_id,
+        status_filter,
         sort_by,
         order_direction,
-        limit_offset_params
-    );
-
-    let mut query_builder = sqlx::query_as::<_, CertificateListItem>(&select_query).bind(path_user_id);
-
-    if let Some(status) = status_filter {
-        let cert_status: CertificateStatus = match status.to_uppercase().as_str() {
-            "ACTIVE" => CertificateStatus::ACTIVE,
-            "EXPIRED" => CertificateStatus::EXPIRED,
-            "REVOKED" => CertificateStatus::REVOKED,
-            _ => return Err(ApiError::BadRequest("Invalid status filter".into())),
-        };
-        query_builder = query_builder.bind(cert_status);
-    }
-
-    let query_builder = query_builder.bind(limit).bind(offset);
-    let certificates = query_builder.fetch_all(&state.pool).await?;
+        limit,
+        offset,
+    )
+    .await?;
 
     Ok(HttpResponse::Ok().json(ListCertificatesResponse {
         certificates,
@@ -823,6 +785,78 @@ async fn get_user_certificate(cert_id: Uuid, user_id: Uuid, state_pool: &Pool<Po
         .fetch_optional(state_pool)
         .await?
         .ok_or_else(|| ApiError::NotFound("Certificate not found or not owned by user".to_string()))
+}
+
+async fn parse_certificate_status(status: &str) -> Result<CertificateStatus, ApiError> {
+    match status.to_uppercase().as_str() {
+        "ACTIVE" => Ok(CertificateStatus::ACTIVE),
+        "EXPIRED" => Ok(CertificateStatus::EXPIRED),
+        "REVOKED" => Ok(CertificateStatus::REVOKED),
+        other => {
+            log::error!("Invalid status filter value: {}", other);
+            Err(ApiError::BadRequest("Invalid status filter".into()))
+        }
+    }
+}
+
+async fn get_total_certificates_for_user(
+    pool: &Pool<Postgres>,
+    user_id: Uuid,
+    status_filter: Option<&str>,
+) -> Result<i64, ApiError> {
+    let count_query = "SELECT COUNT(*) FROM certificates WHERE user_id = $1".to_string()
+        + if status_filter.is_some() { " AND status = $2" } else { "" };
+
+    let mut count_query_builder = sqlx::query_scalar(&count_query).bind(user_id);
+
+    if let Some(status) = status_filter {
+        let cert_status = parse_certificate_status(status).await?;
+        count_query_builder = count_query_builder.bind(cert_status);
+    }
+
+    match count_query_builder.fetch_one(pool).await {
+        Ok(total) => Ok(total),
+        Err(e) => {
+            log::error!("DB error fetching total certificates for user {}: {}", user_id, e);
+            Err(ApiError::Internal("Failed to count certificates".into()))
+        }
+    }
+}
+
+async fn get_certificates_for_user(
+    pool: &Pool<Postgres>,
+    user_id: Uuid,
+    status_filter: Option<&str>,
+    sort_by: &str,
+    order_direction: &str,
+    limit: i64,
+    offset: i64,
+) -> Result<Vec<CertificateListItem>, ApiError> {
+    let status_clause = if status_filter.is_some() { "AND status = $2" } else { "" };
+    let limit_offset_params = if status_filter.is_some() { "LIMIT $3 OFFSET $4" } else { "LIMIT $2 OFFSET $3" };
+
+    let select_query = format!(
+        "SELECT c.id, c.serial_number, cr.dn, c.status, c.expiration_date, c.renewed_count FROM certificates c JOIN certificate_requests cr ON c.id = cr.id WHERE c.user_id = $1 {} ORDER BY {} {} {}",
+        status_clause, sort_by, order_direction, limit_offset_params
+    );
+
+    log::debug!("Select certificates query: {}", select_query);
+
+    let mut query_builder = sqlx::query_as::<_, CertificateListItem>(&select_query).bind(user_id);
+
+    if let Some(status) = status_filter {
+        let cert_status = parse_certificate_status(status).await?;
+        query_builder = query_builder.bind(cert_status);
+    }
+
+    let query_builder = query_builder.bind(limit).bind(offset);
+    match query_builder.fetch_all(pool).await {
+        Ok(certs) => Ok(certs),
+        Err(e) => {
+            log::error!("DB error fetching certificates for user {}: {}", user_id, e);
+            Err(ApiError::Internal("Failed to fetch certificates".into()))
+        }
+    }
 }
 
 async fn generate_user_pkcs12(cert_id: Uuid,

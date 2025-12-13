@@ -189,7 +189,10 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as CertificateStatus | "ALL")}>
+          <Select value={statusFilter} onValueChange={(value) => {
+            setPage(1);
+            setStatusFilter(value as CertificateStatus | "ALL")}
+          }>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
