@@ -263,10 +263,7 @@ export const UserList: React.FC = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button variant="outline" onClick={() => selectedUser && fetchUserCertificates(selectedUser.id)} disabled={certificatesLoading}>
-                    <RefreshCw className={cn("size-4 mr-2", certificatesLoading && "animate-spin")} />
-                    Refresh Certificates
-                  </Button>
+                  {/* Refresh button removed: use table's refresh / parent controls instead */}
                 </div>
 
                 <CertificateTable
