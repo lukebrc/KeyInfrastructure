@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { validateBackendUrl, validateAuthToken, handleApiError, createErrorResponse } from "@/lib/api-utils";
+import { validateBackendUrl, validateAuthToken, handleApiError, createErrorResponse, fetchPendingCertificatesFromBackend } from "@/lib/api-utils";
 
 export const GET: APIRoute = async ({ request, params }) => {
   try {
@@ -29,35 +29,11 @@ export const GET: APIRoute = async ({ request, params }) => {
     console.info(`Getting certificates for user ${userId}: with status ${status}`);
 
     //todo: add page and total parameters
+    // Use shared helper that fetches and transforms pending certificates
     const fetchPendingCertificates = async (): Promise<any[]> => {
-      console.debug(`Getting pending certificates for user ${userId}: ${backendUrl}/users/${userId}/certificates/pending`);
-
-      const response = await fetch(`${backendUrl}/users/${userId}/certificates/pending`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        let errorMessage = "Failed to get pending certificates";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch {
-          errorMessage = response.statusText || errorMessage;
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      const pendingData = await response.json();
-      console.info(`${pendingData.certificates.length} pending certificates for user ${userId}`);
-
-      // Transform pending certificates to match list format
-      return pendingData.certificates.map((cert: any) => ({
+      const result = await fetchPendingCertificatesFromBackend(backendUrl, token, userId);
+      // Convert transformed pending items to list format expected by this endpoint
+      return (result.data || []).map((cert: any) => ({
         id: cert.id,
         serial_number: null,
         dn: cert.dn || "",

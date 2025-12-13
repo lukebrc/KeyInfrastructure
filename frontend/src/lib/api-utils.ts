@@ -110,3 +110,48 @@ export function handleApiError(error: unknown, context?: string): Response {
   // Generic error response
   return createErrorResponse("An error occurred. Please try again.", 500);
 }
+
+/**
+ * Fetches pending certificates for a user from the backend and returns transformed data or an error object
+ */
+export async function fetchPendingCertificatesFromBackend(backendUrl: string, token: string, userId: string): Promise<{ data: any[]; error?: { status: number; message: string } }> {
+  try {
+    const pendingResponse = await fetch(`${backendUrl}/users/${userId}/certificates/pending`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (!pendingResponse.ok) {
+      let errMsg = "Failed to get pending certificates";
+      try {
+        const errorData = await pendingResponse.json();
+        errMsg = errorData.message || errMsg;
+      } catch {
+        errMsg = pendingResponse.statusText || errMsg;
+      }
+      return { data: [], error: { status: pendingResponse.status, message: errMsg } };
+    }
+
+    const pendingData = await pendingResponse.json();
+    return { data: (pendingData.certificates || []).map((cert: any) => ({
+      id: cert.id || String(cert.id),
+      serial_number: "PENDING",
+      user_id: userId,
+      dn: cert.dn || cert.Dn || "",
+      status: "PENDING" as const,
+      expiration_date: cert.valid_days || cert.validDays
+        ? new Date(Date.now() + (cert.valid_days || cert.validDays) * 24 * 60 * 60 * 1000).toISOString()
+        : new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      renewed_count: 0,
+      valid_days: cert.valid_days || cert.validDays,
+    })) };
+  } catch (error) {
+    console.error("Failed to fetch pending certificates:", error);
+    return { data: [], error: { status: 500, message: "Failed to fetch pending certificates" } };
+  }
+}

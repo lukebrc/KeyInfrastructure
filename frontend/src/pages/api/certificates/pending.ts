@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { validateBackendUrl, validateAuthToken, handleApiError, getCurrentUserId } from "@/lib/api-utils";
+import { validateBackendUrl, validateAuthToken, handleApiError, getCurrentUserId, fetchPendingCertificatesFromBackend } from "@/lib/api-utils";
 
 export const GET: APIRoute = async ({ request }) => {
   try {
@@ -26,52 +26,16 @@ export const GET: APIRoute = async ({ request }) => {
 
     console.info("Getting pending certificates");
 
-    // Forward the request to the backend
-    const response = await fetch(`${backendUrl}/users/${userId}/certificates/pending`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      let errorMessage = "Failed to get pending certificates";
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-      } catch {
-        errorMessage = response.statusText || errorMessage;
-      }
-
-      return new Response(
-        JSON.stringify({
-          message: errorMessage,
-        }),
-        {
-          status: response.status,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+    const pendingResult = await fetchPendingCertificatesFromBackend(backendUrl, token, userId);
+    if (pendingResult.error) {
+      return new Response(JSON.stringify({ message: pendingResult.error.message }), {
+        status: pendingResult.error.status,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    const data = await response.json();
-
-    // Transform the backend response to match frontend Certificate format
-    // Backend returns: { certificates: [{ id, valid_days, dn }] }
-    // Frontend expects: [{ id, serial_number, user_id, dn, status, expiration_date, created_at }]
-    const transformedCertificates = data.certificates.map((cert: any) => ({
-      id: cert.id,
-      serial_number: "PENDING", // Placeholder for pending certificates
-      user_id: "", // Will be filled by current user context
-      dn: cert.dn,
-      status: "PENDING",
-      expiration_date: new Date(Date.now() + cert.valid_days * 24 * 60 * 60 * 1000).toISOString(), // Calculate expiration
-      created_at: new Date().toISOString(), // Placeholder
-    }));
+    // The helper already returns transformed pending certificate objects with user_id filled
+    const transformedCertificates = pendingResult.data;
 
     return new Response(JSON.stringify(transformedCertificates), {
       status: 200,
