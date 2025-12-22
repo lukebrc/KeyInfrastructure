@@ -88,8 +88,17 @@
 - **Success Codes and Messages**: 200 OK - "Certificate renewed"
 - **Error Codes and Messages**: 403 Forbidden - "Access denied", 404 Not Found - "Certificate not found", 400 Bad Request - "Certificate not renewable"
 
-- **Method**: POST
+- **Method**: GET
 - **URL Path**: /users/{user_id}/certificates/{id}/download
+- **Description**: Download public certificate file (CRT/PEM).
+- **Query Parameters**: None
+- **Request JSON Structure**: None
+- **Response JSON Structure**: Binary CRT/PEM file
+- **Success Codes and Messages**: 200 OK - "File downloaded"
+- **Error Codes and Messages**: 403 Forbidden - "Access denied", 404 Not Found - "Certificate not found"
+
+- **Method**: POST
+- **URL Path**: /users/{user_id}/certificates/{id}/pkcs12
 - **Description**: Download PKCS#12 file for the certificate (user can only download his own keys/certificates).
 - **Query Parameters**: None
 - **Request JSON Structure**: {"password": "string"}

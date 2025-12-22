@@ -67,7 +67,7 @@
         - Columns: serial_number, DN (abbreviated), status (with color), expiration_date (with highlight for expiring)
         - Action buttons: "Renew" (for active certificates near expiration), "Download" (for all active)
 5.  **Certificate Renewal** - flow initiated from dashboard (PUT /certificates/{id}/renew)
-6.  **Certificate Download** - modal with PIN field → POST /certificates/{id}/download → automatic download of .p12/.pfx file
+6.  **Certificate Download** - modal with PIN field → POST /certificates/{id}/pkcs12 → automatic download of .p12/.pfx file. Public certificate download via GET /certificates/{id}/download.
 
 **Administrator Flow (ADMIN):**
 1.  **Login** (`/login`) - common with users, redirect to `/admin/dashboard`
@@ -105,7 +105,8 @@
 - `GET /certificates` - list of user certificates (pagination, filtering, sorting)
 - `GET /certificates/expiring` - expiring certificates (for banner, `days=30` parameter)
 - `PUT /certificates/{id}/renew` - renew certificate
-- `POST /certificates/{id}/download` - download PKCS#12 (requires PIN in body)
+- `GET /certificates/{id}/download` - download public certificate (CRT)
+- `POST /certificates/{id}/pkcs12` - download PKCS#12 (requires PIN in body)
 - `POST /users/{user_id}/certificates` - create certificate (admin)
 - `PUT /certificates/{id}/revoke` - revoke certificate (admin)
 
@@ -192,7 +193,7 @@
 
 3.  **Refresh token mechanism:** The JWT management response mentioned a "refresh token mechanism" but did not specify whether it would be implemented in MVP. The API plan does not include an endpoint for refreshing tokens. It needs to be clarified whether the refresh token will be part of MVP, or only automatic redirection to `/login`.
 
-4.  **PIN validation during download:** The `POST /certificates/{id}/download` endpoint returns a 400 error for an incorrect PIN, but it was not specified whether the backend verifies the PIN against the one saved during registration, or against the encrypted private key. This impacts error messages in the UI.
+4.  **PIN validation during download:** The `POST /certificates/{id}/pkcs12` endpoint returns a 400 error for an incorrect PIN, but it was not specified whether the backend verifies the PIN against the one saved during registration, or against the encrypted private key. This impacts error messages in the UI.
 
 5.  **PKCS#12 file name format:** It was not specified whether the downloaded file name should contain the certificate serial_number, DN, or another naming convention (e.g., `certificate-{serial_number}.p12`).
 
