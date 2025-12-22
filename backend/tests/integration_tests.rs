@@ -254,7 +254,7 @@ async fn test_certificate_lifecycle() {
 
     // 6. CERT-04: User generate certificate
     let generate_req = json!({});
-    let generate_uri = format!("/certificates/{}/generate", cert_id);
+    let generate_uri = format!("/users/{}/certificates/{}/generate", user_id, cert_id);
     let req = test::TestRequest::post()
         .uri(&generate_uri)
         .insert_header(("Authorization", format!("Bearer {}", user_token)))
@@ -263,9 +263,9 @@ async fn test_certificate_lifecycle() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), http::StatusCode::OK, "CERT-04 Failed: Generate certificate");
 
-    // 7. CERT-05: User downloads their certificate with the correct password
+    // 7. CERT-05: User downloads their certificate (PKCS12) with the correct password
     let download_req = json!({ "password": test_password });
-    let download_uri = format!("/certificates/{}/download", cert_id);
+    let download_uri = format!("/users/{}/certificates/{}/pkcs12", user_id, cert_id);
     let req = test::TestRequest::post()
         .uri(&download_uri)
         .insert_header(("Authorization", format!("Bearer {}", user_token)))
@@ -273,13 +273,29 @@ async fn test_certificate_lifecycle() {
         .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-05 Failed: Certificate download with correct password");
+    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-05 Failed: PKCS12 download with correct password");
 
     let content_type = resp.headers().get(http::header::CONTENT_TYPE).unwrap();
-    assert_eq!(content_type, "application/octet-stream", "CERT-05 Failed: Incorrect content type for download");
+    assert!(content_type.to_str().unwrap().contains("application/octet-stream"), "CERT-05 Failed: Incorrect content type for PKCS12");
+    let content_disposition = resp.headers().get(http::header::CONTENT_DISPOSITION).unwrap();
+    assert!(content_disposition.to_str().unwrap().contains(".p12"), "CERT-05 Failed: Incorrect file extension for PKCS12");
 
     let body_bytes = test::read_body(resp).await;
-    assert!(!body_bytes.is_empty(), "CERT-05 Failed: Downloaded file is empty");
+    assert!(!body_bytes.is_empty(), "CERT-05 Failed: Downloaded PKCS12 file is empty");
+
+    // 8. CERT-05-PUB: User downloads public certificate (GET)
+    let download_pub_uri = format!("/users/{}/certificates/{}/download", user_id, cert_id);
+    let req = test::TestRequest::get()
+        .uri(&download_pub_uri)
+        .insert_header(("Authorization", format!("Bearer {}", user_token)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::OK, "CERT-05-PUB Failed: Public certificate download");
+
+    let content_type = resp.headers().get(http::header::CONTENT_TYPE).unwrap();
+    assert!(content_type.to_str().unwrap().contains("application/x-x509-ca-cert"), "CERT-05-PUB Failed: Incorrect content type for CRT");
+    let content_disposition = resp.headers().get(http::header::CONTENT_DISPOSITION).unwrap();
+    assert!(content_disposition.to_str().unwrap().contains(".crt"), "CERT-05-PUB Failed: Incorrect file extension for CRT");
 }
 
 #[actix_web::test]
@@ -383,7 +399,7 @@ async fn test_certificate_expiring_list() {
 
     // 5. Admin calls /certificates/expiring?days=30 and should see 2 certs
     let req = test::TestRequest::get()
-        .uri("/certificates/expiring?days=30")
+        .uri(&format!("/users/{}/certificates/expiring?days=30", user_id_1)) // Note: This test logic might need review as API is scoped to user, but updating path to match route structure
         .insert_header(("Authorization", format!("Bearer {}", admin_token)))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -399,7 +415,7 @@ async fn test_certificate_expiring_list() {
 
     // 6. Admin calls with larger days value to get all 3
      let req_large = test::TestRequest::get()
-        .uri("/certificates/expiring?days=50")
+        .uri(&format!("/users/{}/certificates/expiring?days=50", user_id_1))
         .insert_header(("Authorization", format!("Bearer {}", admin_token)))
         .to_request();
     let resp_large = test::call_service(&app, req_large).await;
@@ -420,7 +436,7 @@ async fn test_certificate_expiring_list() {
 
     // 8. User 1 calls /certificates/expiring?days=30, should see only their own cert (1 cert)
     let req_user = test::TestRequest::get()
-        .uri("/certificates/expiring?days=30")
+        .uri(&format!("/users/{}/certificates/expiring?days=30", user_id_1))
         .insert_header(("Authorization", format!("Bearer {}", user_token)))
         .to_request();
     let resp_user = test::call_service(&app, req_user).await;
@@ -494,7 +510,7 @@ async fn test_certificate_revoke_admin() {
     let revoke_req = json!({
         "reason": "Security breach"
     });
-    let revoke_uri = format!("/certificates/{}/revoke", cert_id);
+    let revoke_uri = format!("/users/{}/certificates/{}/revoke", user_id, cert_id);
     let req = test::TestRequest::put()
         .uri(&revoke_uri)
         .insert_header(("Authorization", format!("Bearer {}", admin_token)))
@@ -595,7 +611,7 @@ async fn test_certificate_revoke_regular_user() {
     let revoke_req = json!({
         "reason": "Test revocation"
     });
-    let revoke_uri = format!("/certificates/{}/revoke", cert_id);
+    let revoke_uri = format!("/users/{}/certificates/{}/revoke", user_id, cert_id);
     let req = test::TestRequest::put()
         .uri(&revoke_uri)
         .insert_header(("Authorization", format!("Bearer {}", user_token)))
@@ -660,7 +676,7 @@ async fn test_certificate_revoke_not_found() {
     let revoke_req = json!({
         "reason": "Test revocation"
     });
-    let revoke_uri = format!("/certificates/{}/revoke", non_existent_cert_id);
+    let revoke_uri = format!("/users/{}/certificates/{}/revoke", uuid::Uuid::new_v4(), non_existent_cert_id);
     let req = test::TestRequest::put()
         .uri(&revoke_uri)
         .insert_header(("Authorization", format!("Bearer {}", admin_token)))

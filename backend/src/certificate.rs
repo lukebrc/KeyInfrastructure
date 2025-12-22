@@ -147,7 +147,7 @@ pub async fn create_certificate_request(
     Ok(HttpResponse::Created().json(response))
 }
 
-pub async fn download_certificate(state: web::Data<AppState>,
+pub async fn download_pkcs12(state: web::Data<AppState>,
             req: HttpRequest,
             path: web::Path<(Uuid, Uuid)>,
             body: web::Json<DownloadCertificateRequest>,
@@ -186,6 +186,43 @@ pub async fn download_certificate(state: web::Data<AppState>,
         .insert_header((header::CONTENT_DISPOSITION, filename))
         .insert_header((header::CONTENT_TYPE, "application/octet-stream"))
         .body(pkcs12))
+}
+
+pub async fn download_public_certificate(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<(Uuid, Uuid)>,
+) -> Result<impl Responder, ApiError> {
+    let (path_user_id, cert_id) = path.into_inner();
+    log::info!("Attempting to download public certificate with id: {}", cert_id);
+
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .cloned()
+        .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
+
+    let claims_user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| ApiError::Internal("Invalid UUID in claims".to_string()))?;
+
+    // Authorization: Admin can download any, User can only download own
+    if claims.role != "ADMIN" && path_user_id != claims_user_id {
+        return Err(ApiError::Forbidden("Access denied".to_string()));
+    }
+
+    let cert_info = get_user_certificate(cert_id, path_user_id, &state.pool).await?;
+
+    let x509 = X509::from_der(&cert_info.certificate_der)
+        .map_err(|_| ApiError::Internal("Failed to parse certificate DER".to_string()))?;
+    
+    let pem = x509.to_pem()
+        .map_err(|_| ApiError::Internal("Failed to convert certificate to PEM".to_string()))?;
+
+    let filename = format!("attachment; filename=\"{}.crt\"", cert_info.serial_number);
+    Ok(HttpResponse::Ok()
+        .insert_header((header::CONTENT_DISPOSITION, filename))
+        .insert_header((header::CONTENT_TYPE, "application/x-x509-ca-cert"))
+        .body(pem))
 }
 
 pub async fn revoke_certificate(
