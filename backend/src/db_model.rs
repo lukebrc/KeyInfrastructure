@@ -45,7 +45,7 @@ pub struct CertificateInfo {
     pub status: CertificateStatus,
     pub expiration_date: DateTime<Utc>,
     pub renewed_count: i32,
-    pub certificate_der: Vec<u8>,
+    pub certificate_der: Option<Vec<u8>>,
     pub renewal_date: Option<DateTime<Utc>>
 }
 

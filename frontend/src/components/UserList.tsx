@@ -105,6 +105,34 @@ export const UserList: React.FC = () => {
     }
   };
 
+  const handleDownloadCertificate = async (cert: Certificate) => {
+    if (!selectedUser) {
+      console.error("No user selected");
+      return;
+    }
+
+    try {
+      // Direct download of the public certificate (CRT)
+      const response = await fetch(`/api/users/${selectedUser.id}/certificates/${cert.id}/download`);
+      
+      if (!response.ok) {
+        throw new Error("Failed to download certificate");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${cert.serial_number}.crt`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      ErrorHandler.handleError(error, "Failed to download certificate");
+    }
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   return (
@@ -233,7 +261,7 @@ export const UserList: React.FC = () => {
 
       {/* Manage Certificates Modal */}
       <Dialog open={manageModalOpen} onOpenChange={setManageModalOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Manage Certificates for {selectedUser?.username}</DialogTitle>
             <DialogDescription>
@@ -271,6 +299,7 @@ export const UserList: React.FC = () => {
                   showUserColumn={false}
                   showStatusFilter={false}
                   onRevoke={handleCertificateRevoked}
+                  onDownload={handleDownloadCertificate}
                   onRefresh={() => selectedUser && fetchUserCertificates(selectedUser.id)}
                 />
               </div>

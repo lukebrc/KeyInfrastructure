@@ -32,6 +32,7 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
 
   const handleDownload = async () => {
     if (!certificate) return;
+    console.info("DownloadCertificateModal.handleDownload", certificate);
 
     setLoading(true);
     setError(null);

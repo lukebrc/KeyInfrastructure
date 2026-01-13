@@ -154,7 +154,7 @@ pub async fn download_pkcs12(state: web::Data<AppState>,
         ) -> Result<impl Responder, ApiError> {
 
     let (_user_id, cert_id) = path.into_inner();
-    log::info!("Attempting to download certificate with id: {}", cert_id);
+    log::info!("Attempting to download pkcs12 (key and certificate) with id: {}", cert_id);
 
     let user = match get_authorized_user_data(req, &state.pool).await {
         Ok(u) => u,
@@ -194,7 +194,7 @@ pub async fn download_public_certificate(
     path: web::Path<(Uuid, Uuid)>,
 ) -> Result<impl Responder, ApiError> {
     let (path_user_id, cert_id) = path.into_inner();
-    log::info!("Attempting to download public certificate with id: {}", cert_id);
+    log::info!("Attempting to download certificate with id: {}", cert_id);
 
     let claims = req
         .extensions()
@@ -211,8 +211,16 @@ pub async fn download_public_certificate(
     }
 
     let cert_info = get_user_certificate(cert_id, path_user_id, &state.pool).await?;
+    log::info!("Downloaded certificate info {}", cert_info.id);
 
-    let x509 = X509::from_der(&cert_info.certificate_der)
+    let cert_der = match cert_info.certificate_der {
+        Some(der) => der,
+        None => {
+            log::error!("Certificate data is missing");
+            return Err(ApiError::Internal("Certificate data is missing".to_string()));
+        }
+    };
+    let x509 = X509::from_der(&cert_der)
         .map_err(|_| ApiError::Internal("Failed to parse certificate DER".to_string()))?;
     
     let pem = x509.to_pem()
@@ -811,7 +819,7 @@ async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &
         status: CertificateStatus::ACTIVE,
         expiration_date,
         renewed_count: 0,
-        certificate_der: Vec::new(),
+        certificate_der: None,
         renewal_date: Option::None,
     })
 }
@@ -825,8 +833,15 @@ async fn get_user_certificate(cert_id: Uuid, user_id: Uuid, state_pool: &Pool<Po
     ).bind(cert_id)
         .bind(user_id)
         .fetch_optional(state_pool)
-        .await?
-        .ok_or_else(|| ApiError::NotFound("Certificate not found or not owned by user".to_string()))
+        .await
+        .map_err(|e| {
+            log::error!("DB error fetching certificate {} for user {}: {}", cert_id, user_id, e);
+            ApiError::Internal("Database error".to_string())
+        })?
+        .ok_or_else(|| {
+            log::error!("Certificate {} not found for user {}", cert_id, user_id);
+            ApiError::NotFound("Certificate not found or not owned by user".to_string())
+        })
 }
 
 async fn parse_certificate_status(status: &str) -> Result<CertificateStatus, ApiError> {
@@ -942,7 +957,8 @@ async fn generate_user_pkcs12(cert_id: Uuid,
         })?;
 
     // Create PKCS#12 archive
-    let x509 = X509::from_der(&certificate.certificate_der)
+    let cert_der = certificate.certificate_der.ok_or_else(|| ApiError::Internal("Certificate data is missing".to_string()))?;
+    let x509 = X509::from_der(&cert_der)
         .map_err(|_| ApiError::Internal("Failed to parse certificate DER".to_string()))?;
     let pkey = PKey::private_key_from_pem(&private_key_pem)
         .map_err(|_| ApiError::Internal("Failed to parse private key PEM".to_string()))?;

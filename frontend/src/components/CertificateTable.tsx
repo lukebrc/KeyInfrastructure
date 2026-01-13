@@ -29,6 +29,7 @@ interface CertificateTableProps {
   certificates?: Certificate[];
   showUserColumn?: boolean;
   onRevoke?: (certificate: Certificate) => void;
+  onDownload?: (certificate: Certificate) => void;
   onRefresh?: () => void;
   showStatusFilter?: boolean;
 }
@@ -37,6 +38,7 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
   certificates: externalCertificates,
   showUserColumn = false,
   onRevoke,
+  onDownload,
   onRefresh,
   showStatusFilter = true,
 }) => {
@@ -138,7 +140,12 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
   };
 
   const handleDownload = (certificate: Certificate) => {
+    if (onDownload) {
+      onDownload(certificate);
+      return;
+    }
     setSelectedCertificate(certificate);
+    console.info("CertificateTable.handleDownload", certificate);
     setDownloadModalOpen(true);
   };
 

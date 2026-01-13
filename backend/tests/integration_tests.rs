@@ -701,3 +701,93 @@ async fn test_certificate_revoke_not_found() {
     assert!(error_message.contains("Certificate not found") || error_message.contains("not found"),
             "CERT-12 Failed: Error message should indicate certificate not found. Got: {:?}", error_body);
 }
+
+#[actix_web::test]
+async fn test_admin_download_user_certificate() {
+    let (app, pool) = setup_test_app().await;
+    let mut tx = pool.begin().await.unwrap();
+
+    // 1. Create admin user
+    let admin_user = "dl_admin";
+    let admin_password = "adminpassword";
+    let password_hash = bcrypt::hash(admin_password, 12).unwrap();
+    sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'ADMIN')")
+        .bind(admin_user)
+        .bind(password_hash)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+
+    // 2. Create regular user
+    let regular_user = "dl_user";
+    let regular_password = "userpassword";
+    let user_id: uuid::Uuid = sqlx::query_scalar("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'USER') RETURNING id")
+        .bind(regular_user)
+        .bind(bcrypt::hash(regular_password, 12).unwrap())
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+
+    tx.commit().await.unwrap();
+
+    // 3. Admin logs in
+    let login_req = LoginRequest {
+        username: admin_user.to_string(),
+        password: admin_password.to_string(),
+    };
+    let req = test::TestRequest::post().uri("/auth/login").set_json(&login_req).to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::OK, "Admin login failed");
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let admin_token = body["token"].as_str().unwrap();
+
+    // 4. Admin creates certificate request
+    let create_cert_req = json!({
+        "dn": "CN=dl_test",
+        "days_valid": 365,
+    });
+    let create_uri = format!("/users/{}/certificates/request", user_id);
+    let req = test::TestRequest::post()
+        .uri(&create_uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .set_json(&create_cert_req)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::CREATED);
+    let cert_body: serde_json::Value = test::read_body_json(resp).await;
+    let cert_id = cert_body["id"].as_str().unwrap();
+
+    // 5. User logs in to generate certificate
+    let user_login_req = LoginRequest {
+        username: regular_user.to_string(),
+        password: regular_password.to_string(),
+    };
+    let req = test::TestRequest::post().uri("/auth/login").set_json(&user_login_req).to_request();
+    let resp = test::call_service(&app, req).await;
+    let user_body: serde_json::Value = test::read_body_json(resp).await;
+    let user_token = user_body["token"].as_str().unwrap();
+
+    // 6. User generates certificate
+    let generate_uri = format!("/users/{}/certificates/{}/generate", user_id, cert_id);
+    let req = test::TestRequest::post()
+        .uri(&generate_uri)
+        .insert_header(("Authorization", format!("Bearer {}", user_token)))
+        .set_json(&json!({}))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::OK, "Failed to generate certificate");
+
+    // 7. Admin downloads user's certificate
+    let download_uri = format!("/users/{}/certificates/{}/download", user_id, cert_id);
+    let req = test::TestRequest::get()
+        .uri(&download_uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), http::StatusCode::OK, "Admin failed to download user certificate");
+
+    let content_type = resp.headers().get(http::header::CONTENT_TYPE).unwrap();
+    assert!(content_type.to_str().unwrap().contains("application/x-x509-ca-cert"), "Incorrect content type");
+    let content_disposition = resp.headers().get(http::header::CONTENT_DISPOSITION).unwrap();
+    assert!(content_disposition.to_str().unwrap().contains(".crt"), "Incorrect file extension");
+}
