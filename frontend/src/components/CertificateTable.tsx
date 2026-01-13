@@ -169,15 +169,18 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
     }
   };
 
-  const getDaysUntilExpiry = (expirationDate: string): number => {
+  const getDaysUntilExpiry = (expirationDate: string | null | undefined): number => {
+    if (!expirationDate) return 0;
     const expiry = new Date(expirationDate);
+    if (isNaN(expiry.getTime())) return 0;
     const now = new Date();
     const diffTime = expiry.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
 
-  const isExpiringSoon = (expirationDate: string): boolean => {
+  const isExpiringSoon = (expirationDate: string | null | undefined): boolean => {
+    if (!expirationDate) return false;
     return getDaysUntilExpiry(expirationDate) <= 30;
   };
 
@@ -298,12 +301,15 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        {cert.status === "PENDING" ? (
-                          <span className="text-muted-foreground"></span>
+                        {cert.status === "PENDING" || !cert.expiration_date ? (
+                          <span className="text-muted-foreground">-</span>
                         ) : (
                           <>
                             <span className={cn(expiringSoon && "font-semibold text-orange-600 dark:text-orange-400")}>
-                              {new Date(cert.expiration_date).toLocaleDateString()}
+                              {(() => {
+                                const date = new Date(cert.expiration_date);
+                                return isNaN(date.getTime()) ? "-" : date.toLocaleDateString();
+                              })()}
                             </span>
                             {expiringSoon && (
                               <span className="text-xs text-muted-foreground">
