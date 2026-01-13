@@ -8,7 +8,6 @@ import { Users, Shield, AlertTriangle, XCircle } from "lucide-react";
 interface Stats {
   totalUsers: number;
   totalCertificates: number;
-  activeCertificates: number;
   revokedCertificates: number;
   expiringCertificates: number;
 }
@@ -23,19 +22,27 @@ export const AdminStats: React.FC = () => {
         // Fetch users
         const users = await api.getUsers();
         
-        // Fetch all certificates
+        // Fetch all certificates to get total count
         const certificatesResponse = await api.getCertificates({ limit: 1000 });
-        const allCertificates = certificatesResponse.data;
+        
+        // Fetch revoked certificates separately to get accurate count
+        const revokedResponse = await api.getCertificates({ limit: 1000, status: "REVOKED" });
         
         // Fetch expiring certificates
-        const expiringCertificates = await api.getExpiringCertificates(30);
+        let expiringCount = 0;
+        try {
+          const expiringCertificates = await api.getExpiringCertificates(30);
+          expiringCount = Array.isArray(expiringCertificates) ? expiringCertificates.length : 0;
+        } catch (error) {
+          console.error("Failed to fetch expiring certificates:", error);
+          expiringCount = 0;
+        }
 
         setStats({
           totalUsers: users.length,
           totalCertificates: certificatesResponse.total,
-          activeCertificates: allCertificates.filter((c) => c.status === "ACTIVE").length,
-          revokedCertificates: allCertificates.filter((c) => c.status === "REVOKED").length,
-          expiringCertificates: expiringCertificates.length,
+          revokedCertificates: revokedResponse.total,
+          expiringCertificates: expiringCount,
         });
       } catch (error) {
         ErrorHandler.handleError(error, "Failed to load statistics");
@@ -85,9 +92,7 @@ export const AdminStats: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.totalCertificates}</div>
-          <CardDescription>
-            {stats.activeCertificates} active, {stats.revokedCertificates} revoked
-          </CardDescription>
+          <CardDescription>All certificates in the system</CardDescription>
         </CardContent>
       </Card>
 

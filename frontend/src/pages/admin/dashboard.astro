@@ -21,20 +21,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
         <AdminStats client:load />
 
         <UserList client:load />
-
-        <div class="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Common administrative tasks</CardDescription>
-            </CardHeader>
-            <CardContent class="space-y-4">
-              <Button variant="outline" class="w-full" disabled>
-                System Settings (Coming Soon)
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </main>
     <Toaster client:load />

@@ -261,7 +261,7 @@ export const UserList: React.FC = () => {
 
       {/* Manage Certificates Modal */}
       <Dialog open={manageModalOpen} onOpenChange={setManageModalOpen}>
-        <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] lg:max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Manage Certificates for {selectedUser?.username}</DialogTitle>
             <DialogDescription>

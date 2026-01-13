@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { validateBackendUrl, validateAuthToken, handleApiError } from "@/lib/api-utils";
+import { validateBackendUrl, validateAuthToken } from "@/lib/api-utils";
 
 export const GET: APIRoute = async ({ request }) => {
   try {
