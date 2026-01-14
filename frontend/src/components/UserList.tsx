@@ -298,6 +298,7 @@ export const UserList: React.FC = () => {
                   certificates={userCertificates.filter((c) => certificateStatusFilter === 'ALL' ? true : c.status === certificateStatusFilter)}
                   showUserColumn={false}
                   showStatusFilter={false}
+                  allowGenerate={false}
                   onRevoke={handleCertificateRevoked}
                   onDownload={handleDownloadCertificate}
                   onRefresh={() => selectedUser && fetchUserCertificates(selectedUser.id)}

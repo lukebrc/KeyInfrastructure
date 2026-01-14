@@ -32,6 +32,7 @@ interface CertificateTableProps {
   onDownload?: (certificate: Certificate) => void;
   onRefresh?: () => void;
   showStatusFilter?: boolean;
+  allowGenerate?: boolean; // Whether to show Generate button for PENDING certificates (default: true)
 }
 
 export const CertificateTable: React.FC<CertificateTableProps> = ({
@@ -41,6 +42,7 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
   onDownload,
   onRefresh,
   showStatusFilter = true,
+  allowGenerate = true,
 }) => {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(!externalCertificates);
@@ -371,7 +373,7 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                             </Button>
                           </>
                         )}
-                        {cert.status === "PENDING" && (
+                        {cert.status === "PENDING" && allowGenerate && (
                           <Button
                             size="sm"
                             variant="default"
