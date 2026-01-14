@@ -94,14 +94,29 @@ export const GET: APIRoute = async ({ request, params }) => {
       }
 
       data = await response.json();
+      
+      // Transform certificates to match frontend Certificate type
+      // Backend uses camelCase serialization (from serde rename_all = "camelCase")
+      if (data.certificates && Array.isArray(data.certificates)) {
+        data.certificates = data.certificates.map((cert: any) => ({
+          id: cert.id || String(cert.id),
+          serial_number: cert.serialNumber || cert.serial_number || "",
+          user_id: userId, // Add user_id from path
+          dn: cert.dn || "",
+          status: cert.status || "ACTIVE",
+          expiration_date: cert.expirationDate || cert.expiration_date || null,
+          created_at: cert.createdAt || cert.created_at || new Date().toISOString(),
+          renewed_count: cert.renewedCount || cert.renewed_count || 0,
+        }));
+      }
     }
 
     // Add pending certificates if status requires it
     if (status === 'PENDING' || status === 'ALL') {
       const pendingCertificates = await fetchPendingCertificates();
-      console.debug(`Got ${data.certificates.length} normal and ${pendingCertificates.length} pending certificates`);
-      data.certificates = [...data.certificates, ...pendingCertificates];
-      data.total += pendingCertificates.length;
+      console.debug(`Got ${data.certificates?.length || 0} normal and ${pendingCertificates.length} pending certificates`);
+      data.certificates = [...(data.certificates || []), ...pendingCertificates];
+      data.total = (data.total || 0) + pendingCertificates.length;
     }
 
     data.data = data.certificates;

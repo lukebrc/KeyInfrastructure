@@ -14,7 +14,7 @@ import { Toaster } from "../../../components/ui/sonner";
           <h1 class="text-3xl font-bold mb-2">Manage Certificates</h1>
           <p class="text-muted-foreground">View and manage all certificates in the system</p>
         </div>
-        <CertificateTable client:load showUserColumn={true} allowGenerate={false} />
+        <CertificateTable client:load showUserColumn={true} allowGenerate={true} />
       </div>
     </main>
     <Toaster client:load />

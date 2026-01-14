@@ -21,7 +21,7 @@ import { api } from "@/lib/api";
 import { ErrorHandler } from "@/lib/error-handler";
 import { DownloadCertificateModal } from "./DownloadCertificateModal";
 import { RevokeModal } from "./RevokeModal";
-import type { Certificate, CertificateStatus } from "@/types";
+import type { Certificate, CertificateStatus, User } from "@/types";
 import { Download, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, XCircle, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +58,7 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
   const [generating, setGenerating] = useState<Record<string, boolean>>({});
   const [revokeModalOpen, setRevokeModalOpen] = useState(false);
   const [certificateToRevoke, setCertificateToRevoke] = useState<Certificate | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const fetchCertificates = async () => {
     try {
@@ -97,6 +98,20 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
       setLoading(false);
     }
   }, [externalCertificates]);
+
+  // Fetch current user to check certificate ownership
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const user = await api.getCurrentUser();
+        setCurrentUser(user);
+      } catch (error) {
+        // Silently fail - if we can't get current user, we just won't show Generate button
+        console.debug("Could not fetch current user for certificate ownership check", error);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
 
   const handleSort = (field: "expiration_date" | "serial_number") => {
     if (sortBy === field) {
@@ -373,26 +388,38 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                             </Button>
                           </>
                         )}
-                        {cert.status === "PENDING" && allowGenerate && (
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => handleGenerate(cert.id)}
-                            disabled={generating[cert.id]}
-                          >
-                            {generating[cert.id] ? (
-                              <>
-                                <RefreshCw className="size-4 mr-1 animate-spin" />
-                                Generating...
-                              </>
-                            ) : (
-                              <>
-                                <Play className="size-4 mr-1" />
-                                Generate
-                              </>
-                            )}
-                          </Button>
-                        )}
+                        {cert.status === "PENDING" && allowGenerate && (() => {
+                          // Show Generate button if:
+                          // 1. currentUser is not loaded yet (optimistic - assume it's user's own cert), OR
+                          // 2. cert.user_id is not set or empty (assume it's user's own cert from their own endpoint), OR
+                          // 3. currentUser is loaded and cert.user_id matches currentUser.id (string comparison)
+                          const hasUserId = cert.user_id && String(cert.user_id).trim() !== "";
+                          const userIdMatches = currentUser && hasUserId 
+                            ? String(cert.user_id).trim() === String(currentUser.id).trim()
+                            : true; // If no user_id or no currentUser, allow (optimistic)
+                          const canGenerate = !currentUser || !hasUserId || userIdMatches;
+                          
+                          return canGenerate ? (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleGenerate(cert.id)}
+                              disabled={generating[cert.id]}
+                            >
+                              {generating[cert.id] ? (
+                                <>
+                                  <RefreshCw className="size-4 mr-1 animate-spin" />
+                                  Generating...
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="size-4 mr-1" />
+                                  Generate
+                                </>
+                              )}
+                            </Button>
+                          ) : null;
+                        })()}
                         {cert.status === "REVOKED" && (
                           <span className="text-sm text-muted-foreground">Revoked</span>
                         )}

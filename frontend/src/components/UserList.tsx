@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/components/AuthContext";
 
 export const UserList: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -45,6 +46,7 @@ export const UserList: React.FC = () => {
   const [userCertificates, setUserCertificates] = useState<Certificate[]>([]);
   const [certificatesLoading, setCertificatesLoading] = useState(false);
   const [certificateStatusFilter, setCertificateStatusFilter] = useState<'ALL' | Certificate['status']>('ALL');
+  const { user: currentUser, loading: authLoading } = useAuth();
 
   const fetchUsers = async () => {
     try {
@@ -80,6 +82,15 @@ export const UserList: React.FC = () => {
   }, []);
 
   const handleManageCertificates = async (user: User) => {
+    if(authLoading) {
+      console.log("Still loading");
+      return;
+    }
+    console.log("currentUser", currentUser, user);
+    if (currentUser && currentUser.id === user.id) {
+      window.location.href = "/admin/certificates";
+      return;
+    }
     setSelectedUser(user);
     await fetchUserCertificates(user.id);
     setManageModalOpen(true);
@@ -298,7 +309,7 @@ export const UserList: React.FC = () => {
                   certificates={userCertificates.filter((c) => certificateStatusFilter === 'ALL' ? true : c.status === certificateStatusFilter)}
                   showUserColumn={false}
                   showStatusFilter={false}
-                  allowGenerate={false}
+                  allowGenerate={currentUser !== null && selectedUser !== null && (currentUser.id === selectedUser.id || currentUser.role === 'ADMIN')}
                   onRevoke={handleCertificateRevoked}
                   onDownload={handleDownloadCertificate}
                   onRefresh={() => selectedUser && fetchUserCertificates(selectedUser.id)}

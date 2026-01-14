@@ -109,7 +109,7 @@ export const api = {
   // Users
   async getCurrentUser(): Promise<User> {
     // Use proxy API route
-    const response = await fetch("/api/users/me", {
+    const response = await fetch("/api/auth/me", {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

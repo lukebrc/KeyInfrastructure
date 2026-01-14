@@ -108,7 +108,8 @@ export const GET: APIRoute = async ({ request }) => {
       transformedCertificates = (backendData.certificates || []).map((cert: any) => ({
         id: cert.id || String(cert.id),
         serial_number: cert.serialNumber || cert.serial_number || "",
-        user_id: userId, // Add user_id from path
+        // Preserve backend's userId if present, otherwise use userId from path
+        user_id: cert.userId || cert.user_id || userId,
         dn: cert.dn || "",
         status: cert.status || "ACTIVE",
         expiration_date: cert.expirationDate || cert.expiration_date || new Date().toISOString(),
