@@ -2,9 +2,9 @@ import type { APIRoute } from "astro";
 
 export const GET: APIRoute = async ({ request, cookies }) => {
   // 1. Get the backend URL from environment variables
-  const backendApiUrl = import.meta.env.BACKEND_API_URL;
+  const backendApiUrl = import.meta.env.BACKEND_URL;
   if (!backendApiUrl) {
-    console.error("BACKEND_API_URL is not set in environment variables.");
+    console.error("BACKEND_URL is not set in environment variables.");
     return new Response(JSON.stringify({ message: "Server configuration error." }), { status: 500 });
   }
 
@@ -44,9 +44,9 @@ export const GET: APIRoute = async ({ request, cookies }) => {
 
 export const POST: APIRoute = async ({ request }) => {
   // 1. Get the backend URL from environment variables
-  const backendApiUrl = import.meta.env.BACKEND_API_URL;
+  const backendApiUrl = import.meta.env.BACKEND_URL;
   if (!backendApiUrl) {
-    console.error("BACKEND_API_URL is not set in environment variables.");
+    console.error("BACKEND_URL is not set in environment variables.");
     return new Response(JSON.stringify({ message: "Server configuration error." }), { status: 500 });
   }
 

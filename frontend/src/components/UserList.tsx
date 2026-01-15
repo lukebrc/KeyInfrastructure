@@ -82,10 +82,12 @@ export const UserList: React.FC = () => {
   }, []);
 
   const handleManageCertificates = async (user: User) => {
-    if(authLoading) {
-      console.log("Still loading");
+    // Wait for auth to finish loading
+    if (authLoading) {
+      console.log("Authentication still loading, please wait...");
       return;
     }
+    
     console.log("currentUser", currentUser, user);
     if (currentUser && currentUser.id === user.id) {
       window.location.href = "/admin/certificates";
@@ -221,6 +223,7 @@ export const UserList: React.FC = () => {
                         size="sm"
                         variant="outline"
                         onClick={() => handleManageCertificates(user)}
+                        disabled={authLoading}
                       >
                         <Settings className="size-4 mr-1" />
                         Manage Certificates

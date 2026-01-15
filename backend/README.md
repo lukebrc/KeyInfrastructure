@@ -57,6 +57,24 @@ backend/
 - PostgreSQL database
 - Environment variables configured (see Configuration section)
 
+## Certificate Authority Setup
+
+The backend acts as its own Certificate Authority (CA) to sign user certificates. Before running the application, you need to set up the CA by creating a `ca` directory in the project root and generating a CA private key (`ca.key`) and a CA certificate (`ca.crt`).
+
+The `ca.key` file must be encrypted with a password, which should be provided via the `CA_PASSWORD` environment variable.
+
+Example commands for generating a self-signed CA (requires `openssl`):
+
+```bash
+mkdir -p ca
+# Generate CA private key (encrypted)
+openssl genrsa -aes256 -passout env:CA_PASSWORD -out ca/ca.key 2048
+# Generate CA certificate
+openssl req -x509 -new -nodes -key ca/ca.key -passin env:CA_PASSWORD -sha256 -days 3650 -out ca/ca.crt -subj "/CN=KeyInfrastructure CA"
+```
+
+Replace `env:CA_PASSWORD` with the actual environment variable or specify the password directly if not using an environment variable for `openssl` commands (though using `env:CA_PASSWORD` is recommended for consistency with the application's configuration). The `-days 3650` sets the certificate validity to 10 years.
+
 ## Building
 
 ```bash
@@ -71,6 +89,9 @@ Cargo build should produce single binary file `key_infractructure`
 
 ## Running
 
+If you already created Certificate Authority in `ca` directory (if not create it using **Create Authority Setup** paragraph),
+you can run application using command.
+
 ```bash
 # Run in development mode
 cargo run
@@ -78,6 +99,8 @@ cargo run
 # Run in release mode
 cargo run --release
 ```
+
+Or execute binary file `./target/release/key_infrastructure`
 
 The server will start on `0.0.0.0:8080` by default.
 
