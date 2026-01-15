@@ -45,7 +45,10 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
     }
 
     try {
-      const blob = await api.downloadCertificate(certificate.id, { password });
+      const blob = await api.downloadCertificate(certificate.id, { 
+        password,
+        user_id: certificate.user_id 
+      });
 
       // Create download link
       const url = window.URL.createObjectURL(blob);

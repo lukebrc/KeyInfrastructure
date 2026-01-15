@@ -42,16 +42,19 @@ export const POST: APIRoute = async ({ request, params }) => {
 
     // Get request body
     const body = await request.json();
+    
+    // Use certificate owner's user_id if provided (for admin downloads), otherwise use current user's ID
+    const certificateOwnerId = body.user_id || userId;
 
-    // Forward the request to the backend
-    const response = await fetch(`${backendUrl}/users/${userId}/certificates/${certificateId}/download`, {
+    // Forward the request to the backend PKCS12 endpoint
+    const response = await fetch(`${backendUrl}/users/${certificateOwnerId}/certificates/${certificateId}/pkcs12`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       credentials: "include",
-      body: JSON.stringify(body),
+      body: JSON.stringify({ password: body.password }),
     });
 
     if (!response.ok) {

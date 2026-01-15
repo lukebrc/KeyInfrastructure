@@ -67,6 +67,7 @@ export interface RevokeCertificateRequest {
 
 export interface DownloadCertificateRequest {
   password: string;
+  user_id?: string; // Certificate owner's user_id (required for admin downloads)
 }
 
 // API Error Response
