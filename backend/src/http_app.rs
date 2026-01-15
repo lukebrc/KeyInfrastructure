@@ -1,5 +1,5 @@
 use actix_web::{web::{self, ServiceConfig}};
-use crate::auth::{list_users, login, register, verify_token};
+use crate::auth::{list_users, login, logout, register, verify_token};
 use crate::certificate::{create_certificate_request, download_pkcs12, download_public_certificate, generate_certificate, list_user_certificates, list_expiring_certificates, list_pending_certificates, revoke_certificate};
 use crate::db_model::AppState;
 use crate::middleware::JwtMiddlewareFactory;
@@ -10,6 +10,7 @@ pub fn config_app(app_state: web::Data<AppState>) -> Box<dyn Fn(&mut ServiceConf
         cfg.app_data(app_state.clone())
             .route("/users", web::post().to(register)) // Public route for registration
             .route("/auth/login", web::post().to(login))
+            .route("/auth/logout", web::post().to(logout))
             .route("/auth/verify", web::get().to(verify_token))
             // Protected routes
             .service(

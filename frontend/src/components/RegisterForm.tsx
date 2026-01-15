@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,24 +12,6 @@ const RegisterForm: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-
-  // Check if user is already logged in and redirect
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const user = await api.getCurrentUser();
-        // Redirect based on role
-        if (user.role === "ADMIN") {
-          window.location.href = "/admin/dashboard";
-        } else {
-          window.location.href = "/dashboard";
-        }
-      } catch {
-        // Not logged in, continue
-      }
-    };
-    checkAuth();
-  }, []);
 
   const validateForm = (): boolean => {
     if (!username || !password) {

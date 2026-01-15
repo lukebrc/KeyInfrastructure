@@ -389,15 +389,14 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                           </>
                         )}
                         {cert.status === "PENDING" && allowGenerate && (() => {
-                          // Show Generate button if:
-                          // 1. currentUser is not loaded yet (optimistic - assume it's user's own cert), OR
-                          // 2. cert.user_id is not set or empty (assume it's user's own cert from their own endpoint), OR
-                          // 3. currentUser is loaded and cert.user_id matches currentUser.id (string comparison)
+                          // Show Generate button only if:
+                          // 1. currentUser is loaded, AND
+                          // 2. cert.user_id matches currentUser.id (certificate belongs to current user)
                           const hasUserId = cert.user_id && String(cert.user_id).trim() !== "";
                           const userIdMatches = currentUser && hasUserId 
                             ? String(cert.user_id).trim() === String(currentUser.id).trim()
-                            : true; // If no user_id or no currentUser, allow (optimistic)
-                          const canGenerate = !currentUser || !hasUserId || userIdMatches;
+                            : false;
+                          const canGenerate = currentUser && hasUserId && userIdMatches;
                           
                           return canGenerate ? (
                             <Button

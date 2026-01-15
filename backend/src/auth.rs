@@ -236,6 +236,22 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
     }
 }
 
+pub async fn logout() -> impl Responder {
+    log::info!("Logout request received");
+    
+    // Create a cookie with the same attributes as the login cookie, but with max_age set to 0 to delete it
+    let cookie = Cookie::build("auth_token", "")
+        .path("/")
+        .http_only(true)
+        .same_site(SameSite::Lax)
+        .max_age(actix_web::cookie::time::Duration::seconds(0))
+        .finish();
+
+    HttpResponse::Ok()
+        .cookie(cookie)
+        .json(serde_json::json!({ "message": "Logged out successfully" }))
+}
+
 pub async fn list_users(state: web::Data<AppState>, req: HttpRequest) -> impl Responder {
     // 1. Extract claims inserted by the JWT middleware.
     let claims = match req.extensions().get::<Claims>().cloned() {

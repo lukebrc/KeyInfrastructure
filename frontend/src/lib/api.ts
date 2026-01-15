@@ -88,22 +88,21 @@ export const api = {
   },
 
   async logout(): Promise<void> {
-    try {
-      // Try to call logout endpoint (if exists)
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      }).catch(() => {
-        // Ignore errors if endpoint doesn't exist
-      });
-    } catch (error) {
-      console.error("Logout error:", error);
-    } finally {
-      // Clear token cookie
-      if (typeof document !== "undefined") {
-        document.cookie = "auth_token=; path=/; max-age=0";
-      }
+    // Call logout endpoint which will clear the httpOnly cookie on the backend
+    const response = await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include", // Include cookies so backend can clear them
+    });
+
+    if (!response.ok) {
+      const error: ApiError = {
+        message: "Failed to logout",
+      };
+      throw error;
     }
+
+    // Cookie is cleared by backend via Set-Cookie header
+    // No need to manually clear it as it's httpOnly
   },
 
   // Users
