@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 
 interface CertificateTableProps {
   certificates?: Certificate[];
+  userId?: string | null;
   showUserColumn?: boolean;
   onRevoke?: (certificate: Certificate) => void;
   onDownload?: (certificate: Certificate) => void;
@@ -45,6 +46,7 @@ interface CertificateTableProps {
 
 export const CertificateTable: React.FC<CertificateTableProps> = ({
   certificates: externalCertificates,
+  userId,
   showUserColumn = false,
   onRevoke,
   onDownload,
@@ -77,13 +79,17 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
   const fetchCertificates = async () => {
     try {
       setLoading(true);
-      const response = await api.getCertificates({
+      const params = {
         page,
         limit,
         status: statusFilter !== "ALL" ? statusFilter : undefined,
         sort_by: sortBy,
         order: sortOrder,
-      });
+      };
+      const response = userId
+        ? await api.getUserCertificates(userId, params)
+        : await api.getCertificates(params);
+
       setCertificates(response.data);
       setTotal(response.total);
     } catch (error) {
@@ -105,7 +111,7 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
       fetchCertificates();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, statusFilter, sortBy, sortOrder, externalCertificates]);
+  }, [page, statusFilter, sortBy, sortOrder, externalCertificates, userId]);
 
   // Update internal state when external certificates change
   useEffect(() => {

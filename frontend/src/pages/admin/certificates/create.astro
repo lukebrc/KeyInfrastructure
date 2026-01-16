@@ -3,6 +3,8 @@ import Layout from "../../../layouts/Layout.astro";
 import { AdminHeader } from "../../../components/AdminHeader.tsx";
 import { CreateCertificateForm } from "../../../components/CreateCertificateForm.tsx";
 import { Toaster } from "../../../components/ui/sonner";
+
+const userId = Astro.url.searchParams.get("userId");
 ---
 
 <Layout title="Create Certificate">
@@ -14,7 +16,7 @@ import { Toaster } from "../../../components/ui/sonner";
           <h1 class="text-3xl font-bold mb-2">Create Certificate</h1>
           <p class="text-muted-foreground">Create a new certificate for a user</p>
         </div>
-        <CreateCertificateForm client:load />
+        <CreateCertificateForm client:load preselectedUserId={userId} />
       </div>
     </main>
     <Toaster client:load />

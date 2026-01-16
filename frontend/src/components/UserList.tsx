@@ -83,21 +83,8 @@ export const UserList: React.FC = () => {
     fetchUsers();
   }, []);
 
-  const handleManageCertificates = async (user: User) => {
-    // Wait for auth to finish loading
-    if (authLoading) {
-      console.log("Authentication still loading, please wait...");
-      return;
-    }
-
-    console.log("currentUser", currentUser, user);
-    if (currentUser && currentUser.id === user.id) {
-      window.location.href = "/admin/certificates";
-      return;
-    }
-    setSelectedUser(user);
-    await fetchUserCertificates(user.id);
-    setManageModalOpen(true);
+  const handleManageCertificates = (user: User) => {
+    window.location.href = `/admin/certificates?userId=${user.id}`;
   };
 
   const handleCreateCertificate = (user: User) => {
