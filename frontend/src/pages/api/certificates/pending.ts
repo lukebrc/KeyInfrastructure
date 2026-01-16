@@ -1,11 +1,17 @@
 import type { APIRoute } from "astro";
-import { validateBackendUrl, validateAuthToken, handleApiError, getCurrentUserId, fetchPendingCertificatesFromBackend } from "@/lib/api-utils";
+import {
+  validateBackendUrl,
+  validateAuthToken,
+  handleApiError,
+  getCurrentUserId,
+  fetchPendingCertificatesFromBackend,
+} from "@/lib/api-utils";
 
 export const GET: APIRoute = async ({ request }) => {
   try {
     const backendUrl = validateBackendUrl();
     const token = validateAuthToken(request);
-    
+
     let userId: string;
     try {
       userId = await getCurrentUserId(request);
@@ -13,25 +19,33 @@ export const GET: APIRoute = async ({ request }) => {
       console.error("Failed to get user ID:", error);
       return new Response(
         JSON.stringify({
-          message: error instanceof Error ? error.message : "Failed to get user ID",
+          message:
+            error instanceof Error ? error.message : "Failed to get user ID",
         }),
         {
           status: 401,
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
     console.info("Getting pending certificates");
 
-    const pendingResult = await fetchPendingCertificatesFromBackend(backendUrl, token, userId);
+    const pendingResult = await fetchPendingCertificatesFromBackend(
+      backendUrl,
+      token,
+      userId,
+    );
     if (pendingResult.error) {
-      return new Response(JSON.stringify({ message: pendingResult.error.message }), {
-        status: pendingResult.error.status,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ message: pendingResult.error.message }),
+        {
+          status: pendingResult.error.status,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     // The helper already returns transformed pending certificate objects with user_id filled
@@ -54,7 +68,7 @@ export const GET: APIRoute = async ({ request }) => {
         headers: {
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 };

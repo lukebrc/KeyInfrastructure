@@ -1,5 +1,10 @@
 import type { APIRoute } from "astro";
-import { validateBackendUrl, validateAuthToken, handleApiError, createErrorResponse } from "@/lib/api-utils";
+import {
+  validateBackendUrl,
+  validateAuthToken,
+  handleApiError,
+  createErrorResponse,
+} from "@/lib/api-utils";
 
 // Endpoint to fetch current user details
 export const GET: APIRoute = async ({ request }) => {
@@ -16,7 +21,10 @@ export const GET: APIRoute = async ({ request }) => {
     });
 
     if (!response.ok) {
-      return createErrorResponse("Failed to fetch user details", response.status);
+      return createErrorResponse(
+        "Failed to fetch user details",
+        response.status,
+      );
     }
 
     const data = await response.json();

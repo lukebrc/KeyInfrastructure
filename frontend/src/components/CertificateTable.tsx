@@ -22,7 +22,15 @@ import { ErrorHandler } from "@/lib/error-handler";
 import { DownloadCertificateModal } from "./DownloadCertificateModal";
 import { RevokeModal } from "./RevokeModal";
 import type { Certificate, CertificateStatus, User } from "@/types";
-import { Download, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, XCircle, Play } from "lucide-react";
+import {
+  Download,
+  RefreshCw,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  XCircle,
+  Play,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CertificateTableProps {
@@ -49,15 +57,21 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [total, setTotal] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<CertificateStatus | "ALL">("ALL");
-  const [sortBy, setSortBy] = useState<"expiration_date" | "serial_number">("expiration_date");
+  const [statusFilter, setStatusFilter] = useState<CertificateStatus | "ALL">(
+    "ALL",
+  );
+  const [sortBy, setSortBy] = useState<"expiration_date" | "serial_number">(
+    "expiration_date",
+  );
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
+  const [selectedCertificate, setSelectedCertificate] =
+    useState<Certificate | null>(null);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [renewing, setRenewing] = useState<Record<string, boolean>>({});
   const [generating, setGenerating] = useState<Record<string, boolean>>({});
   const [revokeModalOpen, setRevokeModalOpen] = useState(false);
-  const [certificateToRevoke, setCertificateToRevoke] = useState<Certificate | null>(null);
+  const [certificateToRevoke, setCertificateToRevoke] =
+    useState<Certificate | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const fetchCertificates = async () => {
@@ -82,7 +96,9 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
   // Use external certificates if provided, otherwise fetch our own
   const displayedCertificates = externalCertificates || certificates;
   const displayedLoading = externalCertificates ? false : loading;
-  const displayedTotal = externalCertificates ? externalCertificates.length : total;
+  const displayedTotal = externalCertificates
+    ? externalCertificates.length
+    : total;
 
   useEffect(() => {
     if (!externalCertificates) {
@@ -107,7 +123,10 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
         setCurrentUser(user);
       } catch (error) {
         // Silently fail - if we can't get current user, we just won't show Generate button
-        console.debug("Could not fetch current user for certificate ownership check", error);
+        console.debug(
+          "Could not fetch current user for certificate ownership check",
+          error,
+        );
       }
     };
     fetchCurrentUser();
@@ -186,7 +205,9 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
     }
   };
 
-  const getDaysUntilExpiry = (expirationDate: string | null | undefined): number => {
+  const getDaysUntilExpiry = (
+    expirationDate: string | null | undefined,
+  ): number => {
     if (!expirationDate) return 0;
     const expiry = new Date(expirationDate);
     if (isNaN(expiry.getTime())) return 0;
@@ -196,14 +217,20 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
     return diffDays;
   };
 
-  const isExpiringSoon = (expirationDate: string | null | undefined): boolean => {
+  const isExpiringSoon = (
+    expirationDate: string | null | undefined,
+  ): boolean => {
     if (!expirationDate) return false;
     return getDaysUntilExpiry(expirationDate) <= 30;
   };
 
   const totalPages = Math.ceil(total / limit);
 
-  const SortIcon = ({ field }: { field: "expiration_date" | "serial_number" }) => {
+  const SortIcon = ({
+    field,
+  }: {
+    field: "expiration_date" | "serial_number";
+  }) => {
     if (sortBy !== field) {
       return <ArrowUpDown className="size-4 ml-1 opacity-50" />;
     }
@@ -219,10 +246,13 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
       <div className="flex items-center justify-between gap-4">
         {showStatusFilter && (
           <div className="flex items-center gap-2">
-            <Select value={statusFilter} onValueChange={(value) => {
-              setPage(1);
-              setStatusFilter(value as CertificateStatus | "ALL")}
-            }>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setPage(1);
+                setStatusFilter(value as CertificateStatus | "ALL");
+              }}
+            >
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
@@ -235,8 +265,14 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
             </Select>
           </div>
         )}
-        <Button variant="outline" onClick={onRefresh || fetchCertificates} disabled={displayedLoading}>
-          <RefreshCw className={cn("size-4 mr-2", displayedLoading && "animate-spin")} />
+        <Button
+          variant="outline"
+          onClick={onRefresh || fetchCertificates}
+          disabled={displayedLoading}
+        >
+          <RefreshCw
+            className={cn("size-4 mr-2", displayedLoading && "animate-spin")}
+          />
           Refresh
         </Button>
       </div>
@@ -301,18 +337,31 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
               ))
             ) : displayedCertificates.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={showUserColumn ? 6 : 5} className="text-center py-8 text-muted-foreground">
+                <TableCell
+                  colSpan={showUserColumn ? 6 : 5}
+                  className="text-center py-8 text-muted-foreground"
+                >
                   No certificates found
                 </TableCell>
               </TableRow>
             ) : (
               displayedCertificates.map((cert) => {
-                const days = cert.status !== "PENDING" ? getDaysUntilExpiry(cert.expiration_date) : 0;
-                const expiringSoon = cert.status !== "PENDING" ? isExpiringSoon(cert.expiration_date) : false;
+                const days =
+                  cert.status !== "PENDING"
+                    ? getDaysUntilExpiry(cert.expiration_date)
+                    : 0;
+                const expiringSoon =
+                  cert.status !== "PENDING"
+                    ? isExpiringSoon(cert.expiration_date)
+                    : false;
                 return (
                   <TableRow key={cert.id}>
-                    <TableCell className="font-mono text-sm">{cert.serial_number}</TableCell>
-                    {showUserColumn && <TableCell>{cert.username || "N/A"}</TableCell>}
+                    <TableCell className="font-mono text-sm">
+                      {cert.serial_number}
+                    </TableCell>
+                    {showUserColumn && (
+                      <TableCell>{cert.username || "N/A"}</TableCell>
+                    )}
                     <TableCell className="max-w-md truncate" title={cert.dn}>
                       {cert.dn}
                     </TableCell>
@@ -322,10 +371,17 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                           <span className="text-muted-foreground">-</span>
                         ) : (
                           <>
-                            <span className={cn(expiringSoon && "font-semibold text-orange-600 dark:text-orange-400")}>
+                            <span
+                              className={cn(
+                                expiringSoon &&
+                                  "font-semibold text-orange-600 dark:text-orange-400",
+                              )}
+                            >
                               {(() => {
                                 const date = new Date(cert.expiration_date);
-                                return isNaN(date.getTime()) ? "-" : date.toLocaleDateString();
+                                return isNaN(date.getTime())
+                                  ? "-"
+                                  : date.toLocaleDateString();
                               })()}
                             </span>
                             {expiringSoon && (
@@ -338,11 +394,15 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={
-                        cert.status === "ACTIVE" ? "default" :
-                        cert.status === "PENDING" ? "secondary" :
-                        "destructive"
-                      }>
+                      <Badge
+                        variant={
+                          cert.status === "ACTIVE"
+                            ? "default"
+                            : cert.status === "PENDING"
+                              ? "secondary"
+                              : "destructive"
+                        }
+                      >
                         {cert.status}
                       </Badge>
                     </TableCell>
@@ -388,39 +448,48 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                             </Button>
                           </>
                         )}
-                        {cert.status === "PENDING" && allowGenerate && (() => {
-                          // Show Generate button only if:
-                          // 1. currentUser is loaded, AND
-                          // 2. cert.user_id matches currentUser.id (certificate belongs to current user)
-                          const hasUserId = cert.user_id && String(cert.user_id).trim() !== "";
-                          const userIdMatches = currentUser && hasUserId 
-                            ? String(cert.user_id).trim() === String(currentUser.id).trim()
-                            : false;
-                          const canGenerate = currentUser && hasUserId && userIdMatches;
-                          
-                          return canGenerate ? (
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={() => handleGenerate(cert.id)}
-                              disabled={generating[cert.id]}
-                            >
-                              {generating[cert.id] ? (
-                                <>
-                                  <RefreshCw className="size-4 mr-1 animate-spin" />
-                                  Generating...
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="size-4 mr-1" />
-                                  Generate
-                                </>
-                              )}
-                            </Button>
-                          ) : null;
-                        })()}
+                        {cert.status === "PENDING" &&
+                          allowGenerate &&
+                          (() => {
+                            // Show Generate button only if:
+                            // 1. currentUser is loaded, AND
+                            // 2. cert.user_id matches currentUser.id (certificate belongs to current user)
+                            const hasUserId =
+                              cert.user_id &&
+                              String(cert.user_id).trim() !== "";
+                            const userIdMatches =
+                              currentUser && hasUserId
+                                ? String(cert.user_id).trim() ===
+                                  String(currentUser.id).trim()
+                                : false;
+                            const canGenerate =
+                              currentUser && hasUserId && userIdMatches;
+
+                            return canGenerate ? (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => handleGenerate(cert.id)}
+                                disabled={generating[cert.id]}
+                              >
+                                {generating[cert.id] ? (
+                                  <>
+                                    <RefreshCw className="size-4 mr-1 animate-spin" />
+                                    Generating...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="size-4 mr-1" />
+                                    Generate
+                                  </>
+                                )}
+                              </Button>
+                            ) : null;
+                          })()}
                         {cert.status === "REVOKED" && (
-                          <span className="text-sm text-muted-foreground">Revoked</span>
+                          <span className="text-sm text-muted-foreground">
+                            Revoked
+                          </span>
                         )}
                       </div>
                     </TableCell>
@@ -435,7 +504,8 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} certificates
+            Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)}{" "}
+            of {total} certificates
           </p>
           <div className="flex items-center gap-2">
             <Button

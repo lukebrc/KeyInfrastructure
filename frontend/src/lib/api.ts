@@ -40,7 +40,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
         // Only redirect if not already on login or register page
         const currentPath = window.location.pathname;
         if (currentPath !== "/login" && currentPath !== "/register") {
-          window.location.href = "/login?message=Session expired. Please log in again.";
+          window.location.href =
+            "/login?message=Session expired. Please log in again.";
         }
       }
     }
@@ -49,7 +50,10 @@ async function handleResponse<T>(response: Response): Promise<T> {
   }
 
   // Handle empty responses (204 No Content)
-  if (response.status === 204 || response.headers.get("content-length") === "0") {
+  if (
+    response.status === 204 ||
+    response.headers.get("content-length") === "0"
+  ) {
     return {} as T;
   }
 
@@ -133,7 +137,9 @@ export const api = {
   },
 
   // Certificates
-  async getCertificates(params?: PaginationParams & { status?: string }): Promise<PaginatedResponse<Certificate>> {
+  async getCertificates(
+    params?: PaginationParams & { status?: string },
+  ): Promise<PaginatedResponse<Certificate>> {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append("page", params.page.toString());
     if (params?.limit) queryParams.append("limit", params.limit.toString());
@@ -154,7 +160,10 @@ export const api = {
     return handleResponse<PaginatedResponse<Certificate>>(response);
   },
 
-  async getUserCertificates(userId: string, params?: PaginationParams & { status?: string }): Promise<PaginatedResponse<Certificate>> {
+  async getUserCertificates(
+    userId: string,
+    params?: PaginationParams & { status?: string },
+  ): Promise<PaginatedResponse<Certificate>> {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append("page", params.page.toString());
     if (params?.limit) queryParams.append("limit", params.limit.toString());
@@ -201,7 +210,10 @@ export const api = {
     return handleResponse<Certificate[]>(response);
   },
 
-  async createCertificate(userId: string, request: CreateCertificateRequest): Promise<Certificate> {
+  async createCertificate(
+    userId: string,
+    request: CreateCertificateRequest,
+  ): Promise<Certificate> {
     // Use proxy API route
     const response = await fetch(`/api/users/${userId}/certificates`, {
       method: "POST",
@@ -215,7 +227,10 @@ export const api = {
     return handleResponse<Certificate>(response);
   },
 
-  async renewCertificate(certificateId: string, request?: RenewCertificateRequest): Promise<Certificate> {
+  async renewCertificate(
+    certificateId: string,
+    request?: RenewCertificateRequest,
+  ): Promise<Certificate> {
     // Use proxy API route
     const response = await fetch(`/api/certificates/${certificateId}/renew`, {
       method: "PUT",
@@ -229,7 +244,10 @@ export const api = {
     return handleResponse<Certificate>(response);
   },
 
-  async revokeCertificate(certificateId: string, request?: RevokeCertificateRequest): Promise<Certificate> {
+  async revokeCertificate(
+    certificateId: string,
+    request?: RevokeCertificateRequest,
+  ): Promise<Certificate> {
     // Use proxy API route
     const response = await fetch(`/api/certificates/${certificateId}/revoke`, {
       method: "PUT",
@@ -245,27 +263,36 @@ export const api = {
 
   async generateCertificate(certificateId: string): Promise<Certificate> {
     // Use proxy API route
-    const response = await fetch(`/api/certificates/${certificateId}/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `/api/certificates/${certificateId}/generate`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
       },
-      credentials: "include",
-    });
+    );
 
     return handleResponse<Certificate>(response);
   },
 
-  async downloadCertificate(certificateId: string, request: DownloadCertificateRequest): Promise<Blob> {
+  async downloadCertificate(
+    certificateId: string,
+    request: DownloadCertificateRequest,
+  ): Promise<Blob> {
     // Use proxy API route
-    const response = await fetch(`/api/certificates/${certificateId}/download`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `/api/certificates/${certificateId}/download`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
       },
-      credentials: "include",
-      body: JSON.stringify(request),
-    });
+    );
 
     if (!response.ok) {
       await handleResponse<ApiError>(response);

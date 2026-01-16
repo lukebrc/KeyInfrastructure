@@ -1,5 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 
 interface NetworkErrorFallbackProps {
@@ -23,7 +30,8 @@ export const NetworkErrorFallback: React.FC<NetworkErrorFallbackProps> = ({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            We couldn't connect to the server. Please check your internet connection and try again.
+            We couldn't connect to the server. Please check your internet
+            connection and try again.
           </p>
         </CardContent>
         {onRetry && (
@@ -37,4 +45,3 @@ export const NetworkErrorFallback: React.FC<NetworkErrorFallbackProps> = ({
     </div>
   );
 };
-

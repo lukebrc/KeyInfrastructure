@@ -8,7 +8,10 @@ export class ErrorHandler {
   /**
    * Handle API error and show appropriate message to user
    */
-  static handleError(error: unknown, defaultMessage = "An error occurred"): void {
+  static handleError(
+    error: unknown,
+    defaultMessage = "An error occurred",
+  ): void {
     const apiError = error as ApiError;
 
     // Extract error message
@@ -29,7 +32,9 @@ export class ErrorHandler {
       }
 
       if (message.includes("403") || message.includes("Forbidden")) {
-        toast.error("Access denied. You don't have permission to perform this action.");
+        toast.error(
+          "Access denied. You don't have permission to perform this action.",
+        );
         return;
       }
 
@@ -48,7 +53,10 @@ export class ErrorHandler {
         return;
       }
 
-      if (message.includes("500") || message.includes("Internal Server Error")) {
+      if (
+        message.includes("500") ||
+        message.includes("Internal Server Error")
+      ) {
         toast.error("Server error. Please try again later.");
         return;
       }
@@ -84,4 +92,3 @@ export class ErrorHandler {
     toast.warning(message);
   }
 }
-

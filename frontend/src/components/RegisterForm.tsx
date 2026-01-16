@@ -1,7 +1,14 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { api } from "@/lib/api";
 import type { RegisterRequest, ApiError } from "@/types";
@@ -52,7 +59,9 @@ const RegisterForm: React.FC = () => {
         window.location.href = "/dashboard";
       } catch (loginError) {
         // If auto-login fails, redirect to login page
-        setError("Registration successful, but automatic login failed. Please log in manually.");
+        setError(
+          "Registration successful, but automatic login failed. Please log in manually.",
+        );
         setTimeout(() => {
           window.location.href = "/login";
         }, 2000);
@@ -60,9 +69,18 @@ const RegisterForm: React.FC = () => {
     } catch (err) {
       const apiError = err as ApiError;
       // Handle specific error codes
-      if (apiError.message.includes("409") || apiError.message.includes("Conflict") || apiError.message.includes("already exists")) {
-        setError("Username already exists. Please choose a different username.");
-      } else if (apiError.message.includes("400") || apiError.message.includes("Bad Request")) {
+      if (
+        apiError.message.includes("409") ||
+        apiError.message.includes("Conflict") ||
+        apiError.message.includes("already exists")
+      ) {
+        setError(
+          "Username already exists. Please choose a different username.",
+        );
+      } else if (
+        apiError.message.includes("400") ||
+        apiError.message.includes("Bad Request")
+      ) {
         setError(apiError.message || "Invalid data. Please check your input.");
       } else {
         setError(apiError.message || "An error occurred. Please try again.");
@@ -88,7 +106,9 @@ const RegisterForm: React.FC = () => {
             )}
             {success && (
               <Alert>
-                <AlertDescription>Registration successful! Logging you in...</AlertDescription>
+                <AlertDescription>
+                  Registration successful! Logging you in...
+                </AlertDescription>
               </Alert>
             )}
             <div className="space-y-2">

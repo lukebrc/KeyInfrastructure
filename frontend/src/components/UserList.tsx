@@ -45,7 +45,9 @@ export const UserList: React.FC = () => {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [userCertificates, setUserCertificates] = useState<Certificate[]>([]);
   const [certificatesLoading, setCertificatesLoading] = useState(false);
-  const [certificateStatusFilter, setCertificateStatusFilter] = useState<'ALL' | Certificate['status']>('ALL');
+  const [certificateStatusFilter, setCertificateStatusFilter] = useState<
+    "ALL" | Certificate["status"]
+  >("ALL");
   const { user: currentUser, loading: authLoading } = useAuth();
 
   const fetchUsers = async () => {
@@ -87,7 +89,7 @@ export const UserList: React.FC = () => {
       console.log("Authentication still loading, please wait...");
       return;
     }
-    
+
     console.log("currentUser", currentUser, user);
     if (currentUser && currentUser.id === user.id) {
       window.location.href = "/admin/certificates";
@@ -126,15 +128,17 @@ export const UserList: React.FC = () => {
 
     try {
       // Direct download of the public certificate (CRT)
-      const response = await fetch(`/api/users/${selectedUser.id}/certificates/${cert.id}/download`);
-      
+      const response = await fetch(
+        `/api/users/${selectedUser.id}/certificates/${cert.id}/download`,
+      );
+
       if (!response.ok) {
         throw new Error("Failed to download certificate");
       }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `${cert.serial_number}.crt`;
       document.body.appendChild(a);
@@ -195,7 +199,10 @@ export const UserList: React.FC = () => {
               ))
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell
+                  colSpan={5}
+                  className="text-center py-8 text-muted-foreground"
+                >
                   No users found
                 </TableCell>
               </TableRow>
@@ -204,7 +211,9 @@ export const UserList: React.FC = () => {
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.username}</TableCell>
                   <TableCell>
-                    <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>
+                    <Badge
+                      variant={user.role === "ADMIN" ? "default" : "secondary"}
+                    >
                       {user.role}
                     </Badge>
                   </TableCell>
@@ -247,7 +256,8 @@ export const UserList: React.FC = () => {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} users
+            Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)}{" "}
+            of {total} users
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -277,9 +287,12 @@ export const UserList: React.FC = () => {
       <Dialog open={manageModalOpen} onOpenChange={setManageModalOpen}>
         <DialogContent className="max-w-[95vw] lg:max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Manage Certificates for {selectedUser?.username}</DialogTitle>
+            <DialogTitle>
+              Manage Certificates for {selectedUser?.username}
+            </DialogTitle>
             <DialogDescription>
-              View and manage certificates for this user. You can renew or revoke active certificates.
+              View and manage certificates for this user. You can renew or
+              revoke active certificates.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4">
@@ -293,7 +306,12 @@ export const UserList: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Select value={certificateStatusFilter} onValueChange={(val) => setCertificateStatusFilter(val as any)}>
+                    <Select
+                      value={certificateStatusFilter}
+                      onValueChange={(val) =>
+                        setCertificateStatusFilter(val as any)
+                      }
+                    >
                       <SelectTrigger className="w-48">
                         <SelectValue placeholder="Filter by status" />
                       </SelectTrigger>
@@ -309,13 +327,24 @@ export const UserList: React.FC = () => {
                 </div>
 
                 <CertificateTable
-                  certificates={userCertificates.filter((c) => certificateStatusFilter === 'ALL' ? true : c.status === certificateStatusFilter)}
+                  certificates={userCertificates.filter((c) =>
+                    certificateStatusFilter === "ALL"
+                      ? true
+                      : c.status === certificateStatusFilter,
+                  )}
                   showUserColumn={false}
                   showStatusFilter={false}
-                  allowGenerate={currentUser !== null && selectedUser !== null && (currentUser.id === selectedUser.id || currentUser.role === 'ADMIN')}
+                  allowGenerate={
+                    currentUser !== null &&
+                    selectedUser !== null &&
+                    (currentUser.id === selectedUser.id ||
+                      currentUser.role === "ADMIN")
+                  }
                   onRevoke={handleCertificateRevoked}
                   onDownload={handleDownloadCertificate}
-                  onRefresh={() => selectedUser && fetchUserCertificates(selectedUser.id)}
+                  onRefresh={() =>
+                    selectedUser && fetchUserCertificates(selectedUser.id)
+                  }
                 />
               </div>
             )}
@@ -329,7 +358,8 @@ export const UserList: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Create Certificate</DialogTitle>
             <DialogDescription>
-              Create a new certificate. Select the user and fill in the required information below.
+              Create a new certificate. Select the user and fill in the required
+              information below.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4">

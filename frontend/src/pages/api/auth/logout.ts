@@ -44,4 +44,3 @@ export const POST: APIRoute = async ({ request }) => {
     return handleApiError(error, "Logout failed");
   }
 };
-

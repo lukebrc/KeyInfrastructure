@@ -5,7 +5,10 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   const backendApiUrl = import.meta.env.BACKEND_URL;
   if (!backendApiUrl) {
     console.error("BACKEND_URL is not set in environment variables.");
-    return new Response(JSON.stringify({ message: "Server configuration error." }), { status: 500 });
+    return new Response(
+      JSON.stringify({ message: "Server configuration error." }),
+      { status: 500 },
+    );
   }
 
   // 2. Get the authentication token from the httpOnly cookie
@@ -15,7 +18,9 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   // The backend will ultimately be responsible for enforcing this,
   // but we can short-circuit here if desired.
   if (!authToken) {
-    return new Response(JSON.stringify({ message: "Unauthorized" }), { status: 401 });
+    return new Response(JSON.stringify({ message: "Unauthorized" }), {
+      status: 401,
+    });
   }
 
   try {
@@ -24,7 +29,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       method: "GET",
       headers: {
         // Forward the authorization token to the backend
-        "Authorization": `Bearer ${authToken}`,
+        Authorization: `Bearer ${authToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -38,7 +43,10 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     });
   } catch (error) {
     console.error("Error proxying /api/users request:", error);
-    return new Response(JSON.stringify({ message: "An internal server error occurred." }), { status: 500 });
+    return new Response(
+      JSON.stringify({ message: "An internal server error occurred." }),
+      { status: 500 },
+    );
   }
 };
 
@@ -47,7 +55,10 @@ export const POST: APIRoute = async ({ request }) => {
   const backendApiUrl = import.meta.env.BACKEND_URL;
   if (!backendApiUrl) {
     console.error("BACKEND_URL is not set in environment variables.");
-    return new Response(JSON.stringify({ message: "Server configuration error." }), { status: 500 });
+    return new Response(
+      JSON.stringify({ message: "Server configuration error." }),
+      { status: 500 },
+    );
   }
 
   try {
@@ -72,6 +83,9 @@ export const POST: APIRoute = async ({ request }) => {
     });
   } catch (error) {
     console.error("Error proxying /api/users POST request:", error);
-    return new Response(JSON.stringify({ message: "An internal server error occurred." }), { status: 500 });
+    return new Response(
+      JSON.stringify({ message: "An internal server error occurred." }),
+      { status: 500 },
+    );
   }
 };

@@ -5,6 +5,7 @@
 The KeyInfrastructure application consists of two main functional sections: user portal and administrator panel. They share common login and registration pages, but after authentication, users are redirected to appropriate paths based on their role.
 
 **Navigation structure:**
+
 - **Public pages:** `/`, `/login`, `/register` — available to all unauthenticated users
 - **User section:** `/dashboard` — main dashboard with certificates
 - **Administrator section:** `/admin/*` — administrative panel for certificate and user management
@@ -21,20 +22,23 @@ The frontend communicates directly with the backend REST API (Rust/actix-web) vi
 
 **Path:** `/`
 
-**Main Goal:** 
+**Main Goal:**
 A public welcome page for unauthenticated users, presenting basic information about the system and allowing navigation to login or registration.
 
 **Key Information to Display:**
+
 - System name (KeyInfrastructure)
 - Brief description of system functionality
 - Links to login (`/login`) and registration (`/register`)
 
 **Key View Components:**
+
 - `WelcomeHeader` — header with system name
 - `WelcomeContent` — system description
 - `NavigationLinks` — buttons/links for login and registration
 
 **UX, Accessibility, and Security Considerations:**
+
 - Responsive layout with mobile-first approach
 - Minimalist design encouraging action
 - For logged-in users: automatic redirection to the appropriate dashboard
@@ -50,6 +54,7 @@ A public welcome page for unauthenticated users, presenting basic information ab
 Enable new users to self-register in the system by providing a username and password.
 
 **Key Information to Display:**
+
 - Registration form with fields:
   - Username (required, unique)
   - Password (required, minimum 8 characters)
@@ -57,6 +62,7 @@ Enable new users to self-register in the system by providing a username and pass
 - API error messages (409 — user already exists, 400 — invalid data)
 
 **Key View Components:**
+
 - `RegisterForm` — registration form (React component)
 - `InputField` — text fields with validation
 - `PasswordField` — password field with show/hide functionality
@@ -64,6 +70,7 @@ Enable new users to self-register in the system by providing a username and pass
 - `SuccessMessage` — message after successful registration
 
 **UX, Accessibility, and Security Considerations:**
+
 - Client-side validation before form submission
 - Hints regarding requirements (min. 8 characters for password)
 - After successful registration: automatic login (POST /auth/login) and redirection to `/dashboard`
@@ -80,6 +87,7 @@ Enable new users to self-register in the system by providing a username and pass
 Authenticate users (both USER and ADMIN) in the system by providing a username and password.
 
 **Key Information to Display:**
+
 - Login form with fields:
   - Username (required)
   - Password (required)
@@ -87,6 +95,7 @@ Authenticate users (both USER and ADMIN) in the system by providing a username a
 - Error messages (401 — invalid login credentials)
 
 **Key View Components:**
+
 - `LoginForm` — login form (React component)
 - `InputField` — text fields
 - `PasswordField` — password field
@@ -94,6 +103,7 @@ Authenticate users (both USER and ADMIN) in the system by providing a username a
 - `RegisterLink` — link to registration page
 
 **UX, Accessibility, and Security Considerations:**
+
 - After successful login: redirection to `/dashboard` (USER) or `/admin/dashboard` (ADMIN) based on the role from the JWT token
 - JWT token saved in httpOnly cookie by the backend
 - Error messages do not reveal if a user exists (security)
@@ -110,6 +120,7 @@ Authenticate users (both USER and ADMIN) in the system by providing a username a
 Central view for users, presenting a list of their certificates, the status of expiring certificates, and enabling certificate management (downloading, renewing).
 
 **Key Information to Display:**
+
 - **Warning banner** (if expiring certificates exist):
   - List of certificates expiring within 30 days (from GET /certificates/expiring endpoint)
   - Color highlighting (red/yellow gradient)
@@ -125,6 +136,7 @@ Central view for users, presenting a list of their certificates, the status of e
 - Logout button
 
 **Key View Components:**
+
 - `ExpiringBanner` — sticky banner with expiring certificates (React component)
 - `CertificateTable` — certificate table with sorting, filtering, pagination (React component)
 - `CertificateRow` — single certificate row
@@ -136,6 +148,7 @@ Central view for users, presenting a list of their certificates, the status of e
 - `LogoutButton` — logout button
 
 **UX, Accessibility, and Security Considerations:**
+
 - Banner cannot be fully closed (can only be minimized) — important for security
 - Banner updated in the background every 5-10 minutes (polling GET /certificates/expiring)
 - Responsive table — horizontally scrollable on mobile
@@ -155,6 +168,7 @@ Central view for users, presenting a list of their certificates, the status of e
 Central view for administrators, presenting a system overview, user management, and enabling certificate and user management.
 
 **Key Information to Display:**
+
 - System statistics (optional):
   - Number of users
   - Number of certificates (active, expired, revoked)
@@ -170,6 +184,7 @@ Central view for administrators, presenting a system overview, user management, 
 - Logout button
 
 **Key View Components:**
+
 - `AdminHeader` — header with administrator information
 - `StatsCards` — cards with statistics (optional)
 - `UserList` — table of users with certificate management actions (React component)
@@ -179,6 +194,7 @@ Central view for administrators, presenting a system overview, user management, 
 - `LogoutButton` — logout button
 
 **UX, Accessibility, and Security Considerations:**
+
 - Only users with ADMIN role have access
 - Automatic redirection to `/login` if unauthorized (403)
 - Responsive layout with user table
@@ -196,6 +212,7 @@ Central view for administrators, presenting a system overview, user management, 
 Enable the administrator to create a new certificate for a selected user with full parameter configuration.
 
 **Key Information to Display:**
+
 - Certificate creation form:
   - **User Select** (required) — list of all users in the system
   - **Numeric field:** `validity_period_days` (required, 1-3650 days, validation)
@@ -213,6 +230,7 @@ Enable the administrator to create a new certificate for a selected user with fu
 - Success message with certificate serial number after creation
 
 **Key View Components:**
+
 - `CreateCertificateForm` — certificate creation form (React component)
 - `UserSelect` — dropdown with user list
 - `NumberInput` — numeric field with range validation
@@ -224,6 +242,7 @@ Enable the administrator to create a new certificate for a selected user with fu
 - `SubmitButton` — form submission button
 
 **UX, Accessibility, and Security Considerations:**
+
 - Client-side validation before submission (POST /users/{user_id}/certificates)
 - Hints regarding requirements and value ranges
 - DN preview before submission prevents errors
@@ -242,6 +261,7 @@ Enable the administrator to create a new certificate for a selected user with fu
 Overview of all certificates in the system with the ability to revoke them by the administrator.
 
 **Key Information to Display:**
+
 - **Table of all certificates:**
   - Columns: serial_number, user (username), DN (abbreviated), status (ACTIVE/REVOKED), expiration_date, creation date
   - Default sorting by expiration_date
@@ -251,6 +271,7 @@ Overview of all certificates in the system with the ability to revoke them by th
 - Revocation confirmation modal with an "reason" field (optional)
 
 **Key View Components:**
+
 - `AdminCertificateTable` — certificate table with sorting, filtering, pagination (React component)
 - `CertificateRow` — single certificate row
 - `RevokeButton` — revoke button
@@ -259,6 +280,7 @@ Overview of all certificates in the system with the ability to revoke them by th
 - `FilterControls` — filtering and sorting controls
 
 **UX, Accessibility, and Security Considerations:**
+
 - Confirmation modal before revocation prevents accidental actions
 - Toast notification after successful revocation
 - Responsive table — horizontally scrollable on mobile
@@ -385,6 +407,7 @@ Overview of all certificates in the system with the ability to revoke them by th
 ### 4.1. Main Navigation Structure
 
 **Public Pages (accessible without authorization):**
+
 ```
 /                    → Homepage (Welcome)
 /login               → Login
@@ -392,11 +415,13 @@ Overview of all certificates in the system with the ability to revoke them by th
 ```
 
 **User Section (authorization required, USER role):**
+
 ```
 /dashboard           → User dashboard with certificates
 ```
 
 **Administrator Section (authorization required, ADMIN role):**
+
 ```
 /admin/dashboard              → Administrator dashboard
 /admin/certificates/create    → Create certificate
@@ -406,12 +431,14 @@ Overview of all certificates in the system with the ability to revoke them by th
 ### 4.2. Authorization and Redirection Mechanism
 
 **Astro Middleware:**
+
 - Protects all paths except `/`, `/login`, `/register`
 - Verifies JWT token from httpOnly cookie
 - If token is missing or expired: redirect to `/login`
 - If role is invalid (e.g., USER tries to access `/admin/*`): 403 error
 
 **Automatic Redirections:**
+
 - Logged-in user tries to access `/login` or `/register`: redirect to the appropriate dashboard
 - After successful login: redirect to `/dashboard` (USER) or `/admin/dashboard` (ADMIN)
 - After successful registration: automatic login and redirect to `/dashboard`
@@ -419,11 +446,13 @@ Overview of all certificates in the system with the ability to revoke them by th
 ### 4.3. In-Interface Navigation
 
 **User Dashboard:**
+
 - Header with user information
 - Logout button (top right corner)
 - Main content: banner (if any) + certificate table
 
 **Administrator Panel:**
+
 - Header with administrator information
 - Logout button (top right corner)
 - Sidebar or top navigation with links:
@@ -435,6 +464,7 @@ Overview of all certificates in the system with the ability to revoke them by th
 ### 4.4. Breadcrumbs (optional for MVP)
 
 For the administrator section, breadcrumbs can be added:
+
 ```
 Admin > Dashboard
 Admin > Certificates > Create
@@ -446,18 +476,21 @@ Admin > Certificates > List
 ### 5.1. Authentication Components
 
 **`LoginForm` (React)**
+
 - Login form with username and password fields
 - Client-side validation
 - Handles 401 errors
 - Redirects after successful login
 
 **`RegisterForm` (React)**
+
 - Registration form with username and password fields
 - Validates requirements (min. 8 characters)
 - Handles 400, 409 errors
 - Automatic login after registration
 
 **`AuthMiddleware` (Astro Middleware)**
+
 - Verifies JWT token from httpOnly cookie
 - Protects secured paths
 - Automatic redirection to `/login` if unauthorized
@@ -465,6 +498,7 @@ Admin > Certificates > List
 ### 5.2. Certificate Components
 
 **`ExpiringBanner` (React)**
+
 - Sticky banner at the top of the dashboard
 - Displays expiring certificates (GET /certificates/expiring)
 - Updates every 5-10 minutes (polling)
@@ -473,6 +507,7 @@ Admin > Certificates > List
 - Color highlighting (red/yellow gradient)
 
 **`CertificateTable` (React)**
+
 - Certificate table with sorting, filtering, pagination
 - Columns: serial_number, DN, status, expiration_date
 - Action buttons: Generate (for PENDING), Renew, Download
@@ -481,6 +516,7 @@ Admin > Certificates > List
 - Integration with GET /certificates (query params: page, limit, status, sort_by, order)
 
 **`DownloadCertificateModal` (React)**
+
 - Modal with password field (min. 8 characters)
 - Download and close buttons
 - Handles POST /certificates/{id}/download
@@ -488,12 +524,14 @@ Admin > Certificates > List
 - Handles 400 error (Invalid password)
 
 **`CertificateRow` (React)**
+
 - Single certificate row in the table
 - Displays serial_number, DN (abbreviated), status, expiration_date
 - Action buttons (Generate for PENDING, Renew, Download)
 - Color highlighting of status and expiration date
 
 **`StatusBadge` (React)**
+
 - Certificate status badge (ACTIVE/REVOKED/PENDING)
 - Different colors for different statuses
 - Accessibility: appropriate contrast and readability
@@ -501,6 +539,7 @@ Admin > Certificates > List
 ### 5.3. Form Components
 
 **`CreateCertificateForm` (React)**
+
 - Administrator certificate creation form
 - Fields: user select, validity_period_days, hash_algorithm, DN fields
 - Client-side validation
@@ -509,59 +548,71 @@ Admin > Certificates > List
 - Error and success messages
 
 **`DNFormFields` (React)**
+
 - Distinguished Name form fields
 - CN (required), OU, O, L, ST, C (optional)
 - Walidacja i formatowanie
 - Validation and formatting
 
 **`DNPreview` (React)**
+
 - Preview of formatted DN before submission
 - Format: "C=PL,CN=username,O=Organization,..."
 
 **`UserSelect` (React)**
+
 - Select dropdown with a list of all users
 - Requires GET /users endpoint (for administrator) or an alternative solution
 
 ### 5.4. Common UI Components
 
 **`ToastNotifications` (Shadcn/ui)**
+
 - Toast notifications for operations (success, error)
 - Used for: certificate generation, renewal, download, creation, revocation
 - Automatic closing after 5 seconds (success) or 10 seconds (error)
 
 **`ErrorMessage` (React)**
+
 - Displays validation and API errors
 - Inline error messages in forms
 - Readable messages for the user
 
 **`SuccessMessage` (React)**
+
 - Success messages (e.g., after certificate creation)
 - Can be part of toast notification
 
 **`LoadingSkeleton` (React)**
+
 - Skeleton loading during data retrieval
 - Used in tables and lists
 
 **`Button` (Shadcn/ui)**
+
 - Common button component
 - Variants: primary, secondary, danger
 - Touch target minimum 44x44px
 
 **`InputField` (React)**
+
 - Common text field with validation
 - Support for errors and hints
 
 **`PasswordField` (React)**
+
 - Password field with show/hide functionality
 - Hints regarding requirements
 
 **`SelectDropdown` (React)**
+
 - Dropdown select with options
 - Support for searching (optional)
 
 ### 5.5. Error Handling Components
 
 **`ErrorHandler` (Utility)**
+
 - Central error handling system
 - Maps HTTP codes to messages:
   - 400: Validation errors (specific messages)
@@ -572,6 +623,7 @@ Admin > Certificates > List
 - Handles network errors (timeout, no connection) with fallback UI
 
 **`NetworkErrorFallback` (React)**
+
 - Fallback UI for network errors
 - "Try Again" button
 - Message about connection problem
@@ -579,16 +631,19 @@ Admin > Certificates > List
 ### 5.6. Navigation Components
 
 **`NavigationHeader` (React/Astro)**
+
 - Header with user information
 - Logout button
 - Different versions for USER and ADMIN
 
 **`AdminNavigation` (React)**
+
 - Navigation in the administrator panel
 - Sidebar or top navigation with links
 - Active highlighting of the current section
 
 **`LogoutButton` (React)**
+
 - Logout button
 - Clears JWT token
 - Redirects to `/login`
@@ -600,48 +655,61 @@ Admin > Certificates > List
 ### 6.1. User Management
 
 **PRD:** "The system must allow new users to self-register with a username, password, and an 8-character minimum password."
+
 - **UI Element:** `RegisterForm` at `/register` with password validation (min. 8 characters)
 
 **PRD:** "The system must authenticate users based on their username and password."
+
 - **UI Element:** `LoginForm` at `/login` with username and password fields
 
 ### 6.2. Administrator Management
 
 **PRD:** "Administrators must have an interface to create new certificates for users."
+
 - **UI Element:** `CreateCertificateForm` at `/admin/certificates/create`
 
 **PRD:** "This interface must allow the administrator to specify the certificate's validity period, hash algorithm (SHA-256, SHA-384, SHA-512), and all Distinguished Name (DN) fields."
+
 - **UI Element:** Form fields: `validity_period_days`, `hash_algorithm` dropdown, `DNFormFields`
 
 ### 6.3. User-Facing Functionality
 
 **PRD:** "The system must allow authenticated users to download their key/certificate pair in a PKCS#12 file protected by their password."
+
 - **UI Element:** `DownloadCertificateModal` with password field, integration with POST /certificates/{id}/download
 
 **PRD:** "The system must display a prominent banner to users whose certificate is near or past its expiration date, prompting them to renew."
+
 - **UI Element:** `ExpiringBanner` at `/dashboard` with polling GET /certificates/expiring
 
 **PRD:** "Users must be able to initiate the certificate renewal process."
+
 - **UI Element:** "Renew" button in `CertificateTable` and `ExpiringBanner`, integration with PUT /certificates/{id}/renew
 
 ### 6.4. User Story
 
 **"As a User, I want to register for an account..."**
+
 - **UI Element:** `/register` → `RegisterForm` → automatic login → `/dashboard`
 
 **"As a User, I want to log in to the portal..."**
+
 - **UI Element:** `/login` → `LoginForm` → redirect to `/dashboard`
 
 **"As a User, I want to be clearly notified when my certificate is about to expire..."**
+
 - **UI Element:** `ExpiringBanner` at `/dashboard` with color highlighting
 
 **"As a User, I want to download my certificate and private key securely..."**
+
 - **UI Element:** "Download" button → `DownloadCertificateModal` with password → download of `.p12`/.pfx
 
 **"As an Administrator, I want to log in to the system..."**
+
 - **UI Element:** `/login` → `LoginForm` → redirect to `/admin/dashboard`
 
 **"As an Administrator, I want to create a new certificate for a user..."**
+
 - **UI Element:** `/admin/certificates/create` → `CreateCertificateForm` → success message with serial number
 
 ---
@@ -651,6 +719,7 @@ Admin > Certificates > List
 ### 7.1. Problem: User doesn't know their certificate is expiring
 
 **UI Solution:**
+
 - `ExpiringBanner` at the top of the dashboard with color highlighting
 - Banner cannot be fully closed — always visible
 - Updates in the background every 5-10 minutes
@@ -659,6 +728,7 @@ Admin > Certificates > List
 ### 7.2. Problem: User doesn't know how to download a certificate
 
 **UI Solution:**
+
 - Clear "Download" button next to each active certificate
 - Modal with clear instructions regarding the password
 - Automatic file download after entering the correct password
@@ -667,6 +737,7 @@ Admin > Certificates > List
 ### 7.3. Problem: Administrator makes mistakes when creating a certificate (e.g., incorrect DN)
 
 **UI Solution:**
+
 - Client-side validation before form submission
 - DN preview before submission (`DNPreview`)
 - Hints regarding requirements and value ranges
@@ -675,6 +746,7 @@ Admin > Certificates > List
 ### 7.4. Problem: User has many certificates and it's hard to find the right one
 
 **UI Solution:**
+
 - Table with sorting by expiration_date (default)
 - Filtering by status (ACTIVE/REVOKED)
 - Pagination for easy browsing
@@ -683,6 +755,7 @@ Admin > Certificates > List
 ### 7.5. Problem: Session expires and user loses work
 
 **UI Solution:**
+
 - Automatic redirection to `/login` with a message about expired session
 - Optional timer counting down to session expiration (for future versions)
 - Logout button for user control
@@ -690,6 +763,7 @@ Admin > Certificates > List
 ### 7.6. Problem: User forgets password when downloading a certificate
 
 **UI Solution:**
+
 - Clear error message: "Invalid password"
 - Ability to retry without closing the modal
 - Password set only during registration — user must remember it (according to PRD, password recovery is not in MVP scope)
@@ -701,49 +775,61 @@ Admin > Certificates > List
 ### 8.1. API Error States
 
 **400 Bad Request:**
+
 - Data validation (forms): inline error messages in form fields
 - Invalid password during download: "Invalid password. Please try again." message in the modal
 
 **401 Unauthorized:**
+
 - Missing or expired token: automatic redirection to `/login` with message "Session expired. Please log in again."
 - Invalid login credentials: message "Invalid username or password" (without revealing if user exists)
 
 **403 Forbidden:**
+
 - Insufficient permissions (e.g., USER tries to access `/admin/*`): message "No permissions to view this page" + redirect to `/dashboard`
 
 **404 Not Found:**
+
 - Certificate not found: message "Certificate not found"
 - User not found: message "User not found"
 
 **409 Conflict:**
+
 - User already exists during registration: message "Username already exists. Please choose another."
 
 **500 Internal Server Error:**
+
 - Server error: message "A server error occurred. Please try again later." + retry option
 
 ### 8.2. Edge Cases
 
 **No Certificates:**
+
 - User dashboard displays message: "You don't have any certificates yet. An administrator will create a certificate for you."
 - Certificate table displays empty state with a message
 
 **No Expiring Certificates:**
+
 - Banner is not displayed
 - Certificate table functions normally
 
 **Network Error (timeout, no connection):**
+
 - Fallback UI with message "No connection to the server. Please check your internet connection."
 - "Try Again" button to retry the request
 
 **Many Expiring Certificates:**
+
 - Banner displays all expiring certificates (or only the nearest deadline with a "See all" link)
 - Certificate table allows sorting and filtering
 
 **User tries to renew an already revoked certificate:**
+
 - "Renew" button is not available for REVOKED certificates
 - 400 error message: "Certificate cannot be renewed (status: REVOKED)"
 
 **Administrator tries to create a certificate for a non-existent user:**
+
 - Client-side validation (user list select prevents this)
 - 404 error message: "User not found"
 
@@ -765,6 +851,7 @@ All views and components are fully compliant with the API plan:
 - **PUT /certificates/{id}/revoke** → "Revoke" button in `AdminCertificateTable` (with reason in body)
 
 **Note:** The `GET /users` endpoint for the administrator (needed in `UserSelect`) is not listed in the API plan. This should be resolved by:
+
 1.  Adding the `GET /users` endpoint to the API plan (for ADMIN only)
 2.  Or an alternative solution (e.g., caching users during certificate creation)
 

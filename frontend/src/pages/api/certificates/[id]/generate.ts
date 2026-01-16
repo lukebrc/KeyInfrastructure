@@ -1,5 +1,11 @@
 import type { APIRoute } from "astro";
-import { validateBackendUrl, validateAuthToken, handleApiError, createErrorResponse, getCurrentUserId } from "@/lib/api-utils";
+import {
+  validateBackendUrl,
+  validateAuthToken,
+  handleApiError,
+  createErrorResponse,
+  getCurrentUserId,
+} from "@/lib/api-utils";
 
 export const POST: APIRoute = async ({ request, params }) => {
   try {
@@ -13,14 +19,15 @@ export const POST: APIRoute = async ({ request, params }) => {
       console.error("Failed to get user ID:", error);
       return new Response(
         JSON.stringify({
-          message: error instanceof Error ? error.message : "Failed to get user ID",
+          message:
+            error instanceof Error ? error.message : "Failed to get user ID",
         }),
         {
           status: 401,
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -36,19 +43,22 @@ export const POST: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
     // Forward the request to the backend
-    const response = await fetch(`${backendUrl}/users/${userId}/certificates/${certificateId}/generate`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${backendUrl}/users/${userId}/certificates/${certificateId}/generate`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
       },
-      credentials: "include",
-    });
+    );
 
     if (!response.ok) {
       let errorMessage = "Failed to generate certificate";
@@ -68,7 +78,7 @@ export const POST: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -93,7 +103,7 @@ export const POST: APIRoute = async ({ request, params }) => {
         headers: {
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 };

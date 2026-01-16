@@ -12,8 +12,12 @@ export const AdminDashboard: React.FC = () => {
         <main className="container mx-auto p-4 md:p-6 lg:p-8">
           <div className="space-y-6">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Administrator Dashboard</h1>
-              <p className="text-muted-foreground">Manage certificates and users</p>
+              <h1 className="text-3xl font-bold mb-2">
+                Administrator Dashboard
+              </h1>
+              <p className="text-muted-foreground">
+                Manage certificates and users
+              </p>
             </div>
 
             <AdminStats />
@@ -26,4 +30,3 @@ export const AdminDashboard: React.FC = () => {
     </AuthProvider>
   );
 };
-

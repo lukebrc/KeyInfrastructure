@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
@@ -12,7 +18,12 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { ErrorHandler } from "@/lib/error-handler";
-import type { User, CreateCertificateRequest, DistinguishedName, ApiError } from "@/types";
+import type {
+  User,
+  CreateCertificateRequest,
+  DistinguishedName,
+  ApiError,
+} from "@/types";
 import { Loader2, CheckCircle2 } from "lucide-react";
 
 interface CreateCertificateFormProps {
@@ -22,12 +33,14 @@ interface CreateCertificateFormProps {
 
 export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
   onSuccess,
-  preselectedUserId
+  preselectedUserId,
 }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [validityPeriodDays, setValidityPeriodDays] = useState<string>("365");
-  const [hashAlgorithm, setHashAlgorithm] = useState<"SHA-256" | "SHA-384" | "SHA-512">("SHA-256");
+  const [hashAlgorithm, setHashAlgorithm] = useState<
+    "SHA-256" | "SHA-384" | "SHA-512"
+  >("SHA-256");
   const [dn, setDn] = useState<DistinguishedName>({
     cn: "",
     ou: "",
@@ -40,7 +53,9 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [createdCertificateSerial, setCreatedCertificateSerial] = useState<string | null>(null);
+  const [createdCertificateSerial, setCreatedCertificateSerial] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -94,7 +109,7 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
     return true;
   };
 
-  const selectedUser = users.find(user => user.id === selectedUserId);
+  const selectedUser = users.find((user) => user.id === selectedUserId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,7 +140,9 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
       const certificate = await api.createCertificate(selectedUserId, request);
       setCreatedCertificateSerial(certificate.serial_number);
       setSuccess(true);
-      ErrorHandler.showSuccess(`Certificate created successfully! Serial: ${certificate.serial_number}`);
+      ErrorHandler.showSuccess(
+        `Certificate created successfully! Serial: ${certificate.serial_number}`,
+      );
 
       // Call onSuccess callback if provided
       if (onSuccess) {
@@ -150,12 +167,20 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
       }, 5000);
     } catch (err) {
       const apiError = err as ApiError;
-      if (apiError.message?.includes("400") || apiError.message?.includes("Bad Request")) {
+      if (
+        apiError.message?.includes("400") ||
+        apiError.message?.includes("Bad Request")
+      ) {
         setError(apiError.message || "Invalid data. Please check your input.");
-      } else if (apiError.message?.includes("403") || apiError.message?.includes("Forbidden")) {
+      } else if (
+        apiError.message?.includes("403") ||
+        apiError.message?.includes("Forbidden")
+      ) {
         setError("You don't have permission to create certificates");
       } else {
-        setError(apiError.message || "Failed to create certificate. Please try again.");
+        setError(
+          apiError.message || "Failed to create certificate. Please try again.",
+        );
       }
     } finally {
       setLoading(false);
@@ -170,8 +195,7 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
           <CardDescription>
             {selectedUser
               ? `Create a new certificate for user: ${selectedUser.username}`
-              : "Create a new certificate for a user"
-            }
+              : "Create a new certificate for a user"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -185,7 +209,8 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
               <Alert>
                 <CheckCircle2 className="size-4" />
                 <AlertDescription>
-                  Certificate created successfully! Serial number: {createdCertificateSerial}
+                  Certificate created successfully! Serial number:{" "}
+                  {createdCertificateSerial}
                 </AlertDescription>
               </Alert>
             )}
@@ -201,7 +226,11 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
                   disabled={loading || loadingUsers}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={loadingUsers ? "Loading users..." : "Select a user"} />
+                    <SelectValue
+                      placeholder={
+                        loadingUsers ? "Loading users..." : "Select a user"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {users.map((user) => (
@@ -215,8 +244,12 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
             )}
 
             <div className="space-y-2">
-              <label htmlFor="validityPeriodDays" className="text-sm font-medium">
-                Validity Period (days) <span className="text-destructive">*</span>
+              <label
+                htmlFor="validityPeriodDays"
+                className="text-sm font-medium"
+              >
+                Validity Period (days){" "}
+                <span className="text-destructive">*</span>
               </label>
               <Input
                 type="number"
@@ -229,7 +262,9 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
                 disabled={loading}
                 placeholder="365"
               />
-              <p className="text-xs text-muted-foreground">Must be between 1 and 3650 days</p>
+              <p className="text-xs text-muted-foreground">
+                Must be between 1 and 3650 days
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -238,7 +273,9 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
               </label>
               <Select
                 value={hashAlgorithm}
-                onValueChange={(value) => setHashAlgorithm(value as "SHA-256" | "SHA-384" | "SHA-512")}
+                onValueChange={(value) =>
+                  setHashAlgorithm(value as "SHA-256" | "SHA-384" | "SHA-512")
+                }
                 disabled={loading}
               >
                 <SelectTrigger>
@@ -347,7 +384,13 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
             <div className="space-y-2">
               <label className="text-sm font-medium">DN Preview</label>
               <div className="p-3 bg-muted rounded-md font-mono text-sm">
-                {dn.cn ? formatDN(dn) : <span className="text-muted-foreground">Enter DN fields to see preview</span>}
+                {dn.cn ? (
+                  formatDN(dn)
+                ) : (
+                  <span className="text-muted-foreground">
+                    Enter DN fields to see preview
+                  </span>
+                )}
               </div>
             </div>
 

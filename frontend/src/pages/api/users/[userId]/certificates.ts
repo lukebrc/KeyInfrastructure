@@ -1,5 +1,11 @@
 import type { APIRoute } from "astro";
-import { validateBackendUrl, validateAuthToken, handleApiError, createErrorResponse, fetchPendingCertificatesFromBackend } from "@/lib/api-utils";
+import {
+  validateBackendUrl,
+  validateAuthToken,
+  handleApiError,
+  createErrorResponse,
+  fetchPendingCertificatesFromBackend,
+} from "@/lib/api-utils";
 
 export const GET: APIRoute = async ({ request, params }) => {
   try {
@@ -19,57 +25,68 @@ export const GET: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
     // Get query params from request URL
     const url = new URL(request.url);
-    const status = url.searchParams.get('status') || 'ALL';
-    console.info(`Getting certificates for user ${userId}: with status ${status}`);
+    const status = url.searchParams.get("status") || "ALL";
+    console.info(
+      `Getting certificates for user ${userId}: with status ${status}`,
+    );
 
     //todo: add page and total parameters
     // Use shared helper that fetches and transforms pending certificates
     const fetchPendingCertificates = async (): Promise<any[]> => {
-      const result = await fetchPendingCertificatesFromBackend(backendUrl, token, userId);
+      const result = await fetchPendingCertificatesFromBackend(
+        backendUrl,
+        token,
+        userId,
+      );
       // Convert transformed pending items to list format expected by this endpoint
       return (result.data || []).map((cert: any) => ({
         id: cert.id,
         serial_number: null,
         dn: cert.dn || "",
-        status: 'PENDING',
+        status: "PENDING",
         expiration_date: null,
         renewed_count: 0,
-        valid_days: cert.valid_days
+        valid_days: cert.valid_days,
       }));
     };
 
     let data;
 
-    if (status === 'PENDING') {
+    if (status === "PENDING") {
       data = {
         certificates: [],
         total: 0,
-        page: 1
+        page: 1,
       };
     } else {
       // Prepare query string - for 'ALL', remove status to get all statuses
       const fetchUrl = new URL(url);
-      if (status === 'ALL') {
-        fetchUrl.searchParams.delete('status');
+      if (status === "ALL") {
+        fetchUrl.searchParams.delete("status");
       }
       const queryString = fetchUrl.search;
 
-      console.info(`Getting certificates for user ${userId}: ${backendUrl}/users/${userId}/certificates/list${queryString}`);
+      console.info(
+        `Getting certificates for user ${userId}: ${backendUrl}/users/${userId}/certificates/list${queryString}`,
+      );
 
-      const response = await fetch(`${backendUrl}/users/${userId}/certificates/list${queryString}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${backendUrl}/users/${userId}/certificates/list${queryString}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
         },
-        credentials: "include",
-      });
+      );
 
       if (!response.ok) {
         let errorMessage = "Failed to get certificates";
@@ -89,12 +106,12 @@ export const GET: APIRoute = async ({ request, params }) => {
             headers: {
               "Content-Type": "application/json",
             },
-          }
+          },
         );
       }
 
       data = await response.json();
-      
+
       // Transform certificates to match frontend Certificate type
       // Backend uses camelCase serialization (from serde rename_all = "camelCase")
       if (data.certificates && Array.isArray(data.certificates)) {
@@ -105,17 +122,23 @@ export const GET: APIRoute = async ({ request, params }) => {
           dn: cert.dn || "",
           status: cert.status || "ACTIVE",
           expiration_date: cert.expirationDate || cert.expiration_date || null,
-          created_at: cert.createdAt || cert.created_at || new Date().toISOString(),
+          created_at:
+            cert.createdAt || cert.created_at || new Date().toISOString(),
           renewed_count: cert.renewedCount || cert.renewed_count || 0,
         }));
       }
     }
 
     // Add pending certificates if status requires it
-    if (status === 'PENDING' || status === 'ALL') {
+    if (status === "PENDING" || status === "ALL") {
       const pendingCertificates = await fetchPendingCertificates();
-      console.debug(`Got ${data.certificates?.length || 0} normal and ${pendingCertificates.length} pending certificates`);
-      data.certificates = [...(data.certificates || []), ...pendingCertificates];
+      console.debug(
+        `Got ${data.certificates?.length || 0} normal and ${pendingCertificates.length} pending certificates`,
+      );
+      data.certificates = [
+        ...(data.certificates || []),
+        ...pendingCertificates,
+      ];
       data.total = (data.total || 0) + pendingCertificates.length;
     }
 
@@ -132,14 +155,17 @@ export const GET: APIRoute = async ({ request, params }) => {
     console.error("Get user certificates API error:", error);
     return new Response(
       JSON.stringify({
-        message: error instanceof Error ? error.message : "An error occurred. Please try again.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "An error occurred. Please try again.",
       }),
       {
         status: 500,
         headers: {
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 };
@@ -151,7 +177,7 @@ export const POST: APIRoute = async ({ request, params }) => {
 
     // Get request body
     const body = await request.json();
-    console.debug('Request body:', body);
+    console.debug("Request body:", body);
     const { user_id: userId, validity_period_days, distinguished_name } = body;
 
     if (!userId) {
@@ -164,21 +190,22 @@ export const POST: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
     if (!validity_period_days || !distinguished_name?.cn) {
       return new Response(
         JSON.stringify({
-          message: "Validity period and distinguished name with CN are required",
+          message:
+            "Validity period and distinguished name with CN are required",
         }),
         {
           status: 400,
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -192,24 +219,27 @@ export const POST: APIRoute = async ({ request, params }) => {
     if (distinguished_name.ou) dnParts.push(`OU=${distinguished_name.ou}`);
     if (distinguished_name.cn) dnParts.push(`CN=${distinguished_name.cn}`);
 
-    const dn = dnParts.join('/');
+    const dn = dnParts.join("/");
     const backendRequest = {
       dn,
       days_valid: validity_period_days,
     };
 
-    console.debug('Transformed request for backend:', backendRequest);
+    console.debug("Transformed request for backend:", backendRequest);
 
     // Forward the request to the backend
-    const response = await fetch(`${backendUrl}/users/${userId}/certificates/request`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${backendUrl}/users/${userId}/certificates/request`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(backendRequest),
       },
-      credentials: "include",
-      body: JSON.stringify(backendRequest),
-    });
+    );
 
     if (!response.ok) {
       let errorMessage = "Failed to create certificate";
@@ -230,7 +260,7 @@ export const POST: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -253,7 +283,7 @@ export const POST: APIRoute = async ({ request, params }) => {
         headers: {
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 };

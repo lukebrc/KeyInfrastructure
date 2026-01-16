@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { ErrorHandler } from "@/lib/error-handler";
@@ -21,18 +27,23 @@ export const AdminStats: React.FC = () => {
       try {
         // Fetch users
         const users = await api.getUsers();
-        
+
         // Fetch all certificates to get total count
         const certificatesResponse = await api.getCertificates({ limit: 1000 });
-        
+
         // Fetch revoked certificates separately to get accurate count
-        const revokedResponse = await api.getCertificates({ limit: 1000, status: "REVOKED" });
-        
+        const revokedResponse = await api.getCertificates({
+          limit: 1000,
+          status: "REVOKED",
+        });
+
         // Fetch expiring certificates
         let expiringCount = 0;
         try {
           const expiringCertificates = await api.getExpiringCertificates(30);
-          expiringCount = Array.isArray(expiringCertificates) ? expiringCertificates.length : 0;
+          expiringCount = Array.isArray(expiringCertificates)
+            ? expiringCertificates.length
+            : 0;
         } catch (error) {
           console.error("Failed to fetch expiring certificates:", error);
           expiringCount = 0;
@@ -87,7 +98,9 @@ export const AdminStats: React.FC = () => {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Certificates</CardTitle>
+          <CardTitle className="text-sm font-medium">
+            Total Certificates
+          </CardTitle>
           <Shield className="size-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -102,7 +115,9 @@ export const AdminStats: React.FC = () => {
           <AlertTriangle className="size-4 text-yellow-600" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-yellow-600">{stats.expiringCertificates}</div>
+          <div className="text-2xl font-bold text-yellow-600">
+            {stats.expiringCertificates}
+          </div>
           <CardDescription>Certificates expiring in 30 days</CardDescription>
         </CardContent>
       </Card>
@@ -113,11 +128,12 @@ export const AdminStats: React.FC = () => {
           <XCircle className="size-4 text-destructive" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-destructive">{stats.revokedCertificates}</div>
+          <div className="text-2xl font-bold text-destructive">
+            {stats.revokedCertificates}
+          </div>
           <CardDescription>Revoked certificates</CardDescription>
         </CardContent>
       </Card>
     </div>
   );
 };
-

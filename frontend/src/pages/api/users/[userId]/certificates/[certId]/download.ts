@@ -5,7 +5,7 @@ export const GET: APIRoute = async ({ request, params }) => {
   try {
     const backendUrl = validateBackendUrl();
     const token = validateAuthToken(request);
-    
+
     const userId = params.userId;
     const certificateId = params.certId;
 
@@ -19,7 +19,7 @@ export const GET: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -33,18 +33,21 @@ export const GET: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
     // Forward the GET request to the backend for public certificate download
-    const response = await fetch(`${backendUrl}/users/${userId}/certificates/${certificateId}/download`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
+    const response = await fetch(
+      `${backendUrl}/users/${userId}/certificates/${certificateId}/download`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include",
       },
-      credentials: "include",
-    });
+    );
 
     if (!response.ok) {
       let errorMessage = "Failed to download certificate";
@@ -64,14 +67,16 @@ export const GET: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
     // Handle binary responses (downloads)
     const blob = await response.blob();
-    const contentType = response.headers.get("content-type") || "application/x-x509-ca-cert";
-    const contentDisposition = response.headers.get("content-disposition") || "attachment";
+    const contentType =
+      response.headers.get("content-type") || "application/x-x509-ca-cert";
+    const contentDisposition =
+      response.headers.get("content-disposition") || "attachment";
 
     return new Response(blob, {
       status: 200,
@@ -91,7 +96,7 @@ export const GET: APIRoute = async ({ request, params }) => {
         headers: {
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 };

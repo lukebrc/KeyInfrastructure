@@ -12,9 +12,10 @@
 4.  **Performance Optimization:** Default database optimization is sufficient for MVP. No need to implement advanced frontend caching mechanisms (React Query) - standard API requests are acceptable.
 
 5.  **Responsiveness and Accessibility:** Mobile-first approach with Tailwind CSS. All interactive elements a minimum of 44x44px touch target. Responsive forms (columns on desktop, stack on mobile). No requirement for full implementation of ARIA labels and keyboard navigation in MVP (can be simplified compared to initial recommendations).
-</decisions>
+    </decisions>
 
 <matched_recommendations>
+
 1.  **Separate Paths for Roles:** The recommendation for a common portal with conditional navigation was rejected in favor of separate paths for administrator and user, ensuring clearer functional separation.
 
 2.  **Automatic Login After Registration:** The recommendation for automatic login after registration has been accepted and will be implemented.
@@ -30,24 +31,27 @@
 7.  **Central Error Handling System:** The recommendation to implement a central error handling system with toast notifications and inline error messages has been fully accepted.
 
 8.  **Mobile-first and Responsiveness:** Basic recommendations for mobile-first approach and responsiveness have been accepted, though without full implementation of all accessibility aspects (ARIA, keyboard navigation).
-</matched_recommendations>
+    </matched_recommendations>
 
 <ui_architecture_planning_summary>
 
 ### a) Main UI Architecture Requirements
 
 **Application Structure:**
+
 - Separate paths for users (`/dashboard`, `/certificates/*`) and administrators (`/admin/*`)
 - Common login page (`/login`) serving both roles
 - Public registration page (`/register`) available for new users
 
 **Authentication and Authorization:**
+
 - JWT token stored in httpOnly cookie
 - Astro middleware protecting secured paths
 - Automatic redirection to `/login` upon session expiration (401)
 - Optional timer counting down to session expiration
 
 **API Integration:**
+
 - Direct communication with backend REST API (Rust/actix-web)
 - Standard HTTP requests without advanced caching (for MVP)
 - Central error handling system mapping HTTP codes to user messages
@@ -55,35 +59,38 @@
 ### b) Key Views, Screens, and User Flows
 
 **User Flow (USER):**
+
 1.  **Homepage/Welcome** (`/`) - public page with links to login and registration
 2.  **Registration** (`/register`) - form: username, password, PIN (min 8 characters) → automatic login → redirect to dashboard
 3.  **Login** (`/login`) - form: username, password → redirect to `/dashboard` (USER) or `/admin/dashboard` (ADMIN)
 4.  **User Dashboard** (`/dashboard`):
     - Sticky banner with expiring certificates (if any) - highly visible, cannot be fully closed, "Renew Now" button
     - Table/list of certificates with:
-        - Sorting by `expiration_date` (default ascending)
-        - Filtering by status (ACTIVE/REVOKED)
-        - Pagination (10-20 certificates per page)
-        - Columns: serial_number, DN (abbreviated), status (with color), expiration_date (with highlight for expiring)
-        - Action buttons: "Renew" (for active certificates near expiration), "Download" (for all active)
+      - Sorting by `expiration_date` (default ascending)
+      - Filtering by status (ACTIVE/REVOKED)
+      - Pagination (10-20 certificates per page)
+      - Columns: serial_number, DN (abbreviated), status (with color), expiration_date (with highlight for expiring)
+      - Action buttons: "Renew" (for active certificates near expiration), "Download" (for all active)
 5.  **Certificate Renewal** - flow initiated from dashboard (PUT /certificates/{id}/renew)
 6.  **Certificate Download** - modal with PIN field → POST /certificates/{id}/pkcs12 → automatic download of .p12/.pfx file. Public certificate download via GET /certificates/{id}/download.
 
 **Administrator Flow (ADMIN):**
+
 1.  **Login** (`/login`) - common with users, redirect to `/admin/dashboard`
 2.  **Administrator Dashboard** (`/admin/dashboard`) - system overview (details to be determined)
 3.  **Certificate Creation** (`/admin/certificates/create`):
     - Form with fields:
-        - User selection (list of all users)
-        - Numeric field: `validity_period_days` (1-3650 days, validation)
-        - Dropdown: `hash_algorithm` (SHA-256, SHA-384, SHA-512)
-        - DN Form: CN (required), OU, O, L, ST, C (optional)
+      - User selection (list of all users)
+      - Numeric field: `validity_period_days` (1-3650 days, validation)
+      - Dropdown: `hash_algorithm` (SHA-256, SHA-384, SHA-512)
+      - DN Form: CN (required), OU, O, L, ST, C (optional)
     - DN preview before submission
     - Client-side validation
     - Success message with serial number after creation
 4.  **Certificate Management** - list of all certificates with revocation capability (PUT /certificates/{id}/revoke)
 
 **UI Components:**
+
 - Certificate tables (with sorting, filtering, pagination)
 - Registration and login forms
 - Certificate download modal (with PIN field)
@@ -97,11 +104,13 @@
 **API Endpoints Used in UI:**
 
 **Authentication:**
+
 - `POST /users` - register new user
 - `POST /auth/login` - login, returns JWT token
 - `GET /users/{id}` - retrieve user data
 
 **Certificate Management:**
+
 - `GET /certificates` - list of user certificates (pagination, filtering, sorting)
 - `GET /certificates/expiring` - expiring certificates (for banner, `days=30` parameter)
 - `PUT /certificates/{id}/renew` - renew certificate
@@ -111,18 +120,20 @@
 - `PUT /certificates/{id}/revoke` - revoke certificate (admin)
 
 **State Management:**
+
 - JWT token in httpOnly cookie (managed by backend or Astro middleware)
 - Authentication status verified before each API request
 - No advanced data caching (for MVP) - standard requests on each view load
 - Expiring certificates banner: polling every 5-10 minutes in the background
 
 **Error Handling:**
+
 - Central error handling system with HTTP code mapping:
-    - `400` - validation errors (specific messages in forms)
-    - `401` - unauthorized (redirect to `/login`)
-    - `403` - insufficient permissions (message "No permissions")
-    - `404` - not found (message "Not Found")
-    - `409` - conflict (e.g., "User already exists")
+  - `400` - validation errors (specific messages in forms)
+  - `401` - unauthorized (redirect to `/login`)
+  - `403` - insufficient permissions (message "No permissions")
+  - `404` - not found (message "Not Found")
+  - `409` - conflict (e.g., "User already exists")
 - Toast notifications (Shadcn/ui) for operational errors
 - Inline error messages in forms
 - Fallback UI for network errors (timeout, no connection) with retry option
@@ -130,6 +141,7 @@
 ### d) Responsiveness, Accessibility, and Security Considerations
 
 **Responsiveness:**
+
 - Mobile-first approach with Tailwind CSS
 - Forms: columns on desktop, stack on mobile
 - Certificate tables: horizontally scrollable on mobile (or converted to cards in the future)
@@ -137,12 +149,14 @@
 - All interactive elements: minimum 44x44px touch target
 
 **Accessibility (MVP - simplified):**
+
 - Basic responsiveness ensured
 - Touch target compliant with mobile guidelines
 - Colors with adequate contrast
 - No full implementation of ARIA labels and keyboard navigation in MVP (can be added in the future)
 
 **Security:**
+
 - JWT token in httpOnly cookie (XSS protection)
 - Astro middleware protecting secured paths
 - Automatic logout upon session expiration
@@ -153,6 +167,7 @@
 ### e) Technical Structure and Implementation
 
 **Technology Stack:**
+
 - **Framework:** Astro 5 (server-side rendering, middleware)
 - **Interactive Components:** React 19
 - **Styling:** Tailwind CSS 4
@@ -160,20 +175,22 @@
 - **TypeScript:** 5 (static typing)
 
 **Project Structure (frontend):**
+
 - `/src/pages/` - Astro pages (routing)
-    - `/` - homepage
-    - `/login` - login
-    - `/register` - registration
-    - `/dashboard` - user dashboard
-    - `/admin/*` - administrator section
+  - `/` - homepage
+  - `/login` - login
+  - `/register` - registration
+  - `/dashboard` - user dashboard
+  - `/admin/*` - administrator section
 - `/src/components/` - components (Astro + React)
-    - Static components: Astro
-    - Interactive components: React (forms, tables, modals)
+  - Static components: Astro
+  - Interactive components: React (forms, tables, modals)
 - `/src/middleware/` - Astro middleware (path protection, JWT verification)
 - `/src/lib/` - services and helpers (API client, error handling)
 - `/src/types.ts` - common TypeScript types (DTOs, Entities)
 
 **Key Components to Implement:**
+
 1.  `AuthMiddleware` - Astro middleware for JWT verification
 2.  `LoginForm` - login form (React)
 3.  `RegisterForm` - registration form (React)
@@ -187,6 +204,7 @@
 </ui_architecture_planning_summary>
 
 <unresolved_issues>
+
 1.  **Endpoint for retrieving user list for admin:** The certificate creation form requires a select with a list of all users. The API plan does not include a `GET /users` endpoint for the administrator. It needs to be determined whether such an endpoint will be available, or if the user list will be retrieved in another way.
 
 2.  **Administrator dashboard details:** A separate `/admin/*` path for the administrator has been decided, but the content details of the administrator dashboard (`/admin/dashboard`) have not been determined. It needs to be decided what information and statistics should be displayed.

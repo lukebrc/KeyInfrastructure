@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { api } from "@/lib/api";
 import type { LoginRequest, ApiError } from "@/types";
@@ -45,13 +52,19 @@ const LoginForm: React.FC = () => {
       const request: LoginRequest = { username, password };
       const response = await api.login(request);
 
-      console.info("Login response", response.user.username, response.user.role);
+      console.info(
+        "Login response",
+        response.user.username,
+        response.user.role,
+      );
       // Token should be set in httpOnly cookie by backend
       // Redirect based on role or redirect URL
       if (redirectUrl) {
         window.location.href = redirectUrl;
       } else if (response.user.role === "ADMIN") {
-        window.location.href = redirectUrl.startsWith("/admin") ? redirectUrl : "/admin/dashboard";
+        window.location.href = redirectUrl.startsWith("/admin")
+          ? redirectUrl
+          : "/admin/dashboard";
       } else {
         window.location.href = "/dashboard";
       }
@@ -60,7 +73,10 @@ const LoginForm: React.FC = () => {
 
       const apiError = err as ApiError;
       // Handle 401 - invalid credentials
-      if (apiError.message.includes("401") || apiError.message.includes("Unauthorized")) {
+      if (
+        apiError.message.includes("401") ||
+        apiError.message.includes("Unauthorized")
+      ) {
         setError("Invalid username or password");
       } else {
         setError(apiError.message || "An error occurred. Please try again.");
@@ -75,7 +91,9 @@ const LoginForm: React.FC = () => {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>Enter your credentials to access your account</CardDescription>
+          <CardDescription>
+            Enter your credentials to access your account
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">

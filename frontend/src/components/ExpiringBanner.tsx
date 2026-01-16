@@ -65,8 +65,10 @@ export const ExpiringBanner: React.FC = () => {
   };
 
   const getExpiryColor = (days: number): string => {
-    if (days <= 7) return "bg-red-500/20 border-red-500/50 text-red-900 dark:text-red-100";
-    if (days <= 14) return "bg-orange-500/20 border-orange-500/50 text-orange-900 dark:text-orange-100";
+    if (days <= 7)
+      return "bg-red-500/20 border-red-500/50 text-red-900 dark:text-red-100";
+    if (days <= 14)
+      return "bg-orange-500/20 border-orange-500/50 text-orange-900 dark:text-orange-100";
     return "bg-yellow-500/20 border-yellow-500/50 text-yellow-900 dark:text-yellow-100";
   };
 
@@ -74,7 +76,9 @@ export const ExpiringBanner: React.FC = () => {
     <Alert
       className={cn(
         "sticky top-0 z-50 mb-4 border-2 shadow-lg transition-all",
-        getExpiryColor(getDaysUntilExpiry(certificates[0]?.expiration_date || ""))
+        getExpiryColor(
+          getDaysUntilExpiry(certificates[0]?.expiration_date || ""),
+        ),
       )}
     >
       <div className="flex items-start justify-between gap-4">
@@ -90,13 +94,19 @@ export const ExpiringBanner: React.FC = () => {
                 {certificates.map((cert) => {
                   const days = getDaysUntilExpiry(cert.expiration_date);
                   return (
-                    <div key={cert.id} className="flex items-center justify-between gap-4 py-2 border-b last:border-b-0">
+                    <div
+                      key={cert.id}
+                      className="flex items-center justify-between gap-4 py-2 border-b last:border-b-0"
+                    >
                       <div className="flex-1">
                         <p className="font-medium">{cert.serial_number}</p>
                         <p className="text-sm opacity-90">
-                          Expires in {days} {days === 1 ? "day" : "days"} ({new Date(cert.expiration_date).toLocaleDateString()})
+                          Expires in {days} {days === 1 ? "day" : "days"} (
+                          {new Date(cert.expiration_date).toLocaleDateString()})
                         </p>
-                        <p className="text-xs opacity-75 truncate max-w-md">{cert.dn}</p>
+                        <p className="text-xs opacity-75 truncate max-w-md">
+                          {cert.dn}
+                        </p>
                       </div>
                       <Button
                         size="sm"
@@ -129,10 +139,13 @@ export const ExpiringBanner: React.FC = () => {
           className="flex-shrink-0"
           aria-label={minimized ? "Expand banner" : "Minimize banner"}
         >
-          {minimized ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
+          {minimized ? (
+            <ChevronDown className="size-4" />
+          ) : (
+            <ChevronUp className="size-4" />
+          )}
         </Button>
       </div>
     </Alert>
   );
 };
-

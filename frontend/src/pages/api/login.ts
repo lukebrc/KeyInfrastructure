@@ -16,7 +16,7 @@ export const POST: APIRoute = async ({ request }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -32,7 +32,7 @@ export const POST: APIRoute = async ({ request }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -54,7 +54,9 @@ export const POST: APIRoute = async ({ request }) => {
       } catch {
         errorMessage = response.statusText || errorMessage;
       }
-      console.info(`/auth/login returned ${response.status} with message: ${errorMessage}`);
+      console.info(
+        `/auth/login returned ${response.status} with message: ${errorMessage}`,
+      );
 
       return new Response(
         JSON.stringify({
@@ -65,7 +67,7 @@ export const POST: APIRoute = async ({ request }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -82,7 +84,10 @@ export const POST: APIRoute = async ({ request }) => {
       console.info(`Setting cookie ${setCookieHeaders} for user: ${username}`);
       headers.set("set-cookie", setCookieHeaders);
     } else {
-      console.warn("Backend did not return 'Set-Cookie' header for user:", username);
+      console.warn(
+        "Backend did not return 'Set-Cookie' header for user:",
+        username,
+      );
     }
 
     return new Response(
@@ -94,7 +99,7 @@ export const POST: APIRoute = async ({ request }) => {
       {
         status: 200,
         headers,
-      }
+      },
     );
   } catch (error) {
     console.error("Login API error:", error);
@@ -107,7 +112,7 @@ export const POST: APIRoute = async ({ request }) => {
         headers: {
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 };

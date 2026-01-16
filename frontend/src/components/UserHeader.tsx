@@ -59,4 +59,3 @@ export const UserHeader: React.FC = () => {
     </div>
   );
 };
-

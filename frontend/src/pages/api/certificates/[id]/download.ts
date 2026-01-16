@@ -1,11 +1,17 @@
 import type { APIRoute } from "astro";
-import { validateBackendUrl, validateAuthToken, handleApiError, createErrorResponse, getCurrentUserId } from "@/lib/api-utils";
+import {
+  validateBackendUrl,
+  validateAuthToken,
+  handleApiError,
+  createErrorResponse,
+  getCurrentUserId,
+} from "@/lib/api-utils";
 
 export const POST: APIRoute = async ({ request, params }) => {
   try {
     const backendUrl = validateBackendUrl();
     const token = validateAuthToken(request);
-    
+
     let userId: string;
     try {
       userId = await getCurrentUserId(request);
@@ -13,14 +19,15 @@ export const POST: APIRoute = async ({ request, params }) => {
       console.error("Failed to get user ID:", error);
       return new Response(
         JSON.stringify({
-          message: error instanceof Error ? error.message : "Failed to get user ID",
+          message:
+            error instanceof Error ? error.message : "Failed to get user ID",
         }),
         {
           status: 401,
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -36,26 +43,29 @@ export const POST: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
     // Get request body
     const body = await request.json();
-    
+
     // Use certificate owner's user_id if provided (for admin downloads), otherwise use current user's ID
     const certificateOwnerId = body.user_id || userId;
 
     // Forward the request to the backend PKCS12 endpoint
-    const response = await fetch(`${backendUrl}/users/${certificateOwnerId}/certificates/${certificateId}/pkcs12`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${backendUrl}/users/${certificateOwnerId}/certificates/${certificateId}/pkcs12`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ password: body.password }),
       },
-      credentials: "include",
-      body: JSON.stringify({ password: body.password }),
-    });
+    );
 
     if (!response.ok) {
       let errorMessage = "Failed to download certificate";
@@ -75,14 +85,16 @@ export const POST: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
     // Handle binary responses (downloads)
     const blob = await response.blob();
-    const contentType = response.headers.get("content-type") || "application/octet-stream";
-    const contentDisposition = response.headers.get("content-disposition") || "attachment";
+    const contentType =
+      response.headers.get("content-type") || "application/octet-stream";
+    const contentDisposition =
+      response.headers.get("content-disposition") || "attachment";
 
     return new Response(blob, {
       status: 200,
@@ -102,7 +114,7 @@ export const POST: APIRoute = async ({ request, params }) => {
         headers: {
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 };

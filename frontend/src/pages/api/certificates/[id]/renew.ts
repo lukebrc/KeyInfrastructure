@@ -1,11 +1,17 @@
 import type { APIRoute } from "astro";
-import { validateBackendUrl, validateAuthToken, handleApiError, createErrorResponse, getCurrentUserId } from "@/lib/api-utils";
+import {
+  validateBackendUrl,
+  validateAuthToken,
+  handleApiError,
+  createErrorResponse,
+  getCurrentUserId,
+} from "@/lib/api-utils";
 
 export const PUT: APIRoute = async ({ request, params }) => {
   try {
     const backendUrl = validateBackendUrl();
     const token = validateAuthToken(request);
-    
+
     let userId: string;
     try {
       userId = await getCurrentUserId(request);
@@ -13,14 +19,15 @@ export const PUT: APIRoute = async ({ request, params }) => {
       console.error("Failed to get user ID:", error);
       return new Response(
         JSON.stringify({
-          message: error instanceof Error ? error.message : "Failed to get user ID",
+          message:
+            error instanceof Error ? error.message : "Failed to get user ID",
         }),
         {
           status: 401,
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -36,7 +43,7 @@ export const PUT: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -44,15 +51,18 @@ export const PUT: APIRoute = async ({ request, params }) => {
     const body = await request.json().catch(() => ({}));
 
     // Forward the request to the backend
-    const response = await fetch(`${backendUrl}/users/${userId}/certificates/${certificateId}/renew`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${backendUrl}/users/${userId}/certificates/${certificateId}/renew`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
       },
-      credentials: "include",
-      body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
-    });
+    );
 
     if (!response.ok) {
       let errorMessage = "Failed to renew certificate";
@@ -72,7 +82,7 @@ export const PUT: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -97,7 +107,7 @@ export const PUT: APIRoute = async ({ request, params }) => {
         headers: {
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 };

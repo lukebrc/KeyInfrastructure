@@ -1,5 +1,10 @@
 import type { APIRoute } from "astro";
-import { validateBackendUrl, validateAuthToken, handleApiError, createErrorResponse } from "@/lib/api-utils";
+import {
+  validateBackendUrl,
+  validateAuthToken,
+  handleApiError,
+  createErrorResponse,
+} from "@/lib/api-utils";
 
 export const DELETE: APIRoute = async ({ request, params }) => {
   try {
@@ -18,7 +23,7 @@ export const DELETE: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -36,19 +41,22 @@ export const DELETE: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
     // Forward the request to the backend
-    const response = await fetch(`${backendUrl}/users/${userId}/certificates/${certificateId}/cancel`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${backendUrl}/users/${userId}/certificates/${certificateId}/cancel`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
       },
-      credentials: "include",
-    });
+    );
 
     if (!response.ok) {
       let errorMessage = "Failed to cancel pending certificate request";
@@ -68,7 +76,7 @@ export const DELETE: APIRoute = async ({ request, params }) => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
@@ -93,8 +101,7 @@ export const DELETE: APIRoute = async ({ request, params }) => {
         headers: {
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 };
-

@@ -73,15 +73,15 @@ Before starting the development server, you need to configure the application.
 ```md
 .
 ├── src/
-│   ├── components/ # UI components (Astro & React)
-│   ├── layouts/    # Astro layouts
-│   ├── lib/        # Helper functions and API logic
-│   ├── middleware/ # Astro middleware
-│   ├── pages/      # Astro pages
-│   │   └── api/    # API endpoints
-│   ├── styles/     # Global styles
-│   └── types.ts    # TypeScript types
-├── public/         # Public assets
+│ ├── components/ # UI components (Astro & React)
+│ ├── layouts/ # Astro layouts
+│ ├── lib/ # Helper functions and API logic
+│ ├── middleware/ # Astro middleware
+│ ├── pages/ # Astro pages
+│ │ └── api/ # API endpoints
+│ ├── styles/ # Global styles
+│ └── types.ts # TypeScript types
+├── public/ # Public assets
 ```
 
 ## AI Development Support

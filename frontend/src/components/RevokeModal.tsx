@@ -42,7 +42,9 @@ export const RevokeModal: React.FC<RevokeModalProps> = ({
       const { api } = await import("@/lib/api");
       const { ErrorHandler } = await import("@/lib/error-handler");
 
-      await api.revokeCertificate(certificate.id, { reason: reason.trim() || undefined });
+      await api.revokeCertificate(certificate.id, {
+        reason: reason.trim() || undefined,
+      });
       ErrorHandler.showSuccess("Certificate revoked successfully");
       onRevoked();
       onOpenChange(false);
@@ -70,18 +72,23 @@ export const RevokeModal: React.FC<RevokeModalProps> = ({
             Revoke Certificate
           </DialogTitle>
           <DialogDescription>
-            Are you sure you want to revoke this certificate? This action cannot be undone.
+            Are you sure you want to revoke this certificate? This action cannot
+            be undone.
           </DialogDescription>
         </DialogHeader>
         {certificate && (
           <div className="space-y-4">
             <div>
               <p className="text-sm font-medium">Serial Number:</p>
-              <p className="text-sm text-muted-foreground font-mono">{certificate.serial_number}</p>
+              <p className="text-sm text-muted-foreground font-mono">
+                {certificate.serial_number}
+              </p>
             </div>
             <div>
               <p className="text-sm font-medium">User:</p>
-              <p className="text-sm text-muted-foreground">{certificate.username || "N/A"}</p>
+              <p className="text-sm text-muted-foreground">
+                {certificate.username || "N/A"}
+              </p>
             </div>
             {error && (
               <Alert variant="destructive">
@@ -108,7 +115,11 @@ export const RevokeModal: React.FC<RevokeModalProps> = ({
           <Button variant="outline" onClick={handleClose} disabled={loading}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={handleRevoke} disabled={loading}>
+          <Button
+            variant="destructive"
+            onClick={handleRevoke}
+            disabled={loading}
+          >
             {loading ? (
               <>
                 <Loader2 className="size-4 mr-2 animate-spin" />
@@ -123,4 +134,3 @@ export const RevokeModal: React.FC<RevokeModalProps> = ({
     </Dialog>
   );
 };
-

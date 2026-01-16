@@ -21,11 +21,9 @@ interface DownloadCertificateModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> = ({
-  certificate,
-  open,
-  onOpenChange,
-}) => {
+export const DownloadCertificateModal: React.FC<
+  DownloadCertificateModalProps
+> = ({ certificate, open, onOpenChange }) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,9 +43,9 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
     }
 
     try {
-      const blob = await api.downloadCertificate(certificate.id, { 
+      const blob = await api.downloadCertificate(certificate.id, {
         password,
-        user_id: certificate.user_id 
+        user_id: certificate.user_id,
       });
 
       // Create download link
@@ -65,7 +63,10 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
       setPassword("");
     } catch (err) {
       const apiError = err as { message?: string };
-      if (apiError.message?.includes("password") || apiError.message?.includes("400")) {
+      if (
+        apiError.message?.includes("password") ||
+        apiError.message?.includes("400")
+      ) {
         setError("Invalid password. Please try again.");
       } else {
         ErrorHandler.handleError(err, "Failed to download certificate");
@@ -87,14 +88,17 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
         <DialogHeader>
           <DialogTitle>Download Certificate</DialogTitle>
           <DialogDescription>
-            Enter your password to download the certificate file (PKCS#12 format). The password must be at least 8 characters long.
+            Enter your password to download the certificate file (PKCS#12
+            format). The password must be at least 8 characters long.
           </DialogDescription>
         </DialogHeader>
         {certificate && (
           <div className="space-y-4">
             <div>
               <p className="text-sm font-medium">Serial Number:</p>
-              <p className="text-sm text-muted-foreground">{certificate.serial_number}</p>
+              <p className="text-sm text-muted-foreground">
+                {certificate.serial_number}
+              </p>
             </div>
             {error && (
               <Alert variant="destructive">
@@ -119,7 +123,9 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
                   }
                 }}
               />
-              <p className="text-xs text-muted-foreground">Password must be at least 8 characters long</p>
+              <p className="text-xs text-muted-foreground">
+                Password must be at least 8 characters long
+              </p>
             </div>
           </div>
         )}
@@ -127,7 +133,10 @@ export const DownloadCertificateModal: React.FC<DownloadCertificateModalProps> =
           <Button variant="outline" onClick={handleClose} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleDownload} disabled={loading || password.length < 8}>
+          <Button
+            onClick={handleDownload}
+            disabled={loading || password.length < 8}
+          >
             {loading ? (
               <>
                 <Loader2 className="size-4 mr-2 animate-spin" />

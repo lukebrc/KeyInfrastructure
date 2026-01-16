@@ -8,17 +8,22 @@ function getAuthToken(request: Request): string | null {
   const cookieHeader = request.headers.get("cookie");
   if (!cookieHeader) return null;
 
-  const cookies = cookieHeader.split("; ").reduce((acc, cookie) => {
-    const [key, value] = cookie.split("=");
-    acc[key] = value;
-    return acc;
-  }, {} as Record<string, string>);
+  const cookies = cookieHeader.split("; ").reduce(
+    (acc, cookie) => {
+      const [key, value] = cookie.split("=");
+      acc[key] = value;
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
 
   return cookies["auth_token"] || null;
 }
 
 // Helper function to verify token with backend
-async function verifyToken(token: string): Promise<{ valid: boolean; role?: string; userId?: string }> {
+async function verifyToken(
+  token: string,
+): Promise<{ valid: boolean; role?: string; userId?: string }> {
   try {
     const backendUrl = import.meta.env.BACKEND_URL;
     if (!backendUrl) {
@@ -35,7 +40,11 @@ async function verifyToken(token: string): Promise<{ valid: boolean; role?: stri
     });
 
     if (!response.ok) {
-      console.error("verifyToken failure", response.status, response.statusText);
+      console.error(
+        "verifyToken failure",
+        response.status,
+        response.statusText,
+      );
       return { valid: false };
     }
 
@@ -57,7 +66,10 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
   const pathname = new URL(url).pathname;
 
   // Allow public routes and API routes
-  if (PUBLIC_ROUTES.some((route) => pathname === route) || pathname.startsWith("/api/")) {
+  if (
+    PUBLIC_ROUTES.some((route) => pathname === route) ||
+    pathname.startsWith("/api/")
+  ) {
     return next();
   }
 
@@ -97,13 +109,13 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 
   console.info("Logged in as ", verification.role, verification.userId);
   if (pathname.startsWith("/dashboard") && verification.role == "ADMIN") {
-      return new Response(null, {
-        status: 302,
-        headers: {
-          Location: `/admin${pathname}`
-        },
-      });
-    }
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: `/admin${pathname}`,
+      },
+    });
+  }
 
   // Check admin routes
   if (pathname.startsWith("/admin")) {
