@@ -261,6 +261,21 @@ export const api = {
     return handleResponse<Certificate>(response);
   },
 
+  async cancelCertificate(
+    certificateId: string,
+  ): Promise<Certificate> {
+    // Use proxy API route
+    const response = await fetch(`/api/certificates/${certificateId}/cancel`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    return handleResponse<Certificate>(response);
+  },
+
   async generateCertificate(certificateId: string): Promise<Certificate> {
     // Use proxy API route
     const response = await fetch(

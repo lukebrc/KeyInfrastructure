@@ -4,12 +4,32 @@ import {
   validateAuthToken,
   handleApiError,
   createErrorResponse,
+  getCurrentUserId,
 } from "@/lib/api-utils";
 
-export const DELETE: APIRoute = async ({ request, params }) => {
+export const PUT: APIRoute = async ({ request, params }) => {
   try {
     const backendUrl = validateBackendUrl();
     const token = validateAuthToken(request);
+
+    let userId: string;
+    try {
+      userId = await getCurrentUserId(request);
+    } catch (error) {
+      console.error("Failed to get user ID:", error);
+      return new Response(
+        JSON.stringify({
+          message:
+            error instanceof Error ? error.message : "Failed to get user ID",
+        }),
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
 
     const certificateId = params.id;
 
@@ -27,29 +47,11 @@ export const DELETE: APIRoute = async ({ request, params }) => {
       );
     }
 
-    // Get user_id from query parameters (required for admin operations)
-    const url = new URL(request.url);
-    const userId = url.searchParams.get("user_id");
-
-    if (!userId) {
-      return new Response(
-        JSON.stringify({
-          message: "User ID is required",
-        }),
-        {
-          status: 400,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-    }
-
     // Forward the request to the backend
     const response = await fetch(
       `${backendUrl}/users/${userId}/certificates/${certificateId}/cancel`,
       {
-        method: "DELETE",
+        method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -59,7 +61,7 @@ export const DELETE: APIRoute = async ({ request, params }) => {
     );
 
     if (!response.ok) {
-      let errorMessage = "Failed to cancel pending certificate request";
+      let errorMessage = "Failed to cancel certificate";
       try {
         const errorData = await response.json();
         errorMessage = errorData.message || errorMessage;
@@ -91,7 +93,7 @@ export const DELETE: APIRoute = async ({ request, params }) => {
       },
     });
   } catch (error) {
-    console.error("Cancel certificate request API error:", error);
+    console.error("Cancel certificate API error:", error);
     return new Response(
       JSON.stringify({
         message: "An error occurred. Please try again.",

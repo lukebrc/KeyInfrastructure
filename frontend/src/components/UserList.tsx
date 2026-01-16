@@ -107,6 +107,18 @@ export const UserList: React.FC = () => {
     }
   };
 
+  const handleCancelCertificate = async (certificate: Certificate) => {
+    try {
+      await api.cancelCertificate(certificate.id);
+      ErrorHandler.showSuccess("Certificate request cancelled successfully");
+      if (selectedUser) {
+        await fetchUserCertificates(selectedUser.id);
+      }
+    } catch (error) {
+      ErrorHandler.handleError(error, "Failed to cancel certificate request");
+    }
+  };
+
   const handleDownloadCertificate = async (cert: Certificate) => {
     if (!selectedUser) {
       console.error("No user selected");
@@ -328,6 +340,7 @@ export const UserList: React.FC = () => {
                       currentUser.role === "ADMIN")
                   }
                   onRevoke={handleCertificateRevoked}
+                  onCancel={handleCancelCertificate}
                   onDownload={handleDownloadCertificate}
                   onRefresh={() =>
                     selectedUser && fetchUserCertificates(selectedUser.id)

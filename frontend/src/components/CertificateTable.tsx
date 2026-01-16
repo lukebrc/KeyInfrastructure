@@ -38,6 +38,7 @@ interface CertificateTableProps {
   userId?: string | null;
   showUserColumn?: boolean;
   onRevoke?: (certificate: Certificate) => void;
+  onCancel?: (certificate: Certificate) => void;
   onDownload?: (certificate: Certificate) => void;
   onRefresh?: () => void;
   showStatusFilter?: boolean;
@@ -49,6 +50,7 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
   userId,
   showUserColumn = false,
   onRevoke,
+  onCancel,
   onDownload,
   onRefresh,
   showStatusFilter = true,
@@ -457,9 +459,6 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                         {cert.status === "PENDING" &&
                           allowGenerate &&
                           (() => {
-                            // Show Generate button only if:
-                            // 1. currentUser is loaded, AND
-                            // 2. cert.user_id matches currentUser.id (certificate belongs to current user)
                             const hasUserId =
                               cert.user_id &&
                               String(cert.user_id).trim() !== "";
@@ -471,26 +470,42 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                             const canGenerate =
                               currentUser && hasUserId && userIdMatches;
 
-                            return canGenerate ? (
-                              <Button
-                                size="sm"
-                                variant="default"
-                                onClick={() => handleGenerate(cert.id)}
-                                disabled={generating[cert.id]}
-                              >
-                                {generating[cert.id] ? (
-                                  <>
-                                    <RefreshCw className="size-4 mr-1 animate-spin" />
-                                    Generating...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Play className="size-4 mr-1" />
-                                    Generate
-                                  </>
+                            const isAdmin = currentUser?.role === "ADMIN";
+
+                            return (
+                              <>
+                                {canGenerate && (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    onClick={() => handleGenerate(cert.id)}
+                                    disabled={generating[cert.id]}
+                                  >
+                                    {generating[cert.id] ? (
+                                      <>
+                                        <RefreshCw className="size-4 mr-1 animate-spin" />
+                                        Generating...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Play className="size-4 mr-1" />
+                                        Generate
+                                      </>
+                                    )}
+                                  </Button>
                                 )}
-                              </Button>
-                            ) : null;
+                                {isAdmin && onCancel && (
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => onCancel(cert)}
+                                  >
+                                    <XCircle className="size-4 mr-1" />
+                                    Cancel
+                                  </Button>
+                                )}
+                              </>
+                            );
                           })()}
                         {cert.status === "REVOKED" && (
                           <span className="text-sm text-muted-foreground">
