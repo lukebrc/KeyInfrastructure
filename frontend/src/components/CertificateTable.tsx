@@ -456,56 +456,53 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                             </Button>
                           </>
                         )}
-                        {cert.status === "PENDING" &&
-                          allowGenerate &&
-                          (() => {
-                            // Show Generate button only if:
-                            // 1. currentUser is loaded, AND
-                            // 2. cert.user_id matches currentUser.id (certificate belongs to current user)
-                            const hasUserId =
-                              cert.user_id &&
-                              String(cert.user_id).trim() !== "";
-                            const userIdMatches =
-                              currentUser && hasUserId
-                                ? String(cert.user_id).trim() ===
-                                  String(currentUser.id).trim()
-                                : false;
-                            const canGenerate =
-                              currentUser && hasUserId && userIdMatches;
-
-                            return canGenerate ? (
+                        {cert.status === "PENDING" && (
+                          <>
+                            {allowGenerate &&
+                              (() => {
+                                const hasUserId =
+                                  cert.user_id &&
+                                  String(cert.user_id).trim() !== "";
+                                const userIdMatches =
+                                  currentUser && hasUserId
+                                    ? String(cert.user_id).trim() ===
+                                      String(currentUser.id).trim()
+                                    : false;
+                                const canGenerate =
+                                  currentUser && hasUserId && userIdMatches;
+                                return canGenerate ? (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    onClick={() => handleGenerate(cert.id)}
+                                    disabled={generating[cert.id]}
+                                  >
+                                    {generating[cert.id] ? (
+                                      <>
+                                        <RefreshCw className="size-4 mr-1 animate-spin" />
+                                        Generating...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Play className="size-4 mr-1" />
+                                        Generate
+                                      </>
+                                    )}
+                                  </Button>
+                                ) : null;
+                              })()}
+                            {currentUser?.role === "ADMIN" && onCancel && (
                               <Button
                                 size="sm"
-                                variant="default"
-                                onClick={() => handleGenerate(cert.id)}
-                                disabled={generating[cert.id]}
+                                variant="destructive"
+                                onClick={() => onCancel(cert)}
                               >
-                                {generating[cert.id] ? (
-                                  <>
-                                    <RefreshCw className="size-4 mr-1 animate-spin" />
-                                    Generating...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Play className="size-4 mr-1" />
-                                    Generate
-                                  </>
-                                )}
+                                <XCircle className="size-4 mr-1" />
+                                Cancel
                               </Button>
-                            ) : null;
-                          })()}
-                        {cert.status === "PENDING" &&
-                          currentUser?.role === "ADMIN" &&
-                          onCancel && (
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => onCancel(cert)}
-                            >
-                              <XCircle className="size-4 mr-1" />
-                              Cancel
-                            </Button>
-                          )}
+                            )}
+                          </>
+                        )}
                         {cert.status === "REVOKED" && (
                           <span className="text-sm text-muted-foreground">
                             Revoked
