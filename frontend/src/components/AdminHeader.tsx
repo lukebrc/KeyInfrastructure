@@ -65,7 +65,7 @@ export const AdminHeader: React.FC = () => {
             href="/admin/certificates/create"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            Create Certificate
+            New certificate request
           </a>
           <span className="text-muted-foreground">•</span>
           <a

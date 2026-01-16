@@ -229,7 +229,7 @@ export const UserList: React.FC = () => {
                         onClick={() => handleCreateCertificate(user)}
                       >
                         <UserPlus className="size-4 mr-1" />
-                        Create Certificate
+                        New certificate request
                       </Button>
                     </div>
                   </TableCell>
@@ -339,11 +339,11 @@ export const UserList: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Create Certificate Modal */}
+      {/* Create Certificate Request Modal */}
       <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create Certificate</DialogTitle>
+            <DialogTitle>Create Certificate Request</DialogTitle>
             <DialogDescription>
               Create a new certificate. Select the user and fill in the required
               information below.

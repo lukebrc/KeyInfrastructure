@@ -7,13 +7,13 @@ import { Toaster } from "../../../components/ui/sonner";
 const userId = Astro.url.searchParams.get("userId");
 ---
 
-<Layout title="Create Certificate">
+<Layout title="Create Certificate Request">
   <div class="min-h-screen bg-background">
     <AdminHeader client:load />
     <main class="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
       <div class="space-y-6">
         <div>
-          <h1 class="text-3xl font-bold mb-2">Create Certificate</h1>
+          <h1 class="text-3xl font-bold mb-2">Create Certificate Request</h1>
           <p class="text-muted-foreground">Create a new certificate for a user</p>
         </div>
         <CreateCertificateForm client:load preselectedUserId={userId} />

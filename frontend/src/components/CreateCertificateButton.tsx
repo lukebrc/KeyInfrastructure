@@ -17,7 +17,7 @@ export const CreateCertificateButton: React.FC<
     <Button asChild>
       <a href={href}>
         <PlusCircle className="size-4 mr-2" />
-        Create Certificate
+        New certificate request
       </a>
     </Button>
   );

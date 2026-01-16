@@ -20,7 +20,7 @@ export const GET: APIRoute = async ({ request, params }) => {
         JSON.stringify({
           message: "User ID is required",
         }),
-        {
+        { 
           status: 400,
           headers: {
             "Content-Type": "application/json",
@@ -89,7 +89,7 @@ export const GET: APIRoute = async ({ request, params }) => {
       );
 
       if (!response.ok) {
-        let errorMessage = "Failed to get certificates";
+        let errorMessage = "Failed to get certificate requests";
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
@@ -242,7 +242,7 @@ export const POST: APIRoute = async ({ request, params }) => {
     );
 
     if (!response.ok) {
-      let errorMessage = "Failed to create certificate";
+      let errorMessage = "Failed to create certificate request";
       try {
         const errorData = await response.json();
         errorMessage = errorData.message || errorMessage;
@@ -273,7 +273,7 @@ export const POST: APIRoute = async ({ request, params }) => {
       },
     });
   } catch (error) {
-    console.error("Create certificate API error:", error);
+    console.error("Create certificate request API error:", error);
     return new Response(
       JSON.stringify({
         message: "An error occurred. Please try again.",

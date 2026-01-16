@@ -141,7 +141,7 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
       setCreatedCertificateSerial(certificate.serial_number);
       setSuccess(true);
       ErrorHandler.showSuccess(
-        `Certificate created successfully! Serial: ${certificate.serial_number}`,
+        `Certificate request created successfully!`,
       );
 
       // Call onSuccess callback if provided
@@ -176,10 +176,10 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
         apiError.message?.includes("403") ||
         apiError.message?.includes("Forbidden")
       ) {
-        setError("You don't have permission to create certificates");
+        setError("You don't have permission to create certificate requests");
       } else {
         setError(
-          apiError.message || "Failed to create certificate. Please try again.",
+          apiError.message || "Failed to create certificate request. Please try again.",
         );
       }
     } finally {
@@ -191,11 +191,11 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Create Certificate</CardTitle>
+          <CardTitle>Create Certificate Request</CardTitle>
           <CardDescription>
             {selectedUser
-              ? `Create a new certificate for user: ${selectedUser.username}`
-              : "Create a new certificate for a user"}
+              ? `Create a new certificate request for user: ${selectedUser.username}`
+              : "Create a new certificate request for a user"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -209,7 +209,7 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
               <Alert>
                 <CheckCircle2 className="size-4" />
                 <AlertDescription>
-                  Certificate created successfully! Serial number:{" "}
+                  Certificate request created successfully! Serial number:{" "}
                   {createdCertificateSerial}
                 </AlertDescription>
               </Alert>
@@ -399,10 +399,10 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
                 {loading ? (
                   <>
                     <Loader2 className="size-4 mr-2 animate-spin" />
-                    Creating...
+                    Creating request...
                   </>
                 ) : (
-                  "Create Certificate"
+                  "New certificate request"
                 )}
               </Button>
               <a href="/admin/dashboard">
