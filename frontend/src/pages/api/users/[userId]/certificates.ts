@@ -2,10 +2,38 @@ import type { APIRoute } from "astro";
 import {
   validateBackendUrl,
   validateAuthToken,
-  handleApiError,
-  createErrorResponse,
   fetchPendingCertificatesFromBackend,
 } from "@/lib/api-utils";
+
+interface PendingCertificate {
+  id: string;
+  dn?: string;
+  valid_days?: number;
+}
+
+interface TransformedPendingCertificate {
+  id: string;
+  serial_number: null;
+  dn: string;
+  status: "PENDING";
+  expiration_date: null;
+  renewed_count: number;
+  valid_days?: number;
+}
+
+interface BackendCertificate {
+  id: string | number;
+  serialNumber?: string;
+  serial_number?: string;
+  dn?: string;
+  status?: string;
+  expirationDate?: string;
+  expiration_date?: string;
+  createdAt?: string;
+  created_at?: string;
+  renewedCount?: number;
+  renewed_count?: number;
+}
 
 export const GET: APIRoute = async ({ request, params }) => {
   try {
@@ -20,7 +48,7 @@ export const GET: APIRoute = async ({ request, params }) => {
         JSON.stringify({
           message: "User ID is required",
         }),
-        { 
+        {
           status: 400,
           headers: {
             "Content-Type": "application/json",
@@ -38,18 +66,20 @@ export const GET: APIRoute = async ({ request, params }) => {
 
     //todo: add page and total parameters
     // Use shared helper that fetches and transforms pending certificates
-    const fetchPendingCertificates = async (): Promise<any[]> => {
+    const fetchPendingCertificates = async (): Promise<
+      TransformedPendingCertificate[]
+    > => {
       const result = await fetchPendingCertificatesFromBackend(
         backendUrl,
         token,
         userId,
       );
       // Convert transformed pending items to list format expected by this endpoint
-      return (result.data || []).map((cert: any) => ({
+      return (result.data || []).map((cert: PendingCertificate) => ({
         id: cert.id,
         serial_number: null,
         dn: cert.dn || "",
-        status: "PENDING",
+        status: "PENDING" as const,
         expiration_date: null,
         renewed_count: 0,
         valid_days: cert.valid_days,
@@ -115,17 +145,20 @@ export const GET: APIRoute = async ({ request, params }) => {
       // Transform certificates to match frontend Certificate type
       // Backend uses camelCase serialization (from serde rename_all = "camelCase")
       if (data.certificates && Array.isArray(data.certificates)) {
-        data.certificates = data.certificates.map((cert: any) => ({
-          id: cert.id || String(cert.id),
-          serial_number: cert.serialNumber || cert.serial_number || "",
-          user_id: userId, // Add user_id from path
-          dn: cert.dn || "",
-          status: cert.status || "ACTIVE",
-          expiration_date: cert.expirationDate || cert.expiration_date || null,
-          created_at:
-            cert.createdAt || cert.created_at || new Date().toISOString(),
-          renewed_count: cert.renewedCount || cert.renewed_count || 0,
-        }));
+        data.certificates = data.certificates.map(
+          (cert: BackendCertificate) => ({
+            id: cert.id || String(cert.id),
+            serial_number: cert.serialNumber || cert.serial_number || "",
+            user_id: userId, // Add user_id from path
+            dn: cert.dn || "",
+            status: cert.status || "ACTIVE",
+            expiration_date:
+              cert.expirationDate || cert.expiration_date || null,
+            created_at:
+              cert.createdAt || cert.created_at || new Date().toISOString(),
+            renewed_count: cert.renewedCount || cert.renewed_count || 0,
+          }),
+        );
       }
     }
 
@@ -170,7 +203,7 @@ export const GET: APIRoute = async ({ request, params }) => {
   }
 };
 
-export const POST: APIRoute = async ({ request, params }) => {
+export const POST: APIRoute = async ({ request }) => {
   try {
     const backendUrl = validateBackendUrl();
     const token = validateAuthToken(request);

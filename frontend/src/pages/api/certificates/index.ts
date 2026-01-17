@@ -2,10 +2,31 @@ import type { APIRoute } from "astro";
 import {
   validateBackendUrl,
   validateAuthToken,
-  handleApiError,
   getCurrentUserId,
   fetchPendingCertificatesFromBackend,
 } from "@/lib/api-utils";
+
+interface BackendCertificate {
+  id: string | number;
+  serialNumber?: string;
+  serial_number?: string;
+  userId?: string;
+  user_id?: string;
+  dn?: string;
+  status?: string;
+  expirationDate?: string;
+  expiration_date?: string;
+  createdAt?: string;
+  created_at?: string;
+  renewedCount?: number;
+  renewed_count?: number;
+}
+
+interface BackendResponse {
+  certificates?: BackendCertificate[];
+  total?: number;
+  page?: number;
+}
 
 export const GET: APIRoute = async ({ request }) => {
   try {
@@ -113,17 +134,25 @@ export const GET: APIRoute = async ({ request }) => {
 
     // fetchPendingCertificates will be delegated to shared helper via wrapper above
 
-    let backendData: any;
-    let transformedCertificates: any[] = [];
-
     // Fetch active certificates (status != PENDING)
-    backendData = await response.json();
+    const backendData: BackendResponse = await response.json();
+    interface TransformedCertificate {
+      id: string;
+      serial_number: string;
+      user_id: string;
+      dn: string;
+      status: string;
+      expiration_date: string;
+      created_at: string;
+      renewed_count: number;
+    }
+    let transformedCertificates: TransformedCertificate[] = [];
 
     // Transform certificates to match frontend Certificate type
     // Backend uses camelCase serialization (from serde rename_all = "camelCase")
     transformedCertificates = (backendData.certificates || []).map(
-      (cert: any) => ({
-        id: cert.id || String(cert.id),
+      (cert: BackendCertificate) => ({
+        id: String(cert.id),
         serial_number: cert.serialNumber || cert.serial_number || "",
         // Preserve backend's userId if present, otherwise use userId from path
         user_id: cert.userId || cert.user_id || userId,

@@ -53,9 +53,6 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [createdCertificateSerial, setCreatedCertificateSerial] = useState<
-    string | null
-  >(null);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -137,12 +134,9 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
         },
       };
 
-      const certificate = await api.createCertificate(selectedUserId, request);
-      setCreatedCertificateSerial(certificate.serial_number);
+      await api.createCertificate(selectedUserId, request);
       setSuccess(true);
-      ErrorHandler.showSuccess(
-        `Certificate request created successfully!`,
-      );
+      ErrorHandler.showSuccess("Certificate request created successfully!");
 
       // Call onSuccess callback if provided
       if (onSuccess) {
@@ -163,7 +157,6 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
           c: "",
         });
         setSuccess(false);
-        setCreatedCertificateSerial(null);
       }, 5000);
     } catch (err) {
       const apiError = err as ApiError;
@@ -179,7 +172,8 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
         setError("You don't have permission to create certificate requests");
       } else {
         setError(
-          apiError.message || "Failed to create certificate request. Please try again.",
+          apiError.message ||
+            "Failed to create certificate request. Please try again.",
         );
       }
     } finally {
@@ -381,7 +375,7 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">DN Preview</label>
+              <span className="text-sm font-medium">DN Preview</span>
               <div className="p-3 bg-muted rounded-md font-mono text-sm">
                 {dn.cn ? (
                   formatDN(dn)

@@ -208,7 +208,7 @@ export const api = {
     return handleResponse<PaginatedResponse<Certificate>>(response);
   },
 
-  async getExpiringCertificates(days: number = 30): Promise<Certificate[]> {
+  async getExpiringCertificates(days = 30): Promise<Certificate[]> {
     // Use proxy API route
     const response = await fetch(`/api/certificates/expiring?days=${days}`, {
       method: "GET",
@@ -285,9 +285,7 @@ export const api = {
     return handleResponse<Certificate>(response);
   },
 
-  async cancelCertificateRequest(
-    requestId: string,
-  ): Promise<Certificate> {
+  async cancelCertificateRequest(requestId: string): Promise<Certificate> {
     // Use proxy API route - DELETE method for cancelling pending certificate requests
     const response = await fetch(`/api/certificates/${requestId}/cancel`, {
       method: "DELETE",

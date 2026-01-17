@@ -16,7 +16,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { ErrorHandler } from "@/lib/error-handler";
@@ -308,7 +307,9 @@ export const UserList: React.FC = () => {
                     <Select
                       value={certificateStatusFilter}
                       onValueChange={(val) =>
-                        setCertificateStatusFilter(val as any)
+                        setCertificateStatusFilter(
+                          val as "ALL" | Certificate["status"],
+                        )
                       }
                     >
                       <SelectTrigger className="w-48">

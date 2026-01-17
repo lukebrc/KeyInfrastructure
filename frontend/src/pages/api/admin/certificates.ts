@@ -1,8 +1,21 @@
 import type { APIRoute } from "astro";
-import {
-  validateBackendUrl,
-  validateAuthToken,
-} from "@/lib/api-utils";
+import { validateBackendUrl, validateAuthToken } from "@/lib/api-utils";
+
+interface BackendCertificate {
+  id?: string | number;
+  serialNumber?: string;
+  serial_number?: string;
+  userId?: string;
+  user_id?: string;
+  dn?: string;
+  status?: string;
+  expirationDate?: string;
+  expiration_date?: string;
+  createdAt?: string;
+  created_at?: string;
+  renewedCount?: number;
+  renewed_count?: number;
+}
 
 /**
  * Admin-only endpoint to list all certificates across all users.
@@ -60,26 +73,24 @@ export const GET: APIRoute = async ({ request }) => {
     const limit = parseInt(url.searchParams.get("limit") || "10", 10);
 
     // Transform certificates to match frontend Certificate type
-    const transformedCertificates = (backendData.certificates || []).map(
-      (cert: any) => ({
-        id: cert.id || String(cert.id),
-        serial_number: cert.serialNumber || cert.serial_number || "",
-        user_id: cert.userId || cert.user_id || "",
-        dn: cert.dn || "",
-        status: cert.status || "ACTIVE",
-        expiration_date:
-          cert.expirationDate ||
-          cert.expiration_date ||
-          new Date().toISOString(),
-        created_at:
-          cert.createdAt ||
-          cert.created_at ||
-          cert.expirationDate ||
-          cert.expiration_date ||
-          new Date().toISOString(),
-        renewed_count: cert.renewedCount || cert.renewed_count || 0,
-      }),
-    );
+    const transformedCertificates = (
+      (backendData.certificates || []) as BackendCertificate[]
+    ).map((cert) => ({
+      id: cert.id || String(cert.id),
+      serial_number: cert.serialNumber || cert.serial_number || "",
+      user_id: cert.userId || cert.user_id || "",
+      dn: cert.dn || "",
+      status: cert.status || "ACTIVE",
+      expiration_date:
+        cert.expirationDate || cert.expiration_date || new Date().toISOString(),
+      created_at:
+        cert.createdAt ||
+        cert.created_at ||
+        cert.expirationDate ||
+        cert.expiration_date ||
+        new Date().toISOString(),
+      renewed_count: cert.renewedCount || cert.renewed_count || 0,
+    }));
 
     const totalPages = Math.ceil((backendData.total || 0) / limit);
 
@@ -99,7 +110,7 @@ export const GET: APIRoute = async ({ request }) => {
     });
   } catch (error) {
     console.error("Admin get certificates API error:", error);
-    
+
     if (error instanceof Error && error.message === "Not authenticated") {
       return new Response(
         JSON.stringify({
@@ -113,7 +124,7 @@ export const GET: APIRoute = async ({ request }) => {
         },
       );
     }
-    
+
     return new Response(
       JSON.stringify({
         message: "An error occurred. Please try again.",

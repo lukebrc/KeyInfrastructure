@@ -1,12 +1,9 @@
-import type { APIContext } from "astro";
-
 /**
  * Validates backend URL configuration and throws an error if not configured
- * @param context - The Astro API context (for logging)
  * @returns The backend URL
  * @throws Error with message when backend URL is not configured
  */
-export function validateBackendUrl(context?: APIContext): string {
+export function validateBackendUrl(): string {
   const backendUrl = import.meta.env.BACKEND_URL;
 
   if (!backendUrl) {
@@ -46,10 +43,7 @@ export function validateAuthToken(request: Request): string {
  * @param status - The HTTP status code (default: 500)
  * @returns A Response object with JSON error
  */
-export function createErrorResponse(
-  message: string,
-  status: number = 500,
-): Response {
+export function createErrorResponse(message: string, status = 500): Response {
   return new Response(JSON.stringify({ message }), {
     status,
     headers: {
@@ -114,6 +108,26 @@ export function handleApiError(error: unknown, context?: string): Response {
   return createErrorResponse("An error occurred. Please try again.", 500);
 }
 
+interface PendingCertificateData {
+  id: string;
+  serial_number: string;
+  user_id: string;
+  dn: string;
+  status: "PENDING";
+  expiration_date: string;
+  created_at: string;
+  renewed_count: number;
+  valid_days?: number;
+}
+
+interface BackendCertificate {
+  id?: string | number;
+  dn?: string;
+  Dn?: string;
+  valid_days?: number;
+  validDays?: number;
+}
+
 /**
  * Fetches pending certificates for a user from the backend and returns transformed data or an error object
  */
@@ -121,7 +135,10 @@ export async function fetchPendingCertificatesFromBackend(
   backendUrl: string,
   token: string,
   userId: string,
-): Promise<{ data: any[]; error?: { status: number; message: string } }> {
+): Promise<{
+  data: PendingCertificateData[];
+  error?: { status: number; message: string };
+}> {
   try {
     const pendingResponse = await fetch(
       `${backendUrl}/users/${userId}/certificates/pending`,
@@ -151,8 +168,10 @@ export async function fetchPendingCertificatesFromBackend(
 
     const pendingData = await pendingResponse.json();
     return {
-      data: (pendingData.certificates || []).map((cert: any) => ({
-        id: cert.id || String(cert.id),
+      data: (
+        (pendingData.certificates || []) as BackendCertificate[]
+      ).map<PendingCertificateData>((cert) => ({
+        id: cert.id ? String(cert.id) : "",
         serial_number: "PENDING",
         user_id: userId,
         dn: cert.dn || cert.Dn || "",
@@ -161,7 +180,11 @@ export async function fetchPendingCertificatesFromBackend(
           cert.valid_days || cert.validDays
             ? new Date(
                 Date.now() +
-                  (cert.valid_days || cert.validDays) * 24 * 60 * 60 * 1000,
+                  (cert.valid_days || cert.validDays || 0) *
+                    24 *
+                    60 *
+                    60 *
+                    1000,
               ).toISOString()
             : new Date().toISOString(),
         created_at: new Date().toISOString(),

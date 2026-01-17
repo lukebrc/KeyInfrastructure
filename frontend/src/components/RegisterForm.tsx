@@ -53,11 +53,11 @@ const RegisterForm: React.FC = () => {
       // After successful registration, automatically log in
       setSuccess(true);
       try {
-        const loginResponse = await api.login({ username, password });
+        await api.login({ username, password });
         // Token should be set in httpOnly cookie by backend
         // Redirect to dashboard
         window.location.href = "/dashboard";
-      } catch (loginError) {
+      } catch {
         // If auto-login fails, redirect to login page
         setError(
           "Registration successful, but automatic login failed. Please log in manually.",

@@ -5,6 +5,7 @@ import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 import node from "@astrojs/node";
+import type { PluginOption } from "vite";
 
 // https://astro.build/config
 export default defineConfig({
@@ -12,7 +13,7 @@ export default defineConfig({
   integrations: [react(), sitemap()],
   server: { port: 3000 },
   vite: {
-    plugins: [tailwindcss() as any],
+    plugins: [tailwindcss() as PluginOption],
   },
   adapter: node({
     mode: "standalone",

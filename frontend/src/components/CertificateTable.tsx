@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Table,
   TableBody,
@@ -79,7 +79,7 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
     useState<Certificate | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  const fetchCertificates = async () => {
+  const fetchCertificates = useCallback(async () => {
     try {
       setLoading(true);
       const params = {
@@ -100,21 +100,17 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, statusFilter, sortBy, sortOrder, userId]);
 
   // Use external certificates if provided, otherwise fetch our own
   const displayedCertificates = externalCertificates || certificates;
   const displayedLoading = externalCertificates ? false : loading;
-  const displayedTotal = externalCertificates
-    ? externalCertificates.length
-    : total;
 
   useEffect(() => {
     if (!externalCertificates) {
       fetchCertificates();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, statusFilter, sortBy, sortOrder, externalCertificates, userId]);
+  }, [externalCertificates, fetchCertificates]);
 
   // Update internal state when external certificates change
   useEffect(() => {

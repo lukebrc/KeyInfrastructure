@@ -17,15 +17,23 @@ const userId = Astro.url.searchParams.get("userId");
           <div>
             <h1 class="text-3xl font-bold mb-2">Manage Certificates</h1>
             <p class="text-muted-foreground">
-              {userId ? `Certificates for user ${userId}` : "View and manage all certificates in the system"}
+              {
+                userId
+                  ? `Certificates for user ${userId}`
+                  : "View and manage all certificates in the system"
+              }
             </p>
           </div>
           <CreateCertificateButton client:load userId={userId} />
         </div>
-        <CertificateTable client:load userId={userId} showUserColumn={!userId} allowGenerate={true} />
+        <CertificateTable
+          client:load
+          userId={userId}
+          showUserColumn={!userId}
+          allowGenerate={true}
+        />
       </div>
     </main>
     <Toaster client:load />
   </div>
 </Layout>
-

@@ -2,8 +2,6 @@ import type { APIRoute } from "astro";
 import {
   validateBackendUrl,
   validateAuthToken,
-  handleApiError,
-  createErrorResponse,
   getCurrentUserId,
 } from "@/lib/api-utils";
 

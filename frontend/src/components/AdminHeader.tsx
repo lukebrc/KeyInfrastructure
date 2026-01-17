@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { ErrorHandler } from "@/lib/error-handler";
 import type { User } from "@/types";
-import { LogOut, User as UserIcon, Shield } from "lucide-react";
+import { LogOut, Shield } from "lucide-react";
 
 export const AdminHeader: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);

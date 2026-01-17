@@ -30,7 +30,7 @@ export const NetworkErrorFallback: React.FC<NetworkErrorFallbackProps> = ({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            We couldn't connect to the server. Please check your internet
+            We couldn&apos;t connect to the server. Please check your internet
             connection and try again.
           </p>
         </CardContent>

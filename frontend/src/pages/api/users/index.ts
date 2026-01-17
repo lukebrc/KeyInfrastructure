@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 
-export const GET: APIRoute = async ({ request, cookies }) => {
+export const GET: APIRoute = async ({ cookies }) => {
   // 1. Get the backend URL from environment variables
   const backendApiUrl = import.meta.env.BACKEND_URL;
   if (!backendApiUrl) {

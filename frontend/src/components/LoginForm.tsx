@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -139,7 +139,7 @@ const LoginForm: React.FC = () => {
         </CardContent>
         <CardFooter>
           <p className="text-center text-sm text-muted-foreground w-full">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <a href="/register" className="text-primary hover:underline">
               Register here
             </a>
