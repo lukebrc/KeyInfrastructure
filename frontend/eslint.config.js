@@ -22,7 +22,7 @@ const baseConfig = tseslint.config({
     tseslint.configs.stylistic,
   ],
   rules: {
-    "no-console": "warn",
+    "no-console": "off",
     "no-unused-vars": "off",
   },
 });
@@ -61,6 +61,14 @@ const reactConfig = tseslint.config({
   },
 });
 
+// Disable prettier for Astro files since eslint-plugin-astro handles formatting
+const astroOverrides = {
+  files: ["**/*.astro"],
+  rules: {
+    "prettier/prettier": "off",
+  },
+};
+
 export default tseslint.config(
   includeIgnoreFile(gitignorePath),
   baseConfig,
@@ -68,4 +76,5 @@ export default tseslint.config(
   reactConfig,
   eslintPluginAstro.configs["flat/recommended"],
   eslintPluginPrettier,
+  astroOverrides,
 );
