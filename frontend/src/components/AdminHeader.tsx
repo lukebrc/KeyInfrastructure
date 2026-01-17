@@ -67,13 +67,17 @@ export const AdminHeader: React.FC = () => {
           >
             New certificate request
           </a>
-          <span className="text-muted-foreground">•</span>
-          <a
-            href="/admin/certificates"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Manage Certificates
-          </a>
+          {user && (
+            <>
+              <span className="text-muted-foreground">•</span>
+              <a
+                href={`/admin/certificates?userId=${user.id}`}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Manage Certificates
+              </a>
+            </>
+          )}
         </nav>
       </div>
       <Button variant="outline" size="sm" onClick={handleLogout}>

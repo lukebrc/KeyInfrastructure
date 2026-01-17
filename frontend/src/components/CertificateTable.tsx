@@ -444,26 +444,30 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                               <Download className="size-4 mr-1" />
                               Download
                             </Button>
-                            {expiringSoon && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleRenew(cert.id)}
-                                disabled={renewing[cert.id]}
-                              >
-                                {renewing[cert.id] ? (
-                                  <>
-                                    <RefreshCw className="size-4 mr-1 animate-spin" />
-                                    Renewing...
-                                  </>
-                                ) : (
-                                  <>
-                                    <RefreshCw className="size-4 mr-1" />
-                                    Renew
-                                  </>
-                                )}
-                              </Button>
-                            )}
+                            {expiringSoon &&
+                              currentUser &&
+                              cert.user_id &&
+                              String(cert.user_id).trim() ===
+                                String(currentUser.id).trim() && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleRenew(cert.id)}
+                                  disabled={renewing[cert.id]}
+                                >
+                                  {renewing[cert.id] ? (
+                                    <>
+                                      <RefreshCw className="size-4 mr-1 animate-spin" />
+                                      Renewing...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RefreshCw className="size-4 mr-1" />
+                                      Renew
+                                    </>
+                                  )}
+                                </Button>
+                              )}
                             <Button
                               size="sm"
                               variant="destructive"

@@ -43,6 +43,7 @@ pub struct VerifyResponse {
     role: Option<String>,
     #[serde(rename = "userId")]
     user_id: Option<String>,
+    username: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -154,6 +155,7 @@ pub async fn verify_token(state: web::Data<AppState>, req: HttpRequest) -> impl 
                 valid: false,
                 role: None,
                 user_id: None,
+                username: None,
             });
         }
     };
@@ -169,10 +171,31 @@ pub async fn verify_token(state: web::Data<AppState>, req: HttpRequest) -> impl 
                 token_data.claims.sub,
                 token_data.claims.role
             );
+            
+            // Fetch username from database
+            let username = match sqlx::query_scalar::<_, String>(
+                "SELECT username FROM users WHERE id = $1",
+            )
+            .bind(uuid::Uuid::parse_str(&token_data.claims.sub).ok())
+            .fetch_optional(&state.pool)
+            .await
+            {
+                Ok(Some(name)) => Some(name),
+                Ok(None) => {
+                    log::warn!("User not found for id: {}", token_data.claims.sub);
+                    None
+                }
+                Err(e) => {
+                    log::error!("Database error fetching username: {:?}", e);
+                    None
+                }
+            };
+            
             HttpResponse::Ok().json(VerifyResponse {
                 valid: true,
                 role: Some(token_data.claims.role),
                 user_id: Some(token_data.claims.sub),
+                username,
             })
         }
         Err(e) => {
@@ -181,6 +204,7 @@ pub async fn verify_token(state: web::Data<AppState>, req: HttpRequest) -> impl 
                 valid: false,
                 role: None,
                 user_id: None,
+                username: None,
             })
         }
     }

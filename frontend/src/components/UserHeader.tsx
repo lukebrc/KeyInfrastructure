@@ -48,8 +48,7 @@ export const UserHeader: React.FC = () => {
       <div className="flex items-center gap-2">
         <UserIcon className="size-5" />
         <div>
-          <p className="text-sm font-medium">{user?.username}</p>
-          <p className="text-xs text-muted-foreground">{user?.role}</p>
+          <p className="text-sm font-medium">USER {user?.username}</p>
         </div>
       </div>
       <Button variant="outline" size="sm" onClick={handleLogout}>
