@@ -109,7 +109,7 @@ export const UserList: React.FC = () => {
 
   const handleCancelCertificate = async (certificate: Certificate) => {
     try {
-      await api.cancelCertificate(certificate.id);
+      await api.cancelCertificateRequest(certificate.id);
       ErrorHandler.showSuccess("Certificate request cancelled successfully");
       if (selectedUser) {
         await fetchUserCertificates(selectedUser.id);

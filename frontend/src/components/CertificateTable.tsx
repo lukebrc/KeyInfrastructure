@@ -73,6 +73,7 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [renewing, setRenewing] = useState<Record<string, boolean>>({});
   const [generating, setGenerating] = useState<Record<string, boolean>>({});
+  const [cancelling, setCancelling] = useState<Record<string, boolean>>({});
   const [revokeModalOpen, setRevokeModalOpen] = useState(false);
   const [certificateToRevoke, setCertificateToRevoke] =
     useState<Certificate | null>(null);
@@ -180,6 +181,27 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
       ErrorHandler.handleError(error, "Failed to generate certificate");
     } finally {
       setGenerating((prev) => ({ ...prev, [certificateId]: false }));
+    }
+  };
+
+  const handleCancel = async (certificate: Certificate) => {
+    if (onCancel) {
+      onCancel(certificate);
+      return;
+    }
+    try {
+      setCancelling((prev) => ({ ...prev, [certificate.id]: true }));
+      await api.cancelCertificateRequest(certificate.id);
+      ErrorHandler.showSuccess("Certificate request cancelled successfully");
+      if (onRefresh) {
+        await onRefresh();
+      } else {
+        await fetchCertificates();
+      }
+    } catch (error) {
+      ErrorHandler.handleError(error, "Failed to cancel certificate request");
+    } finally {
+      setCancelling((prev) => ({ ...prev, [certificate.id]: false }));
     }
   };
 
@@ -491,14 +513,24 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                                   </Button>
                                 ) : null;
                               })()}
-                            {currentUser?.role === "ADMIN" && onCancel && (
+                            {currentUser?.role === "ADMIN" && (
                               <Button
                                 size="sm"
                                 variant="destructive"
-                                onClick={() => onCancel(cert)}
+                                onClick={() => handleCancel(cert)}
+                                disabled={cancelling[cert.id]}
                               >
-                                <XCircle className="size-4 mr-1" />
-                                Cancel
+                                {cancelling[cert.id] ? (
+                                  <>
+                                    <RefreshCw className="size-4 mr-1 animate-spin" />
+                                    Cancelling...
+                                  </>
+                                ) : (
+                                  <>
+                                    <XCircle className="size-4 mr-1" />
+                                    Cancel
+                                  </>
+                                )}
                               </Button>
                             )}
                           </>

@@ -297,6 +297,75 @@ pub async fn revoke_certificate(
     Ok(HttpResponse::Ok().json(response))
 }
 
+#[derive(Serialize)]
+pub struct CancelCertificateResponse {
+    id: String,
+    status: String,
+}
+
+/// Cancel a pending certificate request (delete it before it's generated)
+pub async fn cancel_certificate_request(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<(Uuid, Uuid)>,
+) -> Result<impl Responder, ApiError> {
+    let (_user_id, request_id) = path.into_inner();
+    log::info!("Attempting to cancel certificate request with id: {}", request_id);
+
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .cloned()
+        .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
+
+    // Authorization: Only admins can cancel certificate requests
+    if claims.role != "ADMIN" {
+        log::warn!("User {} (role: {}) attempted to cancel certificate request {}", claims.sub, claims.role, request_id);
+        return Err(ApiError::Forbidden("Only admins can cancel certificate requests".to_string()));
+    }
+
+    // Check if the certificate request exists and hasn't been generated yet
+    let request_exists: Option<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM certificate_requests WHERE id = $1 AND accepted_at IS NULL"
+    )
+        .bind(request_id)
+        .fetch_optional(&state.pool)
+        .await?;
+
+    if request_exists.is_none() {
+        // Check if it exists but was already generated
+        let generated_exists: Option<Uuid> = sqlx::query_scalar(
+            "SELECT id FROM certificates WHERE id = $1"
+        )
+            .bind(request_id)
+            .fetch_optional(&state.pool)
+            .await?;
+
+        if generated_exists.is_some() {
+            log::warn!("Cancel attempt failed: certificate request {} has already been generated", request_id);
+            return Err(ApiError::BadRequest("Certificate has already been generated. Use revoke instead.".to_string()));
+        }
+
+        log::warn!("Cancel attempt failed: certificate request with id {} not found", request_id);
+        return Err(ApiError::NotFound("Certificate request not found".to_string()));
+    }
+
+    // Delete the certificate request
+    sqlx::query("DELETE FROM certificate_requests WHERE id = $1")
+        .bind(request_id)
+        .execute(&state.pool)
+        .await?;
+
+    log::info!("Successfully cancelled certificate request with id: {}", request_id);
+
+    let response = CancelCertificateResponse {
+        id: request_id.to_string(),
+        status: "CANCELLED".to_string(),
+    };
+
+    Ok(HttpResponse::Ok().json(response))
+}
+
 pub async fn list_user_certificates(
     state: web::Data<AppState>,
     req: HttpRequest,

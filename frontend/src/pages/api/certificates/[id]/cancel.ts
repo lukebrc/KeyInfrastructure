@@ -2,12 +2,10 @@ import type { APIRoute } from "astro";
 import {
   validateBackendUrl,
   validateAuthToken,
-  handleApiError,
-  createErrorResponse,
   getCurrentUserId,
 } from "@/lib/api-utils";
 
-export const PUT: APIRoute = async ({ request, params }) => {
+export const DELETE: APIRoute = async ({ request, params }) => {
   try {
     const backendUrl = validateBackendUrl();
     const token = validateAuthToken(request);
@@ -31,12 +29,12 @@ export const PUT: APIRoute = async ({ request, params }) => {
       );
     }
 
-    const certificateId = params.id;
+    const requestId = params.id;
 
-    if (!certificateId) {
+    if (!requestId) {
       return new Response(
         JSON.stringify({
-          message: "Certificate ID is required",
+          message: "Certificate request ID is required",
         }),
         {
           status: 400,
@@ -49,9 +47,9 @@ export const PUT: APIRoute = async ({ request, params }) => {
 
     // Forward the request to the backend
     const response = await fetch(
-      `${backendUrl}/users/${userId}/certificates/${certificateId}/cancel`,
+      `${backendUrl}/users/${userId}/certificates/request/${requestId}`,
       {
-        method: "PUT",
+        method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -61,7 +59,7 @@ export const PUT: APIRoute = async ({ request, params }) => {
     );
 
     if (!response.ok) {
-      let errorMessage = "Failed to cancel certificate";
+      let errorMessage = "Failed to cancel certificate request";
       try {
         const errorData = await response.json();
         errorMessage = errorData.message || errorMessage;
@@ -93,7 +91,7 @@ export const PUT: APIRoute = async ({ request, params }) => {
       },
     });
   } catch (error) {
-    console.error("Cancel certificate API error:", error);
+    console.error("Cancel certificate request API error:", error);
     return new Response(
       JSON.stringify({
         message: "An error occurred. Please try again.",

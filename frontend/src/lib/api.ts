@@ -261,12 +261,12 @@ export const api = {
     return handleResponse<Certificate>(response);
   },
 
-  async cancelCertificate(
-    certificateId: string,
+  async cancelCertificateRequest(
+    requestId: string,
   ): Promise<Certificate> {
-    // Use proxy API route
-    const response = await fetch(`/api/certificates/${certificateId}/cancel`, {
-      method: "PUT",
+    // Use proxy API route - DELETE method for cancelling pending certificate requests
+    const response = await fetch(`/api/certificates/${requestId}/cancel`, {
+      method: "DELETE",
       headers: {
         "Content-Type": "application/json",
       },
