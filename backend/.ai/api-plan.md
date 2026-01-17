@@ -81,7 +81,7 @@
 
 - **Method**: PUT
 - **URL Path**: /users/{user_id}/certificates/{id}/renew
-- **Description**: Renew a certificate (user only for own certificates).
+- **Description**: Renew a certificate (user can only renew his own certificates).
 - **Query Parameters**: None
 - **Request JSON Structure**: None
 - **Response JSON Structure**: {"id": "uuid", "expiration_date": "timestamp", "renewed_count": "integer", "renewal_date": "timestamp"}

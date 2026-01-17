@@ -61,6 +61,14 @@ pub struct RevokeCertificateResponse {
 }
 
 #[derive(Serialize)]
+pub struct RenewCertificateResponse {
+    id: String,
+    expiration_date: chrono::DateTime<chrono::Utc>,
+    renewed_count: i32,
+    renewal_date: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Serialize)]
 pub struct ListCertificatesResponse {
     certificates: Vec<CertificateListItem>,
     total: i64,
@@ -141,6 +149,215 @@ pub async fn create_certificate_request(
         user_id: user.id.to_string(),
     };
     Ok(HttpResponse::Created().json(response))
+}
+
+pub async fn renew_certificate(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<(Uuid, Uuid)>,
+) -> Result<impl Responder, ApiError> {
+    let (path_user_id, cert_id) = path.into_inner();
+    log::info!("Attempting to renew certificate with id: {}", cert_id);
+
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .cloned()
+        .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
+
+    let claims_user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| ApiError::Internal("Invalid UUID in claims".to_string()))?;
+
+    // Authorization: User can only renew their own certificates
+    if path_user_id != claims_user_id {
+        return Err(ApiError::Forbidden("Access denied".to_string()));
+    }
+
+    // Fetch existing certificate and request details
+    let cert_details = sqlx::query_as::<_, (String, i32, Option<Vec<u8>>, i32, Uuid)>(
+        "SELECT cr.dn, cr.validity_period_days, c.certificate_der, c.renewed_count, c.user_id 
+         FROM certificates c 
+         JOIN certificate_requests cr ON c.id = cr.id 
+         WHERE c.id = $1",
+    )
+    .bind(cert_id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|e| ApiError::Internal(format!("DB error: {}", e)))?;
+
+    let (dn, validity_days, cert_der, renewed_count, owner_id) = match cert_details {
+        Some(details) => details,
+        None => return Err(ApiError::NotFound("Certificate not found".to_string())),
+    };
+
+    // Verify ownership (double check in case path_user_id was mismatched with actual owner in DB)
+    if owner_id != path_user_id {
+        // If the path says /users/A/certs/B/renew, but B belongs to C...
+        // If I am admin, I might be allowed? But path implies scoping.
+        // Let's enforce path correctness.
+        return Err(ApiError::NotFound(
+            "Certificate not found for this user".to_string(),
+        ));
+    }
+
+    // Decode existing certificate to get Public Key
+    let cert_der =
+        cert_der.ok_or_else(|| ApiError::Internal("Missing certificate data".to_string()))?;
+    let old_x509 = X509::from_der(&cert_der)
+        .map_err(|e| ApiError::Internal(format!("Failed to parse existing certificate: {}", e)))?;
+
+    let public_key = old_x509
+        .public_key()
+        .map_err(|e| ApiError::Internal(format!("Failed to get public key: {}", e)))?;
+
+    // Prepare for new certificate generation
+    // We use the original validity period from the request
+    let days_valid = validity_days.max(1) as u32;
+    let not_after = Asn1Time::days_from_now(days_valid)
+        .map_err(|e| ApiError::Internal(format!("not_after error: {}", e)))?;
+
+    // We need to rebuild the certificate with the SAME Public Key but NEW dates and signature.
+    // We reuse the build_certificate helper, but we need to create a dummy PendingCertificateInfo
+    // or refactor build_certificate.
+    // build_certificate takes &PKey<Private>. We only have PKey<Public>.
+    // Wait, build_certificate uses `set_pubkey`. `set_pubkey` takes `&PKeyRef<T>`.
+    // `PKey<Private>` implements `HasPublic`. `PKey<Public>` implements `HasPublic`.
+    // However, the signature of `build_certificate` demands `&PKey<Private>`.
+
+    // Let's copy the logic from `build_certificate` inline here or adjust it.
+    // It's short enough to adapt.
+
+    // --- START CERT BUILD ---
+    use openssl::bn::BigNum;
+    use openssl::x509::extension::{
+        AuthorityKeyIdentifier, BasicConstraints, KeyUsage, SubjectKeyIdentifier,
+    };
+    use openssl::x509::{X509Builder, X509Name};
+
+    let mut builder =
+        X509Builder::new().map_err(|e| ApiError::Internal(format!("X509Builder error: {}", e)))?;
+
+    builder
+        .set_pubkey(&public_key)
+        .map_err(|e| ApiError::Internal(format!("set_pubkey: {}", e)))?;
+
+    // Load CA
+    let ca_cert_pem = fs::read("ca/ca.crt")
+        .map_err(|e| ApiError::Internal(format!("Failed to read CA cert: {}", e)))?;
+    let ca_cert = X509::from_pem(&ca_cert_pem)
+        .map_err(|e| ApiError::Internal(format!("Failed to parse CA cert: {}", e)))?;
+
+    let ca_key_encrypted = fs::read("ca/ca.key")
+        .map_err(|e| ApiError::Internal(format!("Failed to read CA key: {}", e)))?;
+    let ca_password = std::env::var("CA_PASSWORD")
+        .map_err(|_| ApiError::Internal("CA_PASSWORD env var not set".to_string()))?;
+    let ca_private_key =
+        PKey::private_key_from_pem_passphrase(&ca_key_encrypted, ca_password.as_bytes())
+            .map_err(|e| ApiError::Internal(format!("Failed to decrypt CA key: {}", e)))?;
+
+    // Subject Name
+    let mut subject_name =
+        X509Name::builder().map_err(|e| ApiError::Internal(format!("X509Name::builder: {}", e)))?;
+    subject_name
+        .append_entry_by_text("CN", &dn)
+        .map_err(|e| ApiError::Internal(format!("append_entry_by_text: {}", e)))?;
+    let subject_name = subject_name.build();
+    builder
+        .set_subject_name(&subject_name)
+        .map_err(|e| ApiError::Internal(format!("set_subject_name: {}", e)))?;
+
+    builder
+        .set_issuer_name(ca_cert.subject_name())
+        .map_err(|e| ApiError::Internal(format!("set_issuer_name: {}", e)))?;
+
+    // Serial
+    let mut serial_bn = BigNum::new().unwrap();
+    serial_bn
+        .pseudo_rand(64, openssl::bn::MsbOption::MAYBE_ZERO, false)
+        .unwrap();
+    let serial = serial_bn.to_asn1_integer().unwrap();
+    let serial_str = serial_bn.to_hex_str().unwrap().to_string(); // Capture serial string
+    builder.set_serial_number(&serial).unwrap();
+
+    // Validity
+    let not_before =
+        Asn1Time::days_from_now(0).map_err(|e| ApiError::Internal(format!("not_before: {}", e)))?;
+    builder
+        .set_not_before(&not_before)
+        .map_err(|e| ApiError::Internal(format!("set_not_before: {}", e)))?;
+    builder
+        .set_not_after(&not_after)
+        .map_err(|e| ApiError::Internal(format!("set_not_after: {}", e)))?;
+
+    // Extensions
+    builder
+        .append_extension(BasicConstraints::new().critical().build().unwrap())
+        .unwrap();
+    builder
+        .append_extension(
+            KeyUsage::new()
+                .digital_signature()
+                .key_encipherment()
+                .build()
+                .unwrap(),
+        )
+        .unwrap();
+    builder
+        .append_extension(
+            SubjectKeyIdentifier::new()
+                .build(&builder.x509v3_context(None, None))
+                .unwrap(),
+        )
+        .unwrap();
+    builder
+        .append_extension(
+            AuthorityKeyIdentifier::new()
+                .keyid(true)
+                .build(&builder.x509v3_context(Some(&ca_cert), None))
+                .unwrap(),
+        )
+        .unwrap();
+
+    // Sign
+    builder
+        .sign(&ca_private_key, openssl::hash::MessageDigest::sha256())
+        .map_err(|e| ApiError::Internal(format!("sign: {}", e)))?;
+
+    let new_cert = builder.build();
+    // --- END CERT BUILD ---
+
+    let new_cert_der = new_cert
+        .to_der()
+        .map_err(|e| ApiError::Internal(format!("to_der: {}", e)))?;
+
+    let new_expiration_date = Utc::now() + chrono::Duration::days(days_valid as i64);
+    let new_renewed_count = renewed_count + 1;
+    let renewal_date = Utc::now();
+
+    // Update DB
+    sqlx::query(
+        "UPDATE certificates 
+         SET certificate_der = $1, expiration_date = $2, renewed_count = $3, renewal_date = $4, status = 'ACTIVE', serial_number = $5 
+         WHERE id = $6"
+    )
+    .bind(&new_cert_der)
+    .bind(new_expiration_date)
+    .bind(new_renewed_count)
+    .bind(renewal_date)
+    .bind(&serial_str)
+    .bind(cert_id)
+    .execute(&state.pool)
+    .await
+    .map_err(|e| ApiError::Internal(format!("Failed to update certificate: {}", e)))?;
+
+    log::info!("Successfully renewed certificate {}", cert_id);
+
+    Ok(HttpResponse::Ok().json(RenewCertificateResponse {
+        id: cert_id.to_string(),
+        expiration_date: new_expiration_date,
+        renewed_count: new_renewed_count,
+        renewal_date,
+    }))
 }
 
 pub async fn download_pkcs12(

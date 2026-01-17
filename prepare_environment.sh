@@ -1,18 +1,16 @@
 #!/bin/bash
 
-# 2. Sprawdzenie 'docker-compose' (V1 lub samodzielny binarek V2)
 if command -v docker-compose >/dev/null 2>&1; then
   DOCKER_COMPOSE="docker-compose"
 else
   if docker compose version >/dev/null 2>&1; then
     DOCKER_COMPOSE="docker compose"
+  else
+    echo "docker-compose not found"
+    exit -1
   fi
 fi
 
-if [ "$DOCKER_COMPOSE" == "" ]; then
-  echo "docker-compose not found"
-  exit -1
-fi
 echo "Found ${DOCKER_COMPOSE}"
 
 if [ "$CA_PASWORD" == "" ]; then

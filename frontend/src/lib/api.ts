@@ -6,6 +6,7 @@ import type {
   Certificate,
   CreateCertificateRequest,
   RenewCertificateRequest,
+  RenewCertificateResponse,
   RevokeCertificateRequest,
   DownloadCertificateRequest,
   PaginationParams,
@@ -254,7 +255,7 @@ export const api = {
   async renewCertificate(
     certificateId: string,
     request?: RenewCertificateRequest,
-  ): Promise<Certificate> {
+  ): Promise<RenewCertificateResponse> {
     // Use proxy API route
     const response = await fetch(`/api/certificates/${certificateId}/renew`, {
       method: "PUT",
@@ -265,7 +266,7 @@ export const api = {
       body: request ? JSON.stringify(request) : undefined,
     });
 
-    return handleResponse<Certificate>(response);
+    return handleResponse<RenewCertificateResponse>(response);
   },
 
   async revokeCertificate(

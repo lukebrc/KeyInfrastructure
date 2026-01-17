@@ -61,6 +61,13 @@ export interface RenewCertificateRequest {
   validity_period_days?: number; // Optional, defaults to original validity period
 }
 
+export interface RenewCertificateResponse {
+  id: string;
+  expiration_date: string;
+  renewed_count: number;
+  renewal_date: string;
+}
+
 export interface RevokeCertificateRequest {
   reason?: string; // Optional revocation reason
 }

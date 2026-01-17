@@ -57,6 +57,10 @@ pub fn config_app(app_state: web::Data<AppState>) -> Box<dyn Fn(&mut ServiceConf
                         "/users/{user_id}/certificates/{cert_id}/revoke",
                         web::put().to(revoke_certificate),
                     )
+                    .route(
+                        "/users/{user_id}/certificates/{cert_id}/renew",
+                        web::put().to(crate::certificate::renew_certificate),
+                    )
                     .route("/users", web::get().to(list_users)),
             );
     })
