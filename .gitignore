@@ -5,4 +5,5 @@ target
 .gemini
 .kiro
 backend/ca
+backend/.env
 frontend/dist
