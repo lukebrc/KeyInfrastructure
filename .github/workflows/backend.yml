@@ -14,7 +14,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  DATABASE_URL: postgres://postgres:postgres@localhost:5432/keyinfrastructure
+  DATABASE_URL: postgres://postgres:test_password@localhost:5432/keyinfrastructure
   JWT_SECRET: supersecretjwtkey
   CA_PASSWORD: supersecretcapassword
 
@@ -27,7 +27,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: test_password
           POSTGRES_DB: keyinfrastructure
         ports:
           - 5432:5432
@@ -59,7 +59,7 @@ jobs:
     - name: Initialize Database
       run: |
         sudo apt-get install -y postgresql-client
-        export PGPASSWORD=postgres
+        export PGPASSWORD=test_password
         psql -h localhost -U postgres -d keyinfrastructure -f database/create_tables.sql
 
     - name: Setup Certificate Authority
