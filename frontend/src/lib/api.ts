@@ -160,6 +160,30 @@ export const api = {
     return handleResponse<PaginatedResponse<Certificate>>(response);
   },
 
+  // Admin-only: Get all certificates across all users
+  async getAdminCertificates(
+    params?: PaginationParams & { status?: string },
+  ): Promise<PaginatedResponse<Certificate>> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.status) queryParams.append("status", params.status);
+    if (params?.sort_by) queryParams.append("sort_by", params.sort_by);
+    if (params?.order) queryParams.append("order", params.order);
+
+    // Use admin proxy API route
+    const url = `/api/admin/certificates${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    return handleResponse<PaginatedResponse<Certificate>>(response);
+  },
+
   async getUserCertificates(
     userId: string,
     params?: PaginationParams & { status?: string },

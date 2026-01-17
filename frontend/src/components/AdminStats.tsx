@@ -28,11 +28,11 @@ export const AdminStats: React.FC = () => {
         // Fetch users
         const users = await api.getUsers();
 
-        // Fetch all certificates to get total count
-        const certificatesResponse = await api.getCertificates({ limit: 1000 });
+        // Fetch all certificates to get total count (admin endpoint for all users)
+        const certificatesResponse = await api.getAdminCertificates({ limit: 1000 });
 
-        // Fetch revoked certificates separately to get accurate count
-        const revokedResponse = await api.getCertificates({
+        // Fetch revoked certificates separately to get accurate count (admin endpoint for all users)
+        const revokedResponse = await api.getAdminCertificates({
           limit: 1000,
           status: "REVOKED",
         });
