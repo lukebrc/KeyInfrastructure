@@ -1,0 +1,78 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - 'database/**'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'database/**'
+      - '.github/workflows/backend.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+  DATABASE_URL: postgres://postgres:postgres@localhost:5432/keyinfrastructure
+  JWT_SECRET: supersecretjwtkey
+  CA_PASSWORD: supersecretcapassword
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: keyinfrastructure
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
+    - name: Cache Cargo registry
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          backend/target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
+
+    - name: Initialize Database
+      run: |
+        sudo apt-get install -y postgresql-client
+        export PGPASSWORD=postgres
+        psql -h localhost -U postgres -d keyinfrastructure -f database/create_tables.sql
+
+    - name: Setup Certificate Authority
+      run: ./prepare_environment.sh
+
+    - name: Check Formatting
+      working-directory: ./backend
+      run: cargo fmt -- --check
+
+    - name: Clippy Lint
+      working-directory: ./backend
+      run: cargo clippy -- -D warnings
+
+    - name: Run Tests
+      working-directory: ./backend
+      run: cargo test
