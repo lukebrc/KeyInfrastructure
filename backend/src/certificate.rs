@@ -755,7 +755,7 @@ fn build_certificate(
         .set_not_before(&not_before)
         .map_err(|e| ApiError::Internal(format!("set_not_before: {}", e)))?;
     builder
-        .set_not_after(&not_after)
+        .set_not_after(not_after)
         .map_err(|e| ApiError::Internal(format!("set_not_after: {}", e)))?;
 
     // Extensions (BasicConstraints: CA:FALSE, KeyUsage: digitalSignature/keyEncipherment)

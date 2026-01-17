@@ -69,7 +69,7 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
                 "Found user {}, id: {}, role: {}",
                 user.username,
                 user.id,
-                user.role.to_string()
+                user.role
             );
             user
         }

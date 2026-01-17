@@ -1,20 +1,22 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Pool, Postgres, Type};
+use std::fmt;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone, Copy, PartialEq, Eq)]
 #[sqlx(type_name = "user_role", rename_all = "UPPERCASE")]
+#[allow(clippy::upper_case_acronyms)]
 pub enum UserRole {
     USER,
     ADMIN,
 }
 
-impl ToString for UserRole {
-    fn to_string(&self) -> String {
+impl fmt::Display for UserRole {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UserRole::USER => "USER".to_string(),
-            UserRole::ADMIN => "ADMIN".to_string(),
+            UserRole::USER => write!(f, "USER"),
+            UserRole::ADMIN => write!(f, "ADMIN"),
         }
     }
 }
@@ -30,6 +32,7 @@ pub struct User {
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone, Copy, PartialEq, Eq)]
 #[sqlx(type_name = "certificate_status", rename_all = "UPPERCASE")]
+#[allow(clippy::upper_case_acronyms)]
 pub enum CertificateStatus {
     ACTIVE,
     EXPIRED,
