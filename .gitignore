@@ -2,5 +2,7 @@ Cargo.lock
 target
 .nvmrc
 .vscode
+.gemini
 .kiro
+backend/ca
 frontend/dist

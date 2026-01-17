@@ -209,8 +209,7 @@ export const CreateCertificateForm: React.FC<CreateCertificateFormProps> = ({
               <Alert>
                 <CheckCircle2 className="size-4" />
                 <AlertDescription>
-                  Certificate request created successfully! Serial number:{" "}
-                  {createdCertificateSerial}
+                  Certificate request created successfully!
                 </AlertDescription>
               </Alert>
             )}
