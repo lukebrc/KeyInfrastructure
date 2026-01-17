@@ -1,12 +1,12 @@
 use actix_web::{http::header, web, HttpMessage, HttpRequest, HttpResponse, Responder};
 use chrono::Utc;
 use futures_util::TryFutureExt;
+use openssl::asn1::Asn1Time;
 use openssl::pkcs12::Pkcs12;
 use openssl::pkey::{PKey, Private};
-use openssl::symm::{decrypt, Cipher};
-use openssl::x509::{X509, X509Builder, X509Name};
 use openssl::rsa::Rsa;
-use openssl::asn1::Asn1Time;
+use openssl::symm::{decrypt, Cipher};
+use openssl::x509::{X509Builder, X509Name, X509};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use std::fs;
@@ -91,12 +91,8 @@ pub async fn create_certificate_request(
     path: web::Path<Uuid>,
     body: web::Json<CreateCertificateRequest>,
 ) -> Result<impl Responder, ApiError> {
-
     let user_id = path.into_inner();
-    log::info!(
-        "Attempting to create certificate for user_id: {}",
-        user_id
-    );
+    log::info!("Attempting to create certificate for user_id: {}", user_id);
     let claims = req
         .extensions()
         .get::<Claims>()
@@ -147,14 +143,17 @@ pub async fn create_certificate_request(
     Ok(HttpResponse::Created().json(response))
 }
 
-pub async fn download_pkcs12(state: web::Data<AppState>,
-            req: HttpRequest,
-            path: web::Path<(Uuid, Uuid)>,
-            body: web::Json<DownloadCertificateRequest>,
-        ) -> Result<impl Responder, ApiError> {
-
+pub async fn download_pkcs12(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<(Uuid, Uuid)>,
+    body: web::Json<DownloadCertificateRequest>,
+) -> Result<impl Responder, ApiError> {
     let (_user_id, cert_id) = path.into_inner();
-    log::info!("Attempting to download pkcs12 (key and certificate) with id: {}", cert_id);
+    log::info!(
+        "Attempting to download pkcs12 (key and certificate) with id: {}",
+        cert_id
+    );
 
     let user = match get_authorized_user_data(req, &state.pool).await {
         Ok(u) => u,
@@ -217,13 +216,16 @@ pub async fn download_public_certificate(
         Some(der) => der,
         None => {
             log::error!("Certificate data is missing");
-            return Err(ApiError::Internal("Certificate data is missing".to_string()));
+            return Err(ApiError::Internal(
+                "Certificate data is missing".to_string(),
+            ));
         }
     };
     let x509 = X509::from_der(&cert_der)
         .map_err(|_| ApiError::Internal("Failed to parse certificate DER".to_string()))?;
-    
-    let pem = x509.to_pem()
+
+    let pem = x509
+        .to_pem()
         .map_err(|_| ApiError::Internal("Failed to convert certificate to PEM".to_string()))?;
 
     let filename = format!("attachment; filename=\"{}.crt\"", cert_info.serial_number);
@@ -249,25 +251,37 @@ pub async fn revoke_certificate(
         .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
 
     // Fetch the certificate owner's ID to check for existence and for authorization.
-    let cert_owner_id: Uuid = match sqlx::query_scalar("SELECT user_id FROM certificates WHERE id = $1")
-        .bind(cert_id)
-        .fetch_optional(&state.pool)
-        .await?
-    {
-        Some(id) => id,
-        None => {
-            log::warn!("Revocation attempt failed: certificate with id {} not found", cert_id);
-            return Err(ApiError::NotFound("Certificate not found".to_string()));
-        }
-    };
+    let cert_owner_id: Uuid =
+        match sqlx::query_scalar("SELECT user_id FROM certificates WHERE id = $1")
+            .bind(cert_id)
+            .fetch_optional(&state.pool)
+            .await?
+        {
+            Some(id) => id,
+            None => {
+                log::warn!(
+                    "Revocation attempt failed: certificate with id {} not found",
+                    cert_id
+                );
+                return Err(ApiError::NotFound("Certificate not found".to_string()));
+            }
+        };
 
     let claims_user_id = Uuid::parse_str(&claims.sub)
         .map_err(|_| ApiError::Internal("Invalid UUID in claims".to_string()))?;
 
     // Authorization: Admins can revoke any certificate, and users can revoke their own.
     if claims.role != "ADMIN" && cert_owner_id != claims_user_id {
-        log::warn!("User {} (role: {}) attempted to revoke certificate {} owned by {}", claims.sub, claims.role, cert_id, cert_owner_id);
-        return Err(ApiError::Forbidden("Insufficient permissions to revoke this certificate".to_string()));
+        log::warn!(
+            "User {} (role: {}) attempted to revoke certificate {} owned by {}",
+            claims.sub,
+            claims.role,
+            cert_id,
+            cert_owner_id
+        );
+        return Err(ApiError::Forbidden(
+            "Insufficient permissions to revoke this certificate".to_string(),
+        ));
     }
 
     // Update certificate status to REVOKED
@@ -310,7 +324,10 @@ pub async fn cancel_certificate_request(
     path: web::Path<(Uuid, Uuid)>,
 ) -> Result<impl Responder, ApiError> {
     let (_user_id, request_id) = path.into_inner();
-    log::info!("Attempting to cancel certificate request with id: {}", request_id);
+    log::info!(
+        "Attempting to cancel certificate request with id: {}",
+        request_id
+    );
 
     let claims = req
         .extensions()
@@ -320,34 +337,50 @@ pub async fn cancel_certificate_request(
 
     // Authorization: Only admins can cancel certificate requests
     if claims.role != "ADMIN" {
-        log::warn!("User {} (role: {}) attempted to cancel certificate request {}", claims.sub, claims.role, request_id);
-        return Err(ApiError::Forbidden("Only admins can cancel certificate requests".to_string()));
+        log::warn!(
+            "User {} (role: {}) attempted to cancel certificate request {}",
+            claims.sub,
+            claims.role,
+            request_id
+        );
+        return Err(ApiError::Forbidden(
+            "Only admins can cancel certificate requests".to_string(),
+        ));
     }
 
     // Check if the certificate request exists and hasn't been generated yet
     let request_exists: Option<Uuid> = sqlx::query_scalar(
-        "SELECT id FROM certificate_requests WHERE id = $1 AND accepted_at IS NULL"
+        "SELECT id FROM certificate_requests WHERE id = $1 AND accepted_at IS NULL",
     )
-        .bind(request_id)
-        .fetch_optional(&state.pool)
-        .await?;
+    .bind(request_id)
+    .fetch_optional(&state.pool)
+    .await?;
 
     if request_exists.is_none() {
         // Check if it exists but was already generated
-        let generated_exists: Option<Uuid> = sqlx::query_scalar(
-            "SELECT id FROM certificates WHERE id = $1"
-        )
-            .bind(request_id)
-            .fetch_optional(&state.pool)
-            .await?;
+        let generated_exists: Option<Uuid> =
+            sqlx::query_scalar("SELECT id FROM certificates WHERE id = $1")
+                .bind(request_id)
+                .fetch_optional(&state.pool)
+                .await?;
 
         if generated_exists.is_some() {
-            log::warn!("Cancel attempt failed: certificate request {} has already been generated", request_id);
-            return Err(ApiError::BadRequest("Certificate has already been generated. Use revoke instead.".to_string()));
+            log::warn!(
+                "Cancel attempt failed: certificate request {} has already been generated",
+                request_id
+            );
+            return Err(ApiError::BadRequest(
+                "Certificate has already been generated. Use revoke instead.".to_string(),
+            ));
         }
 
-        log::warn!("Cancel attempt failed: certificate request with id {} not found", request_id);
-        return Err(ApiError::NotFound("Certificate request not found".to_string()));
+        log::warn!(
+            "Cancel attempt failed: certificate request with id {} not found",
+            request_id
+        );
+        return Err(ApiError::NotFound(
+            "Certificate request not found".to_string(),
+        ));
     }
 
     // Delete the certificate request
@@ -356,7 +389,10 @@ pub async fn cancel_certificate_request(
         .execute(&state.pool)
         .await?;
 
-    log::info!("Successfully cancelled certificate request with id: {}", request_id);
+    log::info!(
+        "Successfully cancelled certificate request with id: {}",
+        request_id
+    );
 
     let response = CancelCertificateResponse {
         id: request_id.to_string(),
@@ -464,11 +500,7 @@ pub async fn list_all_certificates(
 
     let sort_by = query.sort_by.as_deref().unwrap_or("expiration_date");
     let order = query.order.as_deref().unwrap_or("asc");
-    log::info!(
-        "Listing all certificates, page {}, offset {}",
-        page,
-        offset
-    );
+    log::info!("Listing all certificates, page {}, offset {}", page, offset);
 
     // Basic validation to prevent SQL injection
     let allowed_sort_columns = [
@@ -638,9 +670,9 @@ pub async fn list_pending_certificates(
             FROM certificate_requests cr
             WHERE cr.user_id = $1 AND accepted_at IS NULL",
     )
-        .bind(path_user_id)
-        .fetch_all(&state.pool)
-        .await;
+    .bind(path_user_id)
+    .fetch_all(&state.pool)
+    .await;
 
     match rows {
         Ok(certificates) => {
@@ -659,15 +691,18 @@ fn build_certificate(
     pending_request: &PendingCertificateInfo,
     not_after: &Asn1Time,
 ) -> Result<(X509, String), ApiError> {
-    use openssl::x509::extension::{BasicConstraints, KeyUsage, SubjectKeyIdentifier, AuthorityKeyIdentifier};
     use openssl::bn::BigNum;
+    use openssl::x509::extension::{
+        AuthorityKeyIdentifier, BasicConstraints, KeyUsage, SubjectKeyIdentifier,
+    };
 
     log::debug!("Building certificate for {}", pending_request.dn);
     // Build certificate
-    let mut builder = X509Builder::new()
-        .map_err(|e| ApiError::Internal(format!("X509Builder error: {}", e)))?;
+    let mut builder =
+        X509Builder::new().map_err(|e| ApiError::Internal(format!("X509Builder error: {}", e)))?;
 
-    builder.set_pubkey(private_key)
+    builder
+        .set_pubkey(private_key)
         .map_err(|e| ApiError::Internal(format!("set_pubkey: {}", e)))?;
 
     // Load root CA certificate and private key from filesystem
@@ -682,65 +717,87 @@ fn build_certificate(
     let ca_password = std::env::var("CA_PASSWORD")
         .map_err(|_| ApiError::Internal("CA_PASSWORD env var not set".to_string()))?;
 
-    let ca_private_key = PKey::private_key_from_pem_passphrase(&ca_key_encrypted, ca_password.as_bytes())
-        .map_err(|e| ApiError::Internal(format!("Failed to decrypt CA key: {}", e)))?;
+    let ca_private_key =
+        PKey::private_key_from_pem_passphrase(&ca_key_encrypted, ca_password.as_bytes())
+            .map_err(|e| ApiError::Internal(format!("Failed to decrypt CA key: {}", e)))?;
 
     // Subject (user's DN)
-    let mut subject_name = X509Name::builder()
-        .map_err(|e| ApiError::Internal(format!("X509Name::builder: {}", e)))?;
+    let mut subject_name =
+        X509Name::builder().map_err(|e| ApiError::Internal(format!("X509Name::builder: {}", e)))?;
 
-    subject_name.append_entry_by_text("CN", &pending_request.dn)
+    subject_name
+        .append_entry_by_text("CN", &pending_request.dn)
         .map_err(|e| ApiError::Internal(format!("append_entry_by_text: {}", e)))?;
     let subject_name = subject_name.build();
-    builder.set_subject_name(&subject_name)
+    builder
+        .set_subject_name(&subject_name)
         .map_err(|e| ApiError::Internal(format!("set_subject_name: {}", e)))?;
 
     // Issuer (CA's subject)
     let issuer_name = ca_cert.subject_name();
-    builder.set_issuer_name(issuer_name)
+    builder
+        .set_issuer_name(issuer_name)
         .map_err(|e| ApiError::Internal(format!("set_issuer_name: {}", e)))?;
 
     // Serial number
     let mut serial_bn = BigNum::new().unwrap();
-    serial_bn.pseudo_rand(64, openssl::bn::MsbOption::MAYBE_ZERO, false).unwrap();
+    serial_bn
+        .pseudo_rand(64, openssl::bn::MsbOption::MAYBE_ZERO, false)
+        .unwrap();
     let serial = serial_bn.to_asn1_integer().unwrap();
     let serial_str = serial_bn.to_hex_str().unwrap().to_string();
     builder.set_serial_number(&serial).unwrap();
 
     // Set validity period
-    let not_before = Asn1Time::days_from_now(0)
-        .map_err(|e| ApiError::Internal(format!("not_before: {}", e)))?;
-    builder.set_not_before(&not_before)
+    let not_before =
+        Asn1Time::days_from_now(0).map_err(|e| ApiError::Internal(format!("not_before: {}", e)))?;
+    builder
+        .set_not_before(&not_before)
         .map_err(|e| ApiError::Internal(format!("set_not_before: {}", e)))?;
-    builder.set_not_after(&not_after)
+    builder
+        .set_not_after(&not_after)
         .map_err(|e| ApiError::Internal(format!("set_not_after: {}", e)))?;
 
     // Extensions (BasicConstraints: CA:FALSE, KeyUsage: digitalSignature/keyEncipherment)
-    builder.append_extension(
-        BasicConstraints::new().critical().build()
-            .map_err(|e| ApiError::Internal(format!("BasicConstraints: {}", e)))?
-    ).map_err(|e| ApiError::Internal(format!("append_extension: {}", e)))?;
+    builder
+        .append_extension(
+            BasicConstraints::new()
+                .critical()
+                .build()
+                .map_err(|e| ApiError::Internal(format!("BasicConstraints: {}", e)))?,
+        )
+        .map_err(|e| ApiError::Internal(format!("append_extension: {}", e)))?;
 
-    builder.append_extension(
-        KeyUsage::new()
-            .digital_signature()
-            .key_encipherment()
-            .build()
-            .map_err(|e| ApiError::Internal(format!("KeyUsage: {}", e)))?
-    ).map_err(|e| ApiError::Internal(format!("append_extension: {}", e)))?;
+    builder
+        .append_extension(
+            KeyUsage::new()
+                .digital_signature()
+                .key_encipherment()
+                .build()
+                .map_err(|e| ApiError::Internal(format!("KeyUsage: {}", e)))?,
+        )
+        .map_err(|e| ApiError::Internal(format!("append_extension: {}", e)))?;
 
-    builder.append_extension(
-        SubjectKeyIdentifier::new().build(&builder.x509v3_context(None, None))
-            .map_err(|e| ApiError::Internal(format!("SubjectKeyIdentifier: {}", e)))?
-    ).map_err(|e| ApiError::Internal(format!("append_extension: {}", e)))?;
+    builder
+        .append_extension(
+            SubjectKeyIdentifier::new()
+                .build(&builder.x509v3_context(None, None))
+                .map_err(|e| ApiError::Internal(format!("SubjectKeyIdentifier: {}", e)))?,
+        )
+        .map_err(|e| ApiError::Internal(format!("append_extension: {}", e)))?;
 
-    builder.append_extension(
-        AuthorityKeyIdentifier::new().keyid(true).build(&builder.x509v3_context(Some(&ca_cert), None))
-            .map_err(|e| ApiError::Internal(format!("AuthorityKeyIdentifier: {}", e)))?
-    ).map_err(|e| ApiError::Internal(format!("append_extension: {}", e)))?;
+    builder
+        .append_extension(
+            AuthorityKeyIdentifier::new()
+                .keyid(true)
+                .build(&builder.x509v3_context(Some(&ca_cert), None))
+                .map_err(|e| ApiError::Internal(format!("AuthorityKeyIdentifier: {}", e)))?,
+        )
+        .map_err(|e| ApiError::Internal(format!("append_extension: {}", e)))?;
 
     // Sign with CA
-    builder.sign(&ca_private_key, openssl::hash::MessageDigest::sha256())
+    builder
+        .sign(&ca_private_key, openssl::hash::MessageDigest::sha256())
         .map_err(|e| ApiError::Internal(format!("sign: {}", e)))?;
 
     let cert = builder.build();
@@ -782,13 +839,24 @@ fn authorize_user(req: HttpRequest) -> Result<Uuid, ApiError> {
         .ok_or_else(|| ApiError::Unauthorized("Missing claims".to_string()))?;
 
     if claims.role != "ADMIN" && claims.role != "USER" {
-        log::error!("User {} is not authorized generate certificate, but is not admin", claims.sub);
-        return Err(ApiError::Unauthorized("Only admins and users can generate certificates".to_string()));
+        log::error!(
+            "User {} is not authorized generate certificate, but is not admin",
+            claims.sub
+        );
+        return Err(ApiError::Unauthorized(
+            "Only admins and users can generate certificates".to_string(),
+        ));
     }
-    claims.sub.parse::<Uuid>().map_err(|_| ApiError::Unauthorized("Invalid UUID in claims".to_string()))
+    claims
+        .sub
+        .parse::<Uuid>()
+        .map_err(|_| ApiError::Unauthorized("Invalid UUID in claims".to_string()))
 }
 
-async fn get_authorized_user_data(req: HttpRequest, state_pool: &Pool<Postgres>) -> Result<User, ApiError> {
+async fn get_authorized_user_data(
+    req: HttpRequest,
+    state_pool: &Pool<Postgres>,
+) -> Result<User, ApiError> {
     let user_id = authorize_user(req)?;
     sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
         .bind(user_id)
@@ -797,26 +865,34 @@ async fn get_authorized_user_data(req: HttpRequest, state_pool: &Pool<Postgres>)
         .await
 }
 
-async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &Pool<Postgres>) -> Result<CertificateInfo, ApiError> {
+async fn generate_and_save_cert(
+    path: web::Path<Uuid>,
+    user: User,
+    state_pool: &Pool<Postgres>,
+) -> Result<CertificateInfo, ApiError> {
     // Find the pending certificate request by UUID and ensure it belongs to the user
     let cert_req_id = path.into_inner();
     let pending_request = sqlx::query_as::<_, PendingCertificateInfo>(
         "SELECT id, validity_period_days as valid_days, dn
         FROM certificate_requests
-        WHERE id = $1 AND user_id = $2"
+        WHERE id = $1 AND user_id = $2",
     )
-        .bind(cert_req_id)
-        .bind(user.id)
-        .fetch_optional(state_pool)
-        .await
-        .map_err(|e| {
-            log::error!("DB query error: {:?}", e);
-            ApiError::Internal("DB error".into())
-        })?;
+    .bind(cert_req_id)
+    .bind(user.id)
+    .fetch_optional(state_pool)
+    .await
+    .map_err(|e| {
+        log::error!("DB query error: {:?}", e);
+        ApiError::Internal("DB error".into())
+    })?;
 
     let pending_request = match pending_request {
         Some(req) => req,
-        None => return Err(ApiError::NotFound("Pending certificate request not found".into())),
+        None => {
+            return Err(ApiError::NotFound(
+                "Pending certificate request not found".into(),
+            ))
+        }
     };
 
     let validity_days = pending_request.valid_days.max(1) as u32; // minimum 1 day
@@ -824,8 +900,8 @@ async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &
     // Generate private key (RSA)
     let rsa = Rsa::generate(RSA_KEY_SIZE)
         .map_err(|e| ApiError::Internal(format!("Keygen error: {}", e)))?;
-    let private_key = PKey::from_rsa(rsa)
-        .map_err(|e| ApiError::Internal(format!("PKey error: {}", e)))?;
+    let private_key =
+        PKey::from_rsa(rsa).map_err(|e| ApiError::Internal(format!("PKey error: {}", e)))?;
     let not_after = Asn1Time::days_from_now(validity_days)
         .map_err(|e| ApiError::Internal(format!("not_after: {}", e)))?;
 
@@ -833,12 +909,15 @@ async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &
     let (cert, serial_str) = build_certificate(&private_key, &pending_request, &not_after)?;
 
     // Encrypt the private key with user's password hash
-    let key_pem = private_key.private_key_to_pem_pkcs8()
+    let key_pem = private_key
+        .private_key_to_pem_pkcs8()
         .map_err(|e| ApiError::Internal(format!("private_key_to_pem_pkcs8: {}", e)))?;
     let cipher = Cipher::aes_256_cbc();
     let password_hash_bytes = user.password_hash.as_bytes();
     if password_hash_bytes.len() < 48 {
-        return Err(ApiError::Internal("Password hash is too short for key derivation".to_string()));
+        return Err(ApiError::Internal(
+            "Password hash is too short for key derivation".to_string(),
+        ));
     }
     let key = &password_hash_bytes[..32];
     let iv = &password_hash_bytes[32..48];
@@ -846,7 +925,8 @@ async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &
         .map_err(|e| ApiError::Internal(format!("Encrypt key: {}", e)))?;
 
     // Save certificate DER and encrypted private key to DB
-    let cert_der = cert.to_der()
+    let cert_der = cert
+        .to_der()
         .map_err(|e| ApiError::Internal(format!("cert.to_der: {}", e)))?;
 
     let expiration_date = Utc::now() + chrono::Duration::days(validity_days as i64);
@@ -875,7 +955,7 @@ async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &
         .bind(&[] as &[u8]) // Empty salt since we're using password hash directly
         .execute(state_pool)
         .await?;
-    
+
     sqlx::query("UPDATE certificate_requests SET accepted_at = CURRENT_TIMESTAMP WHERE id = $1")
         .bind(cert_req_id)
         .execute(state_pool)
@@ -893,7 +973,11 @@ async fn generate_and_save_cert(path: web::Path<Uuid>, user: User, state_pool: &
     })
 }
 
-async fn get_user_certificate(cert_id: Uuid, user_id: Uuid, state_pool: &Pool<Postgres>) -> Result<CertificateInfo, ApiError> {
+async fn get_user_certificate(
+    cert_id: Uuid,
+    user_id: Uuid,
+    state_pool: &Pool<Postgres>,
+) -> Result<CertificateInfo, ApiError> {
     sqlx::query_as::<_, CertificateInfo>(
         "SELECT c.id, c.serial_number, cr.dn, c.status, c.expiration_date, c.renewed_count, c.certificate_der, c.renewal_date 
         FROM certificates c 
@@ -931,7 +1015,11 @@ async fn get_total_certificates_for_user(
     status_filter: Option<&str>,
 ) -> Result<i64, ApiError> {
     let count_query = "SELECT COUNT(*) FROM certificates WHERE user_id = $1".to_string()
-        + if status_filter.is_some() { " AND status = $2" } else { "" };
+        + if status_filter.is_some() {
+            " AND status = $2"
+        } else {
+            ""
+        };
 
     let mut count_query_builder = sqlx::query_scalar(&count_query).bind(user_id);
 
@@ -943,7 +1031,11 @@ async fn get_total_certificates_for_user(
     match count_query_builder.fetch_one(pool).await {
         Ok(total) => Ok(total),
         Err(e) => {
-            log::error!("DB error fetching total certificates for user {}: {}", user_id, e);
+            log::error!(
+                "DB error fetching total certificates for user {}: {}",
+                user_id,
+                e
+            );
             Err(ApiError::Internal("Failed to count certificates".into()))
         }
     }
@@ -958,8 +1050,16 @@ async fn get_certificates_for_user(
     limit: i64,
     offset: i64,
 ) -> Result<Vec<CertificateListItem>, ApiError> {
-    let status_clause = if status_filter.is_some() { "AND status = $2" } else { "" };
-    let limit_offset_params = if status_filter.is_some() { "LIMIT $3 OFFSET $4" } else { "LIMIT $2 OFFSET $3" };
+    let status_clause = if status_filter.is_some() {
+        "AND status = $2"
+    } else {
+        ""
+    };
+    let limit_offset_params = if status_filter.is_some() {
+        "LIMIT $3 OFFSET $4"
+    } else {
+        "LIMIT $2 OFFSET $3"
+    };
 
     let select_query = format!(
         "SELECT c.id, c.serial_number, cr.dn, c.status, c.expiration_date, c.renewed_count FROM certificates c JOIN certificate_requests cr ON c.id = cr.id WHERE c.user_id = $1 {} ORDER BY {} {} {}",
@@ -985,21 +1085,25 @@ async fn get_certificates_for_user(
     }
 }
 
-async fn generate_user_pkcs12(cert_id: Uuid,
-                              user: User,
-                              password: String,
-                              state_pool: &Pool<Postgres>) -> Result<Vec<u8>, ApiError> {
+async fn generate_user_pkcs12(
+    cert_id: Uuid,
+    user: User,
+    password: String,
+    state_pool: &Pool<Postgres>,
+) -> Result<Vec<u8>, ApiError> {
     let certificate = match get_user_certificate(cert_id, user.id, state_pool).await {
         Ok(c) => c,
-        Err(err) => { return Err(err); }
+        Err(err) => {
+            return Err(err);
+        }
     };
 
     let enc_key_result = sqlx::query_scalar::<_, Vec<u8>>(
-        "SELECT encrypted_key FROM private_keys WHERE certificate_id = $1"
-        )
-        .bind(certificate.id)
-        .fetch_one(state_pool)
-        .await;
+        "SELECT encrypted_key FROM private_keys WHERE certificate_id = $1",
+    )
+    .bind(certificate.id)
+    .fetch_one(state_pool)
+    .await;
     let encrypted_key = match enc_key_result {
         Ok(ek) => ek,
         Err(msg) => {
@@ -1012,21 +1116,24 @@ async fn generate_user_pkcs12(cert_id: Uuid,
     let cipher = Cipher::aes_256_cbc();
     let password_hash_bytes = user.password_hash.as_bytes();
     if password_hash_bytes.len() < 48 {
-        return Err(ApiError::Internal("Password hash is too short for key derivation".to_string()));
+        return Err(ApiError::Internal(
+            "Password hash is too short for key derivation".to_string(),
+        ));
     }
     let key = &password_hash_bytes[..32];
     let iv = &password_hash_bytes[32..48];
-    let private_key_pem = decrypt(cipher, key, Some(iv), &encrypted_key)
-        .map_err(|e| {
-            log::error!("decrypt failed {}", e);
-            ApiError::Internal(
-                "Private key decryption failed. The key may be corrupt or the PIN hash changed."
-                    .to_string(),
-            )
-        })?;
+    let private_key_pem = decrypt(cipher, key, Some(iv), &encrypted_key).map_err(|e| {
+        log::error!("decrypt failed {}", e);
+        ApiError::Internal(
+            "Private key decryption failed. The key may be corrupt or the PIN hash changed."
+                .to_string(),
+        )
+    })?;
 
     // Create PKCS#12 archive
-    let cert_der = certificate.certificate_der.ok_or_else(|| ApiError::Internal("Certificate data is missing".to_string()))?;
+    let cert_der = certificate
+        .certificate_der
+        .ok_or_else(|| ApiError::Internal("Certificate data is missing".to_string()))?;
     let x509 = X509::from_der(&cert_der)
         .map_err(|_| ApiError::Internal("Failed to parse certificate DER".to_string()))?;
     let pkey = PKey::private_key_from_pem(&private_key_pem)
@@ -1047,10 +1154,12 @@ async fn generate_user_pkcs12(cert_id: Uuid,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openssl::x509::extension::{BasicConstraints, KeyUsage, SubjectKeyIdentifier, AuthorityKeyIdentifier};
     use openssl::bn::BigNum;
     use openssl::hash::MessageDigest;
     use openssl::nid::Nid;
+    use openssl::x509::extension::{
+        AuthorityKeyIdentifier, BasicConstraints, KeyUsage, SubjectKeyIdentifier,
+    };
 
     #[test]
     fn test_key_generation() {
@@ -1070,7 +1179,8 @@ mod tests {
         let ca_cert_pem = fs::read("ca/ca.crt").unwrap();
         let ca_cert = X509::from_pem(&ca_cert_pem).unwrap();
         let ca_key_encrypted = fs::read("ca/ca.key").unwrap();
-        let ca_private_key = PKey::private_key_from_pem_passphrase(&ca_key_encrypted, b"ca_password").unwrap();
+        let ca_private_key =
+            PKey::private_key_from_pem_passphrase(&ca_key_encrypted, b"ca_password").unwrap();
 
         // Generate user private key
         let rsa = Rsa::generate(RSA_KEY_SIZE).unwrap();
@@ -1082,7 +1192,9 @@ mod tests {
 
         // Set subject
         let mut subject_name = X509Name::builder().unwrap();
-        subject_name.append_entry_by_text("CN", "test.example.com").unwrap();
+        subject_name
+            .append_entry_by_text("CN", "test.example.com")
+            .unwrap();
         let subject_name = subject_name.build();
         builder.set_subject_name(&subject_name).unwrap();
 
@@ -1092,7 +1204,9 @@ mod tests {
 
         // Set serial number
         let mut serial_bn_test = BigNum::new().unwrap();
-        serial_bn_test.pseudo_rand(64, openssl::bn::MsbOption::MAYBE_ZERO, false).unwrap();
+        serial_bn_test
+            .pseudo_rand(64, openssl::bn::MsbOption::MAYBE_ZERO, false)
+            .unwrap();
         let serial = serial_bn_test.to_asn1_integer().unwrap();
         builder.set_serial_number(&serial).unwrap();
 
@@ -1103,29 +1217,47 @@ mod tests {
         builder.set_not_after(&not_after).unwrap();
 
         // Add extensions
-        builder.append_extension(
-            BasicConstraints::new().critical().build().unwrap()
-        ).unwrap();
-        builder.append_extension(
-            KeyUsage::new()
-                .digital_signature()
-                .key_encipherment()
-                .build().unwrap()
-        ).unwrap();
-        builder.append_extension(
-            SubjectKeyIdentifier::new().build(&builder.x509v3_context(None, None)).unwrap()
-        ).unwrap();
-        builder.append_extension(
-            AuthorityKeyIdentifier::new().keyid(true).build(&builder.x509v3_context(Some(&ca_cert), None)).unwrap()
-        ).unwrap();
+        builder
+            .append_extension(BasicConstraints::new().critical().build().unwrap())
+            .unwrap();
+        builder
+            .append_extension(
+                KeyUsage::new()
+                    .digital_signature()
+                    .key_encipherment()
+                    .build()
+                    .unwrap(),
+            )
+            .unwrap();
+        builder
+            .append_extension(
+                SubjectKeyIdentifier::new()
+                    .build(&builder.x509v3_context(None, None))
+                    .unwrap(),
+            )
+            .unwrap();
+        builder
+            .append_extension(
+                AuthorityKeyIdentifier::new()
+                    .keyid(true)
+                    .build(&builder.x509v3_context(Some(&ca_cert), None))
+                    .unwrap(),
+            )
+            .unwrap();
 
         // Sign with CA
-        builder.sign(&ca_private_key, MessageDigest::sha256()).unwrap();
+        builder
+            .sign(&ca_private_key, MessageDigest::sha256())
+            .unwrap();
         let cert = builder.build();
 
         // Verify certificate properties
-        let mut common_name_it = cert.subject_name().entries().filter(|e| e.object().nid() == Nid::COMMONNAME);
-        let cn_ref = common_name_it.next()
+        let mut common_name_it = cert
+            .subject_name()
+            .entries()
+            .filter(|e| e.object().nid() == Nid::COMMONNAME);
+        let cn_ref = common_name_it
+            .next()
             .unwrap()
             .data()
             .as_utf8()

@@ -1,12 +1,12 @@
-use std::future::{ready, Ready};
+use crate::auth::Claims;
+use actix_web::error::{ErrorInternalServerError, ErrorUnauthorized};
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage,
 };
-use actix_web::error::{ErrorInternalServerError, ErrorUnauthorized};
 use futures_util::future::LocalBoxFuture;
 use jsonwebtoken::{decode, DecodingKey, Validation};
-use crate::auth::Claims;
+use std::future::{ready, Ready};
 
 pub struct JwtMiddlewareFactory;
 
@@ -50,7 +50,9 @@ where
                     value_str.strip_prefix("Bearer ").map(String::from)
                 } else {
                     // Header contains non-UTF8 characters, immediately reject.
-                    return Box::pin(async { Err(ErrorUnauthorized("Invalid Authorization header encoding.")) });
+                    return Box::pin(async {
+                        Err(ErrorUnauthorized("Invalid Authorization header encoding."))
+                    });
                 }
             }
             None => None,
@@ -63,7 +65,9 @@ where
                 Some(state) => state,
                 None => {
                     log::error!("App state not configured");
-                    return Box::pin(async { Err(ErrorInternalServerError("App state not configured")) })
+                    return Box::pin(async {
+                        Err(ErrorInternalServerError("App state not configured"))
+                    });
                 }
             };
 

@@ -1,11 +1,14 @@
-use actix_web::{cookie::{Cookie, SameSite}, web, HttpMessage, HttpRequest, HttpResponse, Responder};
-use serde::{Deserialize, Serialize};
+use actix_web::{
+    cookie::{Cookie, SameSite},
+    web, HttpMessage, HttpRequest, HttpResponse, Responder,
+};
 use bcrypt::{hash, verify};
-use jsonwebtoken::{encode, decode, Header, EncodingKey, DecodingKey, Validation};
-use chrono::{Utc, Duration};
+use chrono::{Duration, Utc};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use serde::{Deserialize, Serialize};
 
-use crate::AppState;
 use crate::db_model::{User, UserRole};
+use crate::AppState;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
@@ -54,15 +57,22 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
 
     log::info!("Login attempt for user: {}", username);
 
-    let user = match sqlx::query_as::<_, User>("SELECT id, username, password_hash, role, created_at FROM users WHERE username = $1")
-        .bind(&username)
-        .fetch_optional(&state.pool)
-        .await
+    let user = match sqlx::query_as::<_, User>(
+        "SELECT id, username, password_hash, role, created_at FROM users WHERE username = $1",
+    )
+    .bind(&username)
+    .fetch_optional(&state.pool)
+    .await
     {
         Ok(Some(user)) => {
-            log::info!("Found user {}, id: {}, role: {}", user.username, user.id, user.role.to_string());
+            log::info!(
+                "Found user {}, id: {}, role: {}",
+                user.username,
+                user.id,
+                user.role.to_string()
+            );
             user
-        },
+        }
         Ok(None) => {
             log::warn!("Login failed: user '{}' not found", username);
             return HttpResponse::Unauthorized().body("Invalid credentials");
@@ -70,7 +80,7 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
         Err(_) => {
             log::error!("Database error on login attempt for user: {}", username);
             return HttpResponse::InternalServerError().finish();
-        },
+        }
     };
 
     match verify(&password, &user.password_hash) {
@@ -82,8 +92,13 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
                 role: user.role.to_string(),
                 exp,
             };
-            let token = encode(&Header::default(), &claims, &EncodingKey::from_secret(state.jwt_secret.as_ref())).unwrap();
-            
+            let token = encode(
+                &Header::default(),
+                &claims,
+                &EncodingKey::from_secret(state.jwt_secret.as_ref()),
+            )
+            .unwrap();
+
             let user_info = UserInfo {
                 id: user.id.to_string(),
                 username: user.username,
@@ -97,17 +112,18 @@ pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> 
                 .http_only(true)
                 .same_site(SameSite::Lax)
                 // The cookie will expire when the token does
-                .max_age(actix_web::cookie::time::Duration::hours(1)) 
+                .max_age(actix_web::cookie::time::Duration::hours(1))
                 .finish();
 
-            HttpResponse::Ok()
-                .cookie(cookie)
-                .json(LoginResponse { token, user: user_info })
-        },
+            HttpResponse::Ok().cookie(cookie).json(LoginResponse {
+                token,
+                user: user_info,
+            })
+        }
         Ok(false) => {
             log::warn!("Login failed (bad password) for user '{}'", username);
             HttpResponse::Unauthorized().body("Invalid credentials")
-        },
+        }
         Err(_) => {
             log::error!("Password verification failed for user: {}", username);
             HttpResponse::InternalServerError().finish()
@@ -126,7 +142,7 @@ pub async fn verify_token(state: web::Data<AppState>, req: HttpRequest) -> impl 
             } else {
                 None
             }
-        },
+        }
         None => None,
     };
 
@@ -148,7 +164,11 @@ pub async fn verify_token(state: web::Data<AppState>, req: HttpRequest) -> impl 
 
     match decode::<Claims>(&token, &decoding_key, &validation) {
         Ok(token_data) => {
-            log::info!("Token valid for user: {}, role: {}", token_data.claims.sub, token_data.claims.role);
+            log::info!(
+                "Token valid for user: {}, role: {}",
+                token_data.claims.sub,
+                token_data.claims.role
+            );
             HttpResponse::Ok().json(VerifyResponse {
                 valid: true,
                 role: Some(token_data.claims.role),
@@ -166,7 +186,10 @@ pub async fn verify_token(state: web::Data<AppState>, req: HttpRequest) -> impl 
     }
 }
 
-pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest>) -> impl Responder {
+pub async fn register(
+    state: web::Data<AppState>,
+    req: web::Json<RegisterRequest>,
+) -> impl Responder {
     let username = req.username.clone();
     let password = req.password.clone();
 
@@ -181,13 +204,12 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
         .map_err(|e| {
             log::error!("Database error while checking if user exists: {:?}", e);
             e
-        })
-    {
+        }) {
         Ok(opt) => opt.is_some(),
         Err(_) => {
             log::error!("Database error during registration for user: {}", username);
             return HttpResponse::InternalServerError().finish();
-        },
+        }
     };
 
     if exists {
@@ -199,9 +221,12 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
     let password_hash = match hash(&password, 12) {
         Ok(h) => h,
         Err(_) => {
-            log::error!("Password hash failed during registration for user: {}", username);
+            log::error!(
+                "Password hash failed during registration for user: {}",
+                username
+            );
             return HttpResponse::InternalServerError().finish();
-        },
+        }
     };
 
     // Insert new user
@@ -238,7 +263,7 @@ pub async fn register(state: web::Data<AppState>, req: web::Json<RegisterRequest
 
 pub async fn logout() -> impl Responder {
     log::info!("Logout request received");
-    
+
     // Create a cookie with the same attributes as the login cookie, but with max_age set to 0 to delete it
     let cookie = Cookie::build("auth_token", "")
         .path("/")
@@ -265,27 +290,37 @@ pub async fn list_users(state: web::Data<AppState>, req: HttpRequest) -> impl Re
 
     // 2. Check if the user has the ADMIN role.
     if claims.role != UserRole::ADMIN.to_string() {
-        log::warn!("User '{}' with role '{}' attempted to access list_users.", claims.sub, claims.role);
-        return HttpResponse::Forbidden().json("Insufficient permissions. Administrator role required.");
+        log::warn!(
+            "User '{}' with role '{}' attempted to access list_users.",
+            claims.sub,
+            claims.role
+        );
+        return HttpResponse::Forbidden()
+            .json("Insufficient permissions. Administrator role required.");
     }
 
     log::info!("Admin user '{}' is listing all users.", claims.sub);
 
     // 3. Fetch all users from the database.
-    match sqlx::query_as::<_, User>("SELECT id, username, password_hash, role, created_at FROM users")
-        .fetch_all(&state.pool)
-        .await
+    match sqlx::query_as::<_, User>(
+        "SELECT id, username, password_hash, role, created_at FROM users",
+    )
+    .fetch_all(&state.pool)
+    .await
     {
         Ok(users) => {
             // 4. Map the full User struct to the public UserInfo struct.
-            let user_infos: Vec<UserInfo> = users.into_iter().map(|user| UserInfo {
-                id: user.id.to_string(),
-                username: user.username,
-                role: user.role.to_string(),
-                created_at: user.created_at.to_rfc3339(),
-            }).collect();
+            let user_infos: Vec<UserInfo> = users
+                .into_iter()
+                .map(|user| UserInfo {
+                    id: user.id.to_string(),
+                    username: user.username,
+                    role: user.role.to_string(),
+                    created_at: user.created_at.to_rfc3339(),
+                })
+                .collect();
             HttpResponse::Ok().json(user_infos)
-        },
+        }
         Err(e) => {
             log::error!("Failed to fetch users from database: {:?}", e);
             HttpResponse::InternalServerError().json("Failed to retrieve users.")

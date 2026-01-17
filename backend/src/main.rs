@@ -1,5 +1,5 @@
-use actix_web::{middleware::Logger, web, App, HttpServer};
 use crate::db_model::AppState;
+use actix_web::{middleware::Logger, web, App, HttpServer};
 use dotenv::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
@@ -7,8 +7,8 @@ mod auth;
 mod certificate;
 mod db_model;
 mod errors;
-mod middleware;
 mod http_app;
+mod middleware;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
