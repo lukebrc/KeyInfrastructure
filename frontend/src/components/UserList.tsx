@@ -33,6 +33,134 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/components/AuthContext";
 
+// Certificate counts by status for each user
+interface CertificateCounts {
+  valid: number; // Active and not expiring soon
+  pending: number; // Pending status
+  expiring: number; // Active but expiring within 30 days
+  revoked: number; // Revoked status
+}
+
+// Helper to check if a certificate is expiring within given days
+const isExpiringSoon = (expirationDate: string, days = 30): boolean => {
+  const expDate = new Date(expirationDate);
+  const now = new Date();
+  const daysUntilExpiration = Math.ceil(
+    (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  return daysUntilExpiration > 0 && daysUntilExpiration <= days;
+};
+
+// Calculate certificate counts from a list of certificates
+const calculateCertificateCounts = (
+  certificates: Certificate[],
+): CertificateCounts => {
+  return certificates.reduce(
+    (counts, cert) => {
+      if (cert.status === "PENDING") {
+        counts.pending++;
+      } else if (cert.status === "REVOKED") {
+        counts.revoked++;
+      } else if (cert.status === "ACTIVE") {
+        if (isExpiringSoon(cert.expiration_date)) {
+          counts.expiring++;
+        } else {
+          counts.valid++;
+        }
+      }
+      return counts;
+    },
+    { valid: 0, pending: 0, expiring: 0, revoked: 0 },
+  );
+};
+
+// Component to display certificate counts with colors
+const CertificateCountsDisplay: React.FC<{
+  counts: CertificateCounts | null;
+  loading?: boolean;
+}> = ({ counts, loading }) => {
+  if (loading) {
+    return <Skeleton className="h-4 w-24" />;
+  }
+
+  if (!counts) {
+    return <span className="text-sm text-muted-foreground">-</span>;
+  }
+
+  const hasAnyCertificates =
+    counts.valid + counts.pending + counts.expiring + counts.revoked > 0;
+
+  if (!hasAnyCertificates) {
+    return <span className="text-sm text-muted-foreground">0</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 text-sm font-medium">
+      {counts.valid > 0 && (
+        <span
+          className="text-green-600 dark:text-green-400"
+          title="Valid certificates"
+        >
+          {counts.valid}
+        </span>
+      )}
+      {counts.pending > 0 && (
+        <>
+          {counts.valid > 0 && <span className="text-muted-foreground">/</span>}
+          <span
+            className="text-gray-500 dark:text-gray-400"
+            title="Pending certificates"
+          >
+            {counts.pending}
+          </span>
+        </>
+      )}
+      {counts.expiring > 0 && (
+        <>
+          {(counts.valid > 0 || counts.pending > 0) && (
+            <span className="text-muted-foreground">/</span>
+          )}
+          <span
+            className="text-orange-500 dark:text-orange-400"
+            title="Expiring certificates"
+          >
+            {counts.expiring}
+          </span>
+        </>
+      )}
+      {counts.revoked > 0 && (
+        <>
+          {(counts.valid > 0 || counts.pending > 0 || counts.expiring > 0) && (
+            <span className="text-muted-foreground">/</span>
+          )}
+          <span
+            className="text-red-600 dark:text-red-400"
+            title="Revoked certificates"
+          >
+            {counts.revoked}
+          </span>
+        </>
+      )}
+    </div>
+  );
+};
+
+// Colorful column header with legend
+const CertificatesColumnHeader: React.FC = () => (
+  <div className="flex flex-col gap-0.5">
+    <span>Certificates</span>
+    <div className="flex items-center gap-1 text-xs font-normal">
+      <span className="text-green-600 dark:text-green-400">Valid</span>
+      <span className="text-muted-foreground">/</span>
+      <span className="text-gray-500 dark:text-gray-400">Pending</span>
+      <span className="text-muted-foreground">/</span>
+      <span className="text-orange-500 dark:text-orange-400">Expiring</span>
+      <span className="text-muted-foreground">/</span>
+      <span className="text-red-600 dark:text-red-400">Revoked</span>
+    </div>
+  </div>
+);
+
 export const UserList: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,6 +177,12 @@ export const UserList: React.FC = () => {
   >("ALL");
   const { user: currentUser, loading: authLoading } = useAuth();
 
+  // Certificate counts per user
+  const [userCertificateCounts, setUserCertificateCounts] = useState<
+    Record<string, CertificateCounts>
+  >({});
+  const [countsLoading, setCountsLoading] = useState(false);
+
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -59,6 +193,37 @@ export const UserList: React.FC = () => {
       ErrorHandler.handleError(error, "Failed to load users");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch certificate counts for all users
+  const fetchAllUserCertificateCounts = async (userList: User[]) => {
+    if (userList.length === 0) return;
+
+    setCountsLoading(true);
+    const counts: Record<string, CertificateCounts> = {};
+
+    try {
+      // Fetch certificates for all users in parallel
+      const promises = userList.map(async (user) => {
+        try {
+          const response = await api.getUserCertificates(user.id, {
+            page: 1,
+            limit: 1000, // Get all certificates for counting
+          });
+          counts[user.id] = calculateCertificateCounts(response.data || []);
+        } catch {
+          // If we can't fetch for a user, set empty counts
+          counts[user.id] = { valid: 0, pending: 0, expiring: 0, revoked: 0 };
+        }
+      });
+
+      await Promise.all(promises);
+      setUserCertificateCounts(counts);
+    } catch (error) {
+      console.error("Failed to fetch certificate counts:", error);
+    } finally {
+      setCountsLoading(false);
     }
   };
 
@@ -81,6 +246,13 @@ export const UserList: React.FC = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Fetch certificate counts when users are loaded
+  useEffect(() => {
+    if (users.length > 0 && !loading) {
+      fetchAllUserCertificateCounts(users);
+    }
+  }, [users, loading]);
 
   const handleManageCertificates = (user: User) => {
     window.location.href = `/admin/certificates?userId=${user.id}`;
@@ -160,8 +332,17 @@ export const UserList: React.FC = () => {
           <Users className="size-5" />
           <h3 className="text-lg font-semibold">User Management</h3>
         </div>
-        <Button variant="outline" onClick={fetchUsers} disabled={loading}>
-          <RefreshCw className={cn("size-4 mr-2", loading && "animate-spin")} />
+        <Button
+          variant="outline"
+          onClick={fetchUsers}
+          disabled={loading || countsLoading}
+        >
+          <RefreshCw
+            className={cn(
+              "size-4 mr-2",
+              (loading || countsLoading) && "animate-spin",
+            )}
+          />
           Refresh
         </Button>
       </div>
@@ -173,7 +354,9 @@ export const UserList: React.FC = () => {
               <TableHead>Username</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Created At</TableHead>
-              <TableHead>Certificates</TableHead>
+              <TableHead>
+                <CertificatesColumnHeader />
+              </TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -222,10 +405,10 @@ export const UserList: React.FC = () => {
                     {new Date(user.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    <span className="text-sm text-muted-foreground">
-                      {/* For now, show placeholder - in real implementation we'd count certificates */}
-                      -
-                    </span>
+                    <CertificateCountsDisplay
+                      counts={userCertificateCounts[user.id] || null}
+                      loading={countsLoading}
+                    />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
