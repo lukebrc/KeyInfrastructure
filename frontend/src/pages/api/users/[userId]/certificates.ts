@@ -14,6 +14,7 @@ interface PendingCertificate {
 interface TransformedPendingCertificate {
   id: string;
   serial_number: null;
+  user_id: string;
   dn: string;
   status: "PENDING";
   expiration_date: null;
@@ -78,6 +79,7 @@ export const GET: APIRoute = async ({ request, params }) => {
       return (result.data || []).map((cert: PendingCertificate) => ({
         id: cert.id,
         serial_number: null,
+        user_id: userId, // Add user_id from path for Generate button visibility
         dn: cert.dn || "",
         status: "PENDING" as const,
         expiration_date: null,

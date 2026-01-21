@@ -436,14 +436,19 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                       <div className="flex items-center justify-end gap-2">
                         {cert.status === "ACTIVE" && (
                           <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDownload(cert)}
-                            >
-                              <Download className="size-4 mr-1" />
-                              Download
-                            </Button>
+                            {currentUser &&
+                              cert.user_id &&
+                              String(cert.user_id).trim() ===
+                                String(currentUser.id).trim() && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDownload(cert)}
+                                >
+                                  <Download className="size-4 mr-1" />
+                                  Download
+                                </Button>
+                              )}
                             {expiringSoon &&
                               currentUser &&
                               cert.user_id &&
@@ -490,6 +495,8 @@ export const CertificateTable: React.FC<CertificateTableProps> = ({
                                     ? String(cert.user_id).trim() ===
                                       String(currentUser.id).trim()
                                     : false;
+                                // Admin users can generate certificates only for their own requests
+                                // Regular users can generate certificates for their own requests
                                 const canGenerate =
                                   currentUser && hasUserId && userIdMatches;
                                 return canGenerate ? (

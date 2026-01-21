@@ -150,6 +150,9 @@ export const UserList: React.FC = () => {
 
   const totalPages = Math.ceil(total / limit);
 
+  // Client-side pagination: slice users for current page
+  const paginatedUsers = users.slice((page - 1) * limit, page * limit);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -195,7 +198,7 @@ export const UserList: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ))
-            ) : users.length === 0 ? (
+            ) : paginatedUsers.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={5}
@@ -205,7 +208,7 @@ export const UserList: React.FC = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              users.map((user) => (
+              paginatedUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.username}</TableCell>
                   <TableCell>
@@ -337,8 +340,7 @@ export const UserList: React.FC = () => {
                   allowGenerate={
                     currentUser !== null &&
                     selectedUser !== null &&
-                    (currentUser.id === selectedUser.id ||
-                      currentUser.role === "ADMIN")
+                    currentUser.id === selectedUser.id
                   }
                   onRevoke={handleCertificateRevoked}
                   onCancel={handleCancelCertificate}
