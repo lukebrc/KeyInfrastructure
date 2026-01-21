@@ -49,7 +49,9 @@ export const AdminHeader: React.FC = () => {
         <div className="flex items-center gap-2">
           <Shield className="size-5 text-sky-600" />
           <div>
-            <p className="text-sm font-medium text-slate-800">{user?.username}</p>
+            <p className="text-sm font-medium text-slate-800">
+              {user?.username}
+            </p>
             <p className="text-xs text-sky-600">Administrator</p>
           </div>
         </div>
