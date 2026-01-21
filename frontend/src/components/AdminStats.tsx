@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { ErrorHandler } from "@/lib/error-handler";
 import { Users, Shield, AlertTriangle, XCircle } from "lucide-react";
+import type { Certificate } from "@/types";
 
 interface Stats {
   totalUsers: number;
@@ -17,6 +18,27 @@ interface Stats {
   revokedCertificates: number;
   expiringCertificates: number;
 }
+
+// Helper to check if a certificate is expiring within given days
+const isExpiringSoon = (expirationDate: string, days = 30): boolean => {
+  const expDate = new Date(expirationDate);
+  const now = new Date();
+  const daysUntilExpiration = Math.ceil(
+    (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  return daysUntilExpiration > 0 && daysUntilExpiration <= days;
+};
+
+// Count expiring certificates from a list
+const countExpiringCertificates = (
+  certificates: Certificate[],
+  days = 30,
+): number => {
+  return certificates.filter(
+    (cert) =>
+      cert.status === "ACTIVE" && isExpiringSoon(cert.expiration_date, days),
+  ).length;
+};
 
 export const AdminStats: React.FC = () => {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -39,17 +61,12 @@ export const AdminStats: React.FC = () => {
           status: "REVOKED",
         });
 
-        // Fetch expiring certificates
-        let expiringCount = 0;
-        try {
-          const expiringCertificates = await api.getExpiringCertificates(30);
-          expiringCount = Array.isArray(expiringCertificates)
-            ? expiringCertificates.length
-            : 0;
-        } catch (error) {
-          console.error("Failed to fetch expiring certificates:", error);
-          expiringCount = 0;
-        }
+        // Calculate expiring certificates from all active certificates
+        // We need to count ACTIVE certificates that are expiring within 30 days
+        const expiringCount = countExpiringCertificates(
+          certificatesResponse.data || [],
+          30,
+        );
 
         setStats({
           totalUsers: users.length,
