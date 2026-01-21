@@ -7,7 +7,7 @@ import { AuthProvider } from "./AuthContext";
 export const AdminDashboard: React.FC = () => {
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50">
         <AdminHeader />
         <main className="container mx-auto p-4 md:p-6 lg:p-8">
           <div className="space-y-6">

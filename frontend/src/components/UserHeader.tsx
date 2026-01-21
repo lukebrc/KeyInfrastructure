@@ -34,9 +34,9 @@ export const UserHeader: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-between p-4 border-b">
+      <div className="flex items-center justify-between p-4 border-b border-sky-100 bg-white shadow-sm">
         <div className="flex items-center gap-2">
-          <UserIcon className="size-5" />
+          <UserIcon className="size-5 text-sky-600" />
           <span className="text-sm text-muted-foreground">Loading...</span>
         </div>
       </div>
@@ -44,11 +44,11 @@ export const UserHeader: React.FC = () => {
   }
 
   return (
-    <div className="flex items-center justify-between p-4 border-b bg-background">
+    <div className="flex items-center justify-between p-4 border-b border-sky-100 bg-white shadow-sm">
       <div className="flex items-center gap-2">
-        <UserIcon className="size-5" />
+        <UserIcon className="size-5 text-sky-600" />
         <div>
-          <p className="text-sm font-medium">USER {user?.username}</p>
+          <p className="text-sm font-medium text-slate-800">USER {user?.username}</p>
         </div>
       </div>
       <Button variant="outline" size="sm" onClick={handleLogout}>

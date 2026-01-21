@@ -87,8 +87,8 @@ const LoginForm: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-100">
+      <Card className="w-full max-w-md border-sky-100 shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>
           <CardDescription>

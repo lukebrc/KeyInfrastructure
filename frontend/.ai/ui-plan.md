@@ -869,3 +869,108 @@ The UI Architecture for KeyInfrastructure MVP provides:
 - **Error Handling:** Central error handling system with readable messages and fallback UI
 
 The architecture is ready for implementation in Astro 5 with React 19, Tailwind CSS 4, and Shadcn/ui.
+
+---
+
+## 11. Visual Design Plan
+
+### 11.1. Target Design: Soft Light Blue Theme
+
+**Design Goals:**
+- Soft, light blue, calm and user-friendly appearance
+- Consistent visual identity across all screens
+- Professional yet approachable aesthetic
+- Improved accessibility with proper contrast ratios
+- Cohesive color palette throughout the application
+
+### 11.2. Component-Level Design Changes
+
+#### 11.2.1. Welcome Page (`Welcome.astro`)
+
+Soft light blue gradient with clean cards
+
+- Background: `bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50` (soft light blue gradient)
+- Main card: White with subtle blue border and soft shadow
+- Headings: Dark blue-gray text (`text-slate-800`)
+- Buttons: 
+  - Login: Soft blue background (`bg-sky-500 hover:bg-sky-600`)
+  - Register: Light blue outline (`border-sky-300 hover:bg-sky-50`)
+- Feature cards: White with light blue border
+- Bullet points: Light blue badges (`bg-sky-100 text-sky-700`)
+
+#### 11.2.2. Login/Register Forms (`LoginForm.tsx`, `RegisterForm.tsx`)
+
+Consistent with Welcome page theme
+
+- Page background: Soft light blue gradient (same as Welcome)
+- Card: White with subtle shadow and light blue border
+- Primary button: Soft blue (`bg-sky-500`)
+- Links: Blue color (`text-sky-600`)
+- Input focus: Blue ring
+
+#### 11.2.3. Dashboard Pages (`dashboard.astro`, `admin/dashboard.astro`)
+
+Light blue-tinted professional theme
+
+- Background: Very light blue-tinted (`bg-slate-50` or custom CSS variable)
+- Headers: White with subtle blue accent
+- Cards: White with light blue borders
+- Primary actions: Soft blue buttons
+- Status badges: Blue-tinted color scheme
+
+#### 11.2.4. Global CSS Variables (`global.css`)
+
+Update the `:root` CSS variables to implement the light blue theme consistently across all shadcn/ui components.
+
+### 11.3. Implementation Files to Modify
+
+| File | Changes Required |
+|------|------------------|
+| `src/styles/global.css` | Update CSS variables for light blue theme |
+| `src/components/Welcome.astro` | light blue theme |
+| `src/components/LoginForm.tsx` | Add light blue background wrapper |
+| `src/components/RegisterForm.tsx` | Add light blue background wrapper |
+| `src/pages/dashboard.astro` | Set background color |
+| `src/pages/admin/dashboard.astro` | Set background color |
+| `src/components/AdminDashboard.tsx` | Set background color |
+| `src/components/UserHeader.tsx` | Set header styling |
+| `src/components/AdminHeader.tsx` | Set header styling |
+| `src/components/ui/button.tsx` | Verify button variants work with new theme |
+
+### 11.4. Design Tokens Reference
+
+**Tailwind CSS Classes for Light Blue Theme:**
+
+### 11.5. Accessibility Considerations
+
+- Ensure minimum 4.5:1 contrast ratio for normal text
+- Ensure minimum 3:1 contrast ratio for large text and UI components
+- Test color combinations with color blindness simulators
+- Maintain focus indicators with sufficient contrast
+- Keep touch targets at minimum 44x44px
+
+### 11.6. Implementation Steps
+
+**Step 1: Global Theme Update**
+1. Update `global.css` with new CSS variables
+2. Test all existing components with new theme
+
+**Step 2: Welcome Page Design**
+1. Update `Welcome.astro` with new light blue design
+2. Ensure buttons and links use consistent styling
+
+**Step 3: Auth Pages Consistency**
+1. Add background wrapper to `LoginForm.tsx`
+2. Add background wrapper to `RegisterForm.tsx`
+3. Ensure form styling matches Welcome page
+
+**Step 4: Dashboard Updates**
+1. Update dashboard page backgrounds
+2. Update header components
+3. Verify all UI components render correctly
+
+**Step 5: Testing & Refinement**
+1. Cross-browser testing
+2. Mobile responsiveness verification
+3. Accessibility audit
+4. Visual consistency review
