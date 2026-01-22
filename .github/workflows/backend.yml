@@ -62,7 +62,7 @@ jobs:
         export PGPASSWORD=test_password
         psql -h localhost -U postgres -d keyinfrastructure -f database/create_tables.sql
 
-    - name: Setup Certificate Authority
+    - name: Build and Setup Certificate Authority
       run: ./prepare_environment.sh
 
     - name: Check Formatting

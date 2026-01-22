@@ -17,6 +17,6 @@ Project consists of subprojects:
 * `JWT_SECRET` - password for JWT (Json-Web-Token) mechanism
 * `DATABASE_URL` - url and password for  database connection
 3. Execute `./prepare_environment.sh`
-4. Start application with `docker-compose up` (or `docker compose up`)
+4. Start application with `docker-compose up` (or `docker compose up` in later versions)
 5. Open application in web browser in http://localhost:3000
-6. Register new user or login to default admin user (user: admin, password: admin123)
+6. Register new user or login to default admin user (user: admin, password: admin123). Please not that new registered user has no admin privileges.
