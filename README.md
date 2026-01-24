@@ -19,4 +19,4 @@ Project consists of subprojects:
 3. Execute `./prepare_environment.sh`
 4. Start application with `docker-compose up` (or `docker compose up` in later versions)
 5. Open application in web browser in http://localhost:3000
-6. Register new user or login to default admin user (user: admin, password: admin123). Please not that new registered user has no admin privileges.
+6. Register new user (admin or ordinary user)
