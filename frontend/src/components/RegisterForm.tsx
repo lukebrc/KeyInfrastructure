@@ -35,7 +35,10 @@ const RegisterForm: React.FC = () => {
     return true;
   };
 
-  const handleRegister = async (e: React.FormEvent, role: UserRole = "USER") => {
+  const handleRegister = async (
+    e: React.FormEvent,
+    role: UserRole = "USER",
+  ) => {
     e.preventDefault();
     setLoading(true);
     setRegisteringAs(role);
@@ -162,7 +165,9 @@ const RegisterForm: React.FC = () => {
                 className="flex-1"
                 onClick={(e) => handleRegister(e, "USER")}
               >
-                {loading && registeringAs === "USER" ? "Registering..." : "Register"}
+                {loading && registeringAs === "USER"
+                  ? "Registering..."
+                  : "Register"}
               </Button>
               <Button
                 type="button"
@@ -171,7 +176,9 @@ const RegisterForm: React.FC = () => {
                 className="flex-1"
                 onClick={(e) => handleRegister(e, "ADMIN")}
               >
-                {loading && registeringAs === "ADMIN" ? "Registering..." : "Register as Admin"}
+                {loading && registeringAs === "ADMIN"
+                  ? "Registering..."
+                  : "Register as Admin"}
               </Button>
             </div>
           </form>

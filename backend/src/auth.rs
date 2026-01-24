@@ -257,7 +257,7 @@ pub async fn register(
     log::debug!("Insert new user: {}", username);
     // Password will be used to encrypt private keys when certificates are created.
     // Use the role from the request, defaulting to 'USER' if not provided.
-    let user_role = req.role.clone().unwrap_or(UserRole::USER);
+    let user_role = req.role.unwrap_or(UserRole::USER);
     match sqlx::query_as::<_, User>("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING id, username, password_hash, role, created_at")
         .bind(&username)
         .bind(&password_hash)
