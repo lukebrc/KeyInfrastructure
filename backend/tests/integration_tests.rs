@@ -105,6 +105,7 @@ async fn test_register_and_login() {
     let register_req = RegisterRequest {
         username: "testuser".to_string(),
         password: "password123".to_string(),
+        role: None,
     };
     let req = test::TestRequest::post()
         .uri("/users")
@@ -182,6 +183,7 @@ async fn test_admin_register_and_login() {
     let register_req = RegisterRequest {
         username: admin_name.to_string(),
         password: admin_password.to_string(),
+        role: None,
     };
     let req = test::TestRequest::post()
         .uri("/users")
@@ -255,6 +257,7 @@ async fn test_certificate_lifecycle() {
     let register_req = RegisterRequest {
         username: test_user.to_string(),
         password: test_password.to_string(),
+        role: None,
     };
     let req = test::TestRequest::post()
         .uri("/users")
