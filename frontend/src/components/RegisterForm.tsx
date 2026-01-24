@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { api } from "@/lib/api";
-import type { RegisterRequest, ApiError } from "@/types";
+import type { RegisterRequest, ApiError, UserRole } from "@/types";
 
 const RegisterForm: React.FC = () => {
   const [username, setUsername] = useState("");
@@ -19,6 +19,7 @@ const RegisterForm: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [registeringAs, setRegisteringAs] = useState<UserRole | null>(null);
 
   const validateForm = (): boolean => {
     if (!username || !password) {
@@ -34,20 +35,22 @@ const RegisterForm: React.FC = () => {
     return true;
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent, role: UserRole = "USER") => {
     e.preventDefault();
     setLoading(true);
+    setRegisteringAs(role);
     setError(null);
     setSuccess(false);
 
     // Client-side validation
     if (!validateForm()) {
       setLoading(false);
+      setRegisteringAs(null);
       return;
     }
 
     try {
-      const request: RegisterRequest = { username, password };
+      const request: RegisterRequest = { username, password, role };
       await api.register(request);
 
       // After successful registration, automatically log in
@@ -87,6 +90,7 @@ const RegisterForm: React.FC = () => {
       }
     } finally {
       setLoading(false);
+      setRegisteringAs(null);
     }
   };
 
@@ -98,7 +102,7 @@ const RegisterForm: React.FC = () => {
           <CardDescription>Create a new account to get started</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleRegister} className="space-y-4">
+          <form className="space-y-4">
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -151,9 +155,25 @@ const RegisterForm: React.FC = () => {
               </p>
             </div>
 
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? "Registering..." : "Register"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                disabled={loading}
+                className="flex-1"
+                onClick={(e) => handleRegister(e, "USER")}
+              >
+                {loading && registeringAs === "USER" ? "Registering..." : "Register"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loading}
+                className="flex-1"
+                onClick={(e) => handleRegister(e, "ADMIN")}
+              >
+                {loading && registeringAs === "ADMIN" ? "Registering..." : "Register as Admin"}
+              </Button>
+            </div>
           </form>
         </CardContent>
         <CardFooter>

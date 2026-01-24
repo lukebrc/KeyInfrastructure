@@ -50,6 +50,7 @@ pub struct VerifyResponse {
 pub struct RegisterRequest {
     pub username: String,
     pub password: String, //user login password
+    pub role: Option<UserRole>,
 }
 
 pub async fn login(state: web::Data<AppState>, req: web::Json<LoginRequest>) -> impl Responder {
@@ -255,11 +256,12 @@ pub async fn register(
     // Insert new user
     log::debug!("Insert new user: {}", username);
     // Password will be used to encrypt private keys when certificates are created.
-    // We will set a default role of 'USER' and return the newly created user.
+    // Use the role from the request, defaulting to 'USER' if not provided.
+    let user_role = req.role.clone().unwrap_or(UserRole::USER);
     match sqlx::query_as::<_, User>("INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING id, username, password_hash, role, created_at")
         .bind(&username)
         .bind(&password_hash)
-        .bind(UserRole::USER) // Set default role
+        .bind(user_role)
         .fetch_one(&state.pool)
         .await
         .map_err(|e| {
