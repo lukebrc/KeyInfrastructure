@@ -35,6 +35,15 @@
 - **Error Codes and Messages**: 200 OK - with `{"valid": false, "role": null, "userId": null}` if the token is missing, malformed, or invalid.
 
 - **Method**: GET
+- **URL Path**: /users
+- **Description**: List all users (admin only).
+- **Query Parameters**: page=integer, limit=integer
+- **Request JSON Structure**: None
+- **Response JSON Structure**: {"users": [{"id": "uuid", "username": "string", "role": "string", "created_at": "timestamp"}], "total": "integer", "page": "integer"}
+- **Success Codes and Messages**: 200 OK
+- **Error Codes and Messages**: 403 Forbidden - "Admin access required"
+
+- **Method**: GET
 - **URL Path**: /users/{id}
 - **Description**: Retrieve user details (self or admin).
 - **Query Parameters**: None
@@ -42,6 +51,15 @@
 - **Response JSON Structure**: {"id": "uuid", "username": "string", "role": "string", "created_at": "timestamp", "last_login_at": "timestamp"}
 - **Success Codes and Messages**: 200 OK
 - **Error Codes and Messages**: 403 Forbidden - "Access denied", 404 Not Found - "User not found"
+
+- **Method**: POST
+- **URL Path**: /auth/logout
+- **Description**: Logout user by clearing the JWT cookie.
+- **Query Parameters**: None
+- **Request JSON Structure**: None
+- **Response JSON Structure**: None
+- **Success Codes and Messages**: 200 OK - "Logged out successfully"
+- **Error Codes and Messages**: None
 
 ### Certificates Resource
 - **Method**: POST

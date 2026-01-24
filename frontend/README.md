@@ -54,7 +54,7 @@ Before starting the development server, you need to configure the application.
 2.  The `.env` file contains the `BACKEND_URL` variable, which points to the backend server. By default, it is set to:
 
     ```
-    BACKEND_URL=http://localhost:4000
+    BACKEND_URL=http://localhost:8080
     ```
 
     You can change this value if your backend is running on a different address or port.
@@ -101,9 +101,9 @@ The project includes AI rules in `.cursor/rules/` directory that help Cursor IDE
 
 ## Features
 
-- User registration with username, password, and 8-character PIN
+- User registration with username and password
 - User authentication via login
-- Certificate download as PIN-protected PKCS#12 file
+- Certificate download as password-protected PKCS#12 file
 - Expiration notification banner with renewal prompt
 - Administrator interface for certificate generation with configurable validity and hash algorithm (SHA-256/SHA-384/SHA-512)
 - Self-hosted root CA with password-protected key via environment variable

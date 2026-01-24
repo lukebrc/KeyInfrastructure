@@ -78,7 +78,7 @@ The project is organized into three main sub-projects:
 
 These are known issues and ambiguities that need to be addressed:
 
-1.  **PIN/Password Handling:** The workflow for accessing the user's password to encrypt the PKCS#12 file upon download needs to be securely defined, as the user only enters it at registration.
+1.  **Password Handling:** The workflow for accessing the user's password to encrypt the PKCS#12 file upon download needs to be securely defined, as the user only enters it at registration.
 2.  **Administrator DN Fields:** The specific fields that constitute the Distinguished Name (e.g., Common Name, Organization) have not been defined.
 3.  **Key Backup Definition:** The requirement for key backup is ambiguous—it's unclear if this means a database backup or a separate escrow mechanism.
 4.  **Hardcoded Algorithm:** The specific hardcoded key algorithm (e.g., RSA 4096) has not been specified.

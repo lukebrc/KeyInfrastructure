@@ -10,15 +10,11 @@ The UI architecture is based on integrating Astro-generated pages with interacti
 
 Two main paths/layouts will be introduced in the application: for unauthenticated users (`/login`, `/register`) and authenticated users (`/dashboard`, `/admin/*`).
 
-*   **Unauthenticated Layout (`src/layouts/PublicLayout.astro`):**
-    *   Simple layout containing a basic header with the application logo and footer.
-    *   Will not contain navigation to protected parts of the service.
-    *   Will be used by `/login` and `/register` pages.
-
-*   **Authenticated Layout (`src/layouts/AppLayout.astro`):**
-    *   Will extend the existing application layout.
-    *   Will contain navigation specific to the user's role (USER or ADMIN), retrieved from the JWT token.
-    *   The header will display the logged-in user's name and a "Logout" button.
+*   **Layout (`src/layouts/Layout.astro`):**
+    *   Single layout used by all pages.
+    *   For unauthenticated users: simple header with the application logo and footer, no navigation to protected parts.
+    *   For authenticated users: navigation specific to the user's role (USER or ADMIN), retrieved from the JWT token.
+    *   The header will display the logged-in user's name and a "Logout" button when authenticated.
 
 ### 1.2. New and Modified Pages (Astro)
 
@@ -43,11 +39,9 @@ These components will be responsible for all user interaction, form state manage
     *   **Form Fields:**
         *   `username`: `string`
         *   `password`: `string` (type `password`)
-        *   `pin`: `string` (type `password`)
     *   **Validation (client-side, using a library like `zod`):**
         *   `username`: required field.
         *   `password`: required field, minimum 8 characters.
-        *   `pin`: required field, minimum 8 characters.
     *   **Error Handling:**
         *   Display validation messages under appropriate fields (e.g., "Password must be at least 8 characters long").
         *   Handle API errors:
@@ -89,9 +83,7 @@ Changes will affect existing endpoints from `rest-plan.md`.
             #[validate(length(min = 1, message = "Username is required"))]
             pub username: String,
             #[validate(length(min = 8, message = "Password must be at least 8 characters long"))]
-            pub password: String, //password for user login
-            #[validate(length(min = 8, message = "PIN must be at least 8 characters long"))]
-            pub pin: String, // PIN nie jest zapisywany w bazie, używany tylko do szyfrowania klucza
+            pub password: String,
         }
         ```
     *   **Logic:**

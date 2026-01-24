@@ -53,24 +53,24 @@ backend/
 
 ## Requirements
 
-- Rust 1.70+ (Edition 2024)
+- Rust 1.70+
 - PostgreSQL database
 - Environment variables configured (see Configuration section)
 
 ## Certificate Authority Setup
 
-The backend acts as its own Certificate Authority (CA) to sign user certificates. Before running the application, you need to set up the CA by creating a `ca` directory in the project root and generating a CA private key (`ca.key`) and a CA certificate (`ca.crt`).
+The backend acts as its own Certificate Authority (CA) to sign user certificates. Before running the application, you need to set up the CA by creating a `backend/ca` directory and generating a CA private key (`ca.key`) and a CA certificate (`ca.crt`).
 
 The `ca.key` file must be encrypted with a password, which should be provided via the `CA_PASSWORD` environment variable.
 
 Example commands for generating a self-signed CA (requires `openssl`):
 
 ```bash
-mkdir -p ca
+mkdir -p backend/ca
 # Generate CA private key (encrypted)
-openssl genrsa -aes256 -passout env:CA_PASSWORD -out ca/ca.key 2048
+openssl genrsa -aes256 -passout env:CA_PASSWORD -out backend/ca/ca.key 2048
 # Generate CA certificate
-openssl req -x509 -new -nodes -key ca/ca.key -passin env:CA_PASSWORD -sha256 -days 3650 -out ca/ca.crt -subj "/CN=KeyInfrastructure CA"
+openssl req -x509 -new -nodes -key backend/ca/ca.key -passin env:CA_PASSWORD -sha256 -days 3650 -out backend/ca/ca.crt -subj "/CN=KeyInfrastructure CA"
 ```
 
 Replace `env:CA_PASSWORD` with the actual environment variable or specify the password directly if not using an environment variable for `openssl` commands (though using `env:CA_PASSWORD` is recommended for consistency with the application's configuration). The `-days 3650` sets the certificate validity to 10 years.
@@ -298,7 +298,7 @@ CA_PASSWORD=ca_password
 
 #### Download Certificate
 - **Method**: `POST`
-- **Path**: `/certificates/{id}/download`
+- **Path**: `/users/{user_id}/certificates/{id}/download`
 - **Description**: Download PKCS#12 file for the certificate (user only for own)
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
@@ -374,7 +374,7 @@ Administrator accounts must be created via direct database manipulation.
 
 ## Testing
 
-Integration tests are provided in the `test/` directory to validate:
+Integration tests are provided in the `tests/` directory to validate:
 - User registration and login flows
 - Concurrent user operations (handling 10 concurrent users)
 - Certificate validity checks

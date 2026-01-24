@@ -16,7 +16,7 @@ The first phase identified core entities (users, certificates, private keys, rol
 ### Phase 2: Detailed Refinement
 Based on initial responses, the second phase delved deeper into implementation specifics:
 - ENUM types for roles with ADMIN/USER values
-- HMAC-SHA256 password hashing in Rust backend
+- Argon2 password hashing in Rust backend
 - Secure random serial number generation with uniqueness validation
 - Separate revoked_certificates table for CRL management
 - BYTEA storage for binary certificate and key data

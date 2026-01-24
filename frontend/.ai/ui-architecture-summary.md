@@ -5,7 +5,7 @@
 <decisions>
 1.  **Application Structure:** The application will have separate paths for administrator and user, but a common login window. This means separate `/admin/*` and `/dashboard` (for users) sections, while maintaining a common `/login` endpoint.
 
-2.  **Registration and Login Flow:** Publicly available registration at `/register` with a form (username, password, PIN min 8 characters). After successful registration, automatic login via POST /auth/login and redirection to the dashboard. A common login page `/login` handling both roles (USER/ADMIN) with clear error messages.
+2.  **Registration and Login Flow:** Publicly available registration at `/register` with a form (username, password). After successful registration, automatic login via POST /auth/login and redirection to the dashboard. A common login page `/login` handling both roles (USER/ADMIN) with clear error messages.
 
 3.  **JWT Token Management:** JWT token stored in httpOnly cookie (not sessionStorage), providing greater security against XSS attacks. Automatic logout upon token expiration (401) with redirection to `/login`. Astro middleware protecting all pages requiring authorization (except `/login` and `/register`).
 
@@ -26,7 +26,7 @@
 
 5.  **Certificate Creation Form for Admin:** All recommendations for the form at `/admin/certificates/create` have been accepted, including client-side validation and DN preview.
 
-6.  **PKCS#12 Download Modal:** The recommendation for a modal with a PIN field for downloading certificates has been accepted, including secure PIN management in memory.
+6.  **PKCS#12 Download Modal:** The recommendation for a modal with a password field for downloading certificates has been accepted, including secure password management in memory.
 
 7.  **Central Error Handling System:** The recommendation to implement a central error handling system with toast notifications and inline error messages has been fully accepted.
 
@@ -61,7 +61,7 @@
 **User Flow (USER):**
 
 1.  **Homepage/Welcome** (`/`) - public page with links to login and registration
-2.  **Registration** (`/register`) - form: username, password, PIN (min 8 characters) → automatic login → redirect to dashboard
+2.  **Registration** (`/register`) - form: username, password → automatic login → redirect to dashboard
 3.  **Login** (`/login`) - form: username, password → redirect to `/dashboard` (USER) or `/admin/dashboard` (ADMIN)
 4.  **User Dashboard** (`/dashboard`):
     - Sticky banner with expiring certificates (if any) - highly visible, cannot be fully closed, "Renew Now" button
@@ -72,7 +72,7 @@
       - Columns: serial_number, DN (abbreviated), status (with color), expiration_date (with highlight for expiring)
       - Action buttons: "Renew" (for active certificates near expiration), "Download" (for all active)
 5.  **Certificate Renewal** - flow initiated from dashboard (PUT /certificates/{id}/renew)
-6.  **Certificate Download** - modal with PIN field → POST /certificates/{id}/pkcs12 → automatic download of .p12/.pfx file. Public certificate download via GET /certificates/{id}/download.
+6.  **Certificate Download** - modal with password field → POST /certificates/{id}/pkcs12 → automatic download of .p12/.pfx file. Public certificate download via GET /certificates/{id}/download.
 
 **Administrator Flow (ADMIN):**
 
@@ -93,7 +93,7 @@
 
 - Certificate tables (with sorting, filtering, pagination)
 - Registration and login forms
-- Certificate download modal (with PIN field)
+- Certificate download modal (with password field)
 - Certificate creation form (admin)
 - Warning banner (sticky, cannot be fully closed)
 - Toast notifications (Shadcn/ui) for operational errors
@@ -115,7 +115,7 @@
 - `GET /certificates/expiring` - expiring certificates (for banner, `days=30` parameter)
 - `PUT /certificates/{id}/renew` - renew certificate
 - `GET /certificates/{id}/download` - download public certificate (CRT)
-- `POST /certificates/{id}/pkcs12` - download PKCS#12 (requires PIN in body)
+- `POST /certificates/{id}/pkcs12` - download PKCS#12 (requires password in body)
 - `POST /users/{user_id}/certificates` - create certificate (admin)
 - `PUT /certificates/{id}/revoke` - revoke certificate (admin)
 
@@ -160,7 +160,7 @@
 - JWT token in httpOnly cookie (XSS protection)
 - Astro middleware protecting secured paths
 - Automatic logout upon session expiration
-- PIN not stored in localStorage or state longer than necessary
+- Password not stored in localStorage or state longer than necessary
 - Client-side validation before form submission
 - Secure handling of binary data (PKCS#12) during download
 
@@ -196,7 +196,7 @@
 3.  `RegisterForm` - registration form (React)
 4.  `CertificateTable` - certificate table with sorting/filtering/pagination (React)
 5.  `ExpiringBanner` - expiring certificates banner (React)
-6.  `DownloadCertificateModal` - download modal with PIN field (React)
+6.  `DownloadCertificateModal` - download modal with password field (React)
 7.  `CreateCertificateForm` - admin certificate creation form (React)
 8.  `ErrorHandler` - central error handling system
 9.  `ToastNotifications` - toast components (Shadcn/ui)
@@ -211,7 +211,7 @@
 
 3.  **Refresh token mechanism:** The JWT management response mentioned a "refresh token mechanism" but did not specify whether it would be implemented in MVP. The API plan does not include an endpoint for refreshing tokens. It needs to be clarified whether the refresh token will be part of MVP, or only automatic redirection to `/login`.
 
-4.  **PIN validation during download:** The `POST /certificates/{id}/pkcs12` endpoint returns a 400 error for an incorrect PIN, but it was not specified whether the backend verifies the PIN against the one saved during registration, or against the encrypted private key. This impacts error messages in the UI.
+4.  **Password validation during download:** The `POST /certificates/{id}/pkcs12` endpoint returns a 400 error for an incorrect password, but it was not specified whether the backend verifies the password against the one saved during registration, or against the encrypted private key. This impacts error messages in the UI.
 
 5.  **PKCS#12 file name format:** It was not specified whether the downloaded file name should contain the certificate serial_number, DN, or another naming convention (e.g., `certificate-{serial_number}.p12`).
 
